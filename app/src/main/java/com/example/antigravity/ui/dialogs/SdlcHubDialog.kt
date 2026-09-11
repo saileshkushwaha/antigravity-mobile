@@ -41,6 +41,32 @@ enum class SdlcTab(val title: String, val icon: androidx.compose.ui.graphics.vec
 fun SdlcHubDialog(
     onDismiss: () -> Unit
 ) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.96f)
+                .fillMaxHeight(0.92f),
+            shape = RoundedCornerShape(16.dp),
+            color = AntigravityColors.SurfaceDark,
+            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle)
+        ) {
+            SdlcHubContent(
+                onOpenDrawer = null,
+                onClose = onDismiss
+            )
+        }
+    }
+}
+
+@Composable
+fun SdlcHubContent(
+    onOpenDrawer: (() -> Unit)? = null,
+    onClose: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     var selectedTab by remember { mutableStateOf(SdlcTab.GITHUB) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
@@ -58,21 +84,11 @@ fun SdlcHubDialog(
     val integrationTools by SdlcManager.integrationTools.collectAsState()
     val sdlcConfig by SdlcManager.sdlcConfig.collectAsState()
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AntigravityColors.SurfaceDark)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.96f)
-                .fillMaxHeight(0.92f),
-            shape = RoundedCornerShape(16.dp),
-            color = AntigravityColors.SurfaceDark,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
                 // Top App Bar
                 Row(
                     modifier = Modifier
@@ -86,6 +102,18 @@ fun SdlcHubDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        if (onOpenDrawer != null) {
+                            IconButton(
+                                onClick = onOpenDrawer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Navigation Menu",
+                                    tint = AntigravityColors.TextSecondary
+                                )
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
@@ -167,12 +195,14 @@ fun SdlcHubDialog(
                             }
                         }
 
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = AntigravityColors.TextSecondary
-                            )
+                        if (onClose != null) {
+                            IconButton(onClick = onClose) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = AntigravityColors.TextSecondary
+                                )
+                            }
                         }
                     }
                 }
@@ -312,8 +342,6 @@ fun SdlcHubDialog(
                     }
                 }
             }
-        }
-    }
 
     // Modal: Create New PR
     if (showNewPrDialog) {

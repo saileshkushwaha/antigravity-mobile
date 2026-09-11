@@ -35,6 +35,40 @@ fun SkillsMcpDialog(
     onToggleSkill: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = AntigravityColors.SurfaceDark,
+            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+            modifier = Modifier
+                .fillMaxWidth(0.96f)
+                .fillMaxHeight(0.92f)
+                .padding(4.dp)
+        ) {
+            SkillsMcpContent(
+                skills = skills,
+                mcpServers = mcpServers,
+                onToggleSkill = onToggleSkill,
+                onOpenDrawer = null,
+                onClose = onDismiss
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SkillsMcpContent(
+    skills: List<SkillItem>,
+    mcpServers: List<McpServerItem>,
+    onToggleSkill: (String) -> Unit = {},
+    onOpenDrawer: (() -> Unit)? = null,
+    onClose: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     var selectedTab by remember { mutableStateOf(0) } // 0: Skills, 1: MCP
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
@@ -53,84 +87,87 @@ fun SkillsMcpDialog(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AntigravityColors.SurfaceDark)
     ) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = AntigravityColors.SurfaceDark,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+        // Top Header
+        Row(
             modifier = Modifier
-                .fillMaxWidth(0.96f)
-                .fillMaxHeight(0.92f)
-                .padding(4.dp)
+                .fillMaxWidth()
+                .background(AntigravityColors.SurfaceElevated)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Top Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(AntigravityColors.SurfaceElevated)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                if (onOpenDrawer != null) {
+                    IconButton(
+                        onClick = onOpenDrawer,
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
-                        ) {
-                            Icon(
-                                Icons.Default.Extension,
-                                contentDescription = null,
-                                tint = AntigravityColors.ElectricCyan,
-                                modifier = Modifier
-                                    .padding(6.dp)
-                                    .size(20.dp)
-                            )
-                        }
-                        Column {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "Skills & MCP Tools Directory",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AntigravityColors.TextPrimary
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = AntigravityColors.DiffGreen.copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.DiffGreen.copy(alpha = 0.4f))
-                                ) {
-                                    Text(
-                                        text = "${skills.count { it.isEnabled }} / ${skills.size} Active",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AntigravityColors.DiffGreen,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "Full Antigravity Desktop Customization & Autonomous Tooling Suite",
-                                fontSize = 11.sp,
-                                color = AntigravityColors.TextSecondary
-                            )
-                        }
-                    }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
+                        Icon(
+                            Icons.Default.Menu,
+                            contentDescription = "Navigation Menu",
+                            tint = AntigravityColors.TextSecondary
+                        )
                     }
                 }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
+                ) {
+                    Icon(
+                        Icons.Default.Extension,
+                        contentDescription = null,
+                        tint = AntigravityColors.ElectricCyan,
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .size(20.dp)
+                    )
+                }
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Skills & MCP Tools Directory",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AntigravityColors.TextPrimary
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = AntigravityColors.DiffGreen.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.DiffGreen.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "${skills.count { it.isEnabled }} / ${skills.size} Active",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AntigravityColors.DiffGreen,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Full Antigravity Desktop Customization & Autonomous Tooling Suite",
+                        fontSize = 11.sp,
+                        color = AntigravityColors.TextSecondary
+                    )
+                }
+            }
+            if (onClose != null) {
+                IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
+                }
+            }
+        }
 
                 // Tab Switcher
                 TabRow(
@@ -418,5 +455,3 @@ fun SkillsMcpDialog(
                 }
             }
         }
-    }
-}

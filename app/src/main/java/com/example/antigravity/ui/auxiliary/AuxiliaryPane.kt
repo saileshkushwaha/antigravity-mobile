@@ -41,7 +41,8 @@ fun AuxiliaryPane(
     terminalLogs: List<String>,
     onExecuteTerminalCommand: (String) -> Unit,
     onKillTask: (String) -> Unit,
-    onClose: () -> Unit,
+    onClose: (() -> Unit)? = null,
+    onOpenDrawer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(AuxiliaryTab.SUBAGENTS) }
@@ -51,7 +52,7 @@ fun AuxiliaryPane(
             .fillMaxSize()
             .background(AntigravityColors.SurfaceDark)
     ) {
-        // Top Header with Close Action
+        // Top Header with Drawer / Close Action
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -62,31 +63,60 @@ fun AuxiliaryPane(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    Icons.Default.VerticalSplit,
-                    contentDescription = null,
-                    tint = AntigravityColors.ElectricCyan,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "Auxiliary Inspector",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AntigravityColors.TextPrimary
-                )
+                if (onOpenDrawer != null) {
+                    IconButton(
+                        onClick = onOpenDrawer,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Menu,
+                            contentDescription = "Navigation Menu",
+                            tint = AntigravityColors.TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
+                ) {
+                    Icon(
+                        Icons.Default.Terminal,
+                        contentDescription = null,
+                        tint = AntigravityColors.ElectricCyan,
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .size(18.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Developer Console & Inspector",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AntigravityColors.TextPrimary
+                    )
+                    Text(
+                        text = "Autonomous execution, live subagents & diagnostics",
+                        fontSize = 10.sp,
+                        color = AntigravityColors.TextMuted
+                    )
+                }
             }
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Close Inspector",
-                    tint = AntigravityColors.TextSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
+            if (onClose != null) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Close Inspector",
+                        tint = AntigravityColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 

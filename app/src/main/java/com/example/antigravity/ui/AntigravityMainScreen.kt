@@ -1,10 +1,15 @@
 package com.example.antigravity.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.antigravity.data.AppRepository
 import com.example.antigravity.engine.AgentRunState
 import com.example.antigravity.engine.AntigravityAgentEngine
@@ -14,8 +19,20 @@ import com.example.antigravity.ui.auxiliary.AuxiliaryPane
 import com.example.antigravity.ui.chat.ChatCanvas
 import com.example.antigravity.ui.chat.ChatInputBar
 import com.example.antigravity.ui.dialogs.*
+import com.example.antigravity.ui.personas.PersonasAndPromptsContent
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
+
+enum class AntigravityAppScreen(
+    val title: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    CHAT("Chat", Icons.Default.ChatBubbleOutline),
+    SDLC("SDLC", Icons.Default.RocketLaunch),
+    PERSONAS("Personas", Icons.Default.Psychology),
+    SKILLS("Skills", Icons.Default.Extension),
+    INSPECTOR("Console", Icons.Default.Terminal)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +43,9 @@ fun AntigravityMainScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // Current primary destination screen
+    var currentScreen by remember { mutableStateOf(AntigravityAppScreen.CHAT) }
 
     // State flows
     val workspaces by repository.workspaces.collectAsState()
@@ -82,10 +102,12 @@ fun AntigravityMainScreen(
                     },
                     onSelectConversation = {
                         repository.switchConversation(it)
+                        currentScreen = AntigravityAppScreen.CHAT
                         coroutineScope.launch { drawerState.close() }
                     },
                     onNewConversation = {
                         repository.createNewConversation()
+                        currentScreen = AntigravityAppScreen.CHAT
                         coroutineScope.launch { drawerState.close() }
                     },
                     onDeleteConversation = {
@@ -96,7 +118,7 @@ fun AntigravityMainScreen(
                         coroutineScope.launch { drawerState.close() }
                     },
                     onOpenSkillsMcp = {
-                        showSkillsMcpDialog = true
+                        currentScreen = AntigravityAppScreen.SKILLS
                         coroutineScope.launch { drawerState.close() }
                     },
                     onOpenSettings = {
@@ -112,15 +134,15 @@ fun AntigravityMainScreen(
                         coroutineScope.launch { drawerState.close() }
                     },
                     onOpenSdlcHub = {
-                        showSdlcHubDialog = true
+                        currentScreen = AntigravityAppScreen.SDLC
                         coroutineScope.launch { drawerState.close() }
                     },
                     onOpenPersonas = {
-                        showPersonaDialog = true
+                        currentScreen = AntigravityAppScreen.PERSONAS
                         coroutineScope.launch { drawerState.close() }
                     },
                     onOpenPrompts = {
-                        showPromptLibraryDialog = true
+                        currentScreen = AntigravityAppScreen.PERSONAS
                         coroutineScope.launch { drawerState.close() }
                     }
                 )
@@ -129,53 +151,152 @@ fun AntigravityMainScreen(
     ) {
         Scaffold(
             bottomBar = {
-                ChatInputBar(
-                    inputText = inputText,
-                    onInputChange = { inputText = it },
-                    onSend = { prompt ->
-                        agentEngine.sendPrompt(prompt)
-                        inputText = ""
-                    },
-                    onStop = { agentEngine.cancelTask() },
-                    isBusy = isBusy,
-                    slashCommands = agentEngine.slashCommands,
-                    mentionItems = agentEngine.mentionItems,
-                    activePersonaName = activePersona.name,
-                    onOpenPersonaSelection = {
-                        showPersonaDialog = true
-                    },
-                    onOpenPromptLibrary = {
-                        showPromptLibraryDialog = true
+                Column {
+                    if (currentScreen == AntigravityAppScreen.CHAT) {
+                        ChatInputBar(
+                            inputText = inputText,
+                            onInputChange = { inputText = it },
+                            onSend = { prompt ->
+                                agentEngine.sendPrompt(prompt)
+                                inputText = ""
+                            },
+                            onStop = { agentEngine.cancelTask() },
+                            isBusy = isBusy,
+                            slashCommands = agentEngine.slashCommands,
+                            mentionItems = agentEngine.mentionItems,
+                            activePersonaName = activePersona.name,
+                            onOpenPersonaSelection = {
+                                currentScreen = AntigravityAppScreen.PERSONAS
+                            },
+                            onOpenPromptLibrary = {
+                                currentScreen = AntigravityAppScreen.PERSONAS
+                            }
+                        )
                     }
-                )
+
+                    NavigationBar(
+                        containerColor = AntigravityColors.SurfaceDark,
+                        tonalElevation = 8.dp
+                    ) {
+                        AntigravityAppScreen.values().forEach { screen ->
+                            NavigationBarItem(
+                                selected = currentScreen == screen,
+                                onClick = { currentScreen = screen },
+                                icon = {
+                                    BadgedBox(
+                                        badge = {
+                                            if (screen == AntigravityAppScreen.INSPECTOR && auxiliaryActiveCount > 0) {
+                                                Badge(
+                                                    containerColor = AntigravityColors.ElectricCyan,
+                                                    contentColor = Color.Black
+                                                ) {
+                                                    Text("$auxiliaryActiveCount")
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Icon(screen.icon, contentDescription = screen.title)
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        text = screen.title,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (currentScreen == screen) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = AntigravityColors.ElectricCyan,
+                                    selectedTextColor = AntigravityColors.ElectricCyan,
+                                    indicatorColor = AntigravityColors.ElectricCyan.copy(alpha = 0.15f),
+                                    unselectedIconColor = AntigravityColors.TextMuted,
+                                    unselectedTextColor = AntigravityColors.TextMuted
+                                )
+                            )
+                        }
+                    }
+                }
             },
             containerColor = AntigravityColors.BackgroundDark,
             modifier = modifier
         ) { scaffoldPadding ->
-            ChatCanvas(
-                conversation = activeConversation,
-                agentState = agentState,
-                activeModel = settings.activeModel,
-                onOpenModelPicker = {
-                    showModelSelectionDialog = true
-                },
-                onOpenDrawer = {
-                    coroutineScope.launch { drawerState.open() }
-                },
-                onToggleAuxiliary = {
-                    showAuxiliarySheet = !showAuxiliarySheet
-                },
-                auxiliaryActiveCount = auxiliaryActiveCount,
-                onApprovePlan = { messageId ->
-                    agentEngine.approvePlan(messageId)
-                },
-                onRejectPlan = { messageId ->
-                    agentEngine.rejectPlan(messageId)
-                },
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(scaffoldPadding)
-            )
+            ) {
+                when (currentScreen) {
+                    AntigravityAppScreen.CHAT -> {
+                        ChatCanvas(
+                            conversation = activeConversation,
+                            agentState = agentState,
+                            activeModel = settings.activeModel,
+                            onOpenModelPicker = {
+                                showModelSelectionDialog = true
+                            },
+                            onOpenDrawer = {
+                                coroutineScope.launch { drawerState.open() }
+                            },
+                            onToggleAuxiliary = {
+                                currentScreen = AntigravityAppScreen.INSPECTOR
+                            },
+                            auxiliaryActiveCount = auxiliaryActiveCount,
+                            onApprovePlan = { messageId ->
+                                agentEngine.approvePlan(messageId)
+                            },
+                            onRejectPlan = { messageId ->
+                                agentEngine.rejectPlan(messageId)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AntigravityAppScreen.SDLC -> {
+                        SdlcHubContent(
+                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AntigravityAppScreen.PERSONAS -> {
+                        PersonasAndPromptsContent(
+                            activePersona = activePersona,
+                            onSelectPersona = { selectedPersona ->
+                                agentEngine.setActivePersona(selectedPersona)
+                            },
+                            onSelectPrompt = { promptTemplate ->
+                                inputText = promptTemplate
+                                currentScreen = AntigravityAppScreen.CHAT
+                            },
+                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AntigravityAppScreen.SKILLS -> {
+                        SkillsMcpContent(
+                            skills = skills,
+                            mcpServers = mcpServers,
+                            onToggleSkill = { repository.toggleSkill(it) },
+                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AntigravityAppScreen.INSPECTOR -> {
+                        AuxiliaryPane(
+                            subagents = subagents,
+                            backgroundTasks = backgroundTasks,
+                            fileDiffs = fileDiffs,
+                            terminalLogs = terminalLogs,
+                            onExecuteTerminalCommand = { repository.executeTerminalCommand(it) },
+                            onKillTask = { repository.updateTaskStatus(it, com.example.antigravity.model.TaskStatus.KILLED) },
+                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
         }
     }
 
