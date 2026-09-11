@@ -93,6 +93,12 @@ Antigravity Mobile preserves the complete 3-surface workflow of the desktop appl
 
 Antigravity Mobile includes a universal gateway engine supporting direct connections to Google Gemini and OpenAI-compatible providers:
 
+- **KiloCode Gateway (`api.kilo.ai`)**:
+  - Direct integration with KiloCode's open model infrastructure with free API tiers.
+  - Featured free models: `DeepSeek R1 Distill Qwen 32B (Free)`, `Qwen 2.5 Coder 32B (Free)`, `Llama 3.3 70B Instruct (Free)`, `Microsoft Phi-4 (Free)`.
+- **OpenCode Gateway (`api.opencode.ai`)**:
+  - Dedicated developer model gateway offering free coding & logic models.
+  - Featured free models: `DeepSeek Coder V2 Lite (Free)`, `Qwen 2.5 Coder 7B (Free)`, `GLM-4 Flash (Free)`, `StarCoder2 15B (Free)`.
 - **OpenRouter Gateway**:
   - Connects to top open-weights models.
   - Includes popular free models: `Llama 3.3 70B Instruct (Free)`, `DeepSeek R1 (Free)`, `Gemini 2.0 Flash Exp (Free)`, `Qwen 2.5 Coder 32B (Free)`, `Mistral 7B (Free)`, `Phi-3 Mini (Free)`.
@@ -108,7 +114,7 @@ Antigravity Mobile includes a universal gateway engine supporting direct connect
   - Native direct integration with `Gemini 2.5 Flash`, `Gemini 2.5 Pro`, and `Gemini Ultra`.
 - **Searchable Model Selection Dialog**:
   - Real-time instant search filter matching model names, IDs, and tags.
-  - Category filter chips: `All Models`, `★ Free Models`, `OpenRouter`, `Groq`, `Google Gemini`, `Ollama Local`, `Hugging Face`.
+  - Category filter chips: `All Models`, `★ Free Models`, `KiloCode Free`, `OpenCode Free`, `OpenRouter`, `Groq`, `Google Gemini`, `Ollama Local`, `Hugging Face`.
   - Rich cards indicating provider, context window capacity, and bright `FREE` badges.
 
 ---

@@ -3,6 +3,82 @@ package com.example.antigravity.model
 object ModelCatalog {
 
     val allModels: List<ModelInfo> = listOf(
+        // --- KiloCode Free Models ---
+        ModelInfo(
+            id = "kilo/deepseek-r1-distill-qwen-32b",
+            name = "DeepSeek R1 Distill Qwen 32B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "64k",
+            description = "High-efficiency distillation of DeepSeek R1 reasoning architecture provided free on KiloCode gateway.",
+            tags = listOf("free", "kilocode", "deepseek", "reasoning", "r1", "cot")
+        ),
+        ModelInfo(
+            id = "kilo/qwen-2.5-coder-32b",
+            name = "Qwen 2.5 Coder 32B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Premier code intelligence and autonomous refactoring model served with zero cost on KiloCode.",
+            tags = listOf("free", "kilocode", "qwen", "coder", "coding", "programming")
+        ),
+        ModelInfo(
+            id = "kilo/llama-3.3-70b-instruct",
+            name = "Llama 3.3 70B Instruct (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Meta's flagship open-weights model accessible with free API tier on KiloCode.",
+            tags = listOf("free", "kilocode", "llama", "meta", "instruct")
+        ),
+        ModelInfo(
+            id = "kilo/phi-4",
+            name = "Microsoft Phi-4 (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "16k",
+            description = "Microsoft's 14B state-of-the-art synthetic reasoning model available for free on KiloCode.",
+            tags = listOf("free", "kilocode", "microsoft", "phi", "math", "reasoning")
+        ),
+
+        // --- OpenCode Free Models ---
+        ModelInfo(
+            id = "opencode/deepseek-coder-v2-lite",
+            name = "DeepSeek Coder V2 Lite (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "64k",
+            description = "Specialized software engineering model supporting 300+ programming languages on OpenCode.",
+            tags = listOf("free", "opencode", "deepseek", "coder", "coding", "software")
+        ),
+        ModelInfo(
+            id = "opencode/qwen-2.5-coder-7b",
+            name = "Qwen 2.5 Coder 7B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Fast, lightweight coding model ideal for rapid iteration and code completion on OpenCode.",
+            tags = listOf("free", "opencode", "qwen", "coder", "fast", "low-latency")
+        ),
+        ModelInfo(
+            id = "opencode/glm-4-flash-free",
+            name = "GLM-4 Flash (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "High-speed multi-lingual and code instruction model served free on OpenCode gateway.",
+            tags = listOf("free", "opencode", "glm", "flash", "reasoning", "multilingual")
+        ),
+        ModelInfo(
+            id = "opencode/starcoder2-15b",
+            name = "StarCoder2 15B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "16k",
+            description = "BigCode alliance model trained on 600+ languages from GitHub on OpenCode gateway.",
+            tags = listOf("free", "opencode", "starcoder", "bigcode", "github", "coding")
+        ),
+
         // --- OpenRouter Free Models ---
         ModelInfo(
             id = "meta-llama/llama-3.3-70b-instruct:free",

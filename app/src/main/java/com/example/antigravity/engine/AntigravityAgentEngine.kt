@@ -130,6 +130,28 @@ class AntigravityAgentEngine(
                                 Result.failure(Exception("Gemini API key is required. Please configure your key in Settings or choose a free open model gateway."))
                             }
                         }
+                        ModelGateway.KILOCODE -> {
+                            val key = settings.kiloCodeApiKey.ifBlank { settings.apiKey }
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = ModelGateway.KILOCODE.defaultBaseUrl,
+                                apiKey = key,
+                                modelId = modelInfo?.id ?: "kilo/qwen-2.5-coder-32b",
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
+                            )
+                        }
+                        ModelGateway.OPENCODE -> {
+                            val key = settings.openCodeApiKey.ifBlank { settings.apiKey }
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = ModelGateway.OPENCODE.defaultBaseUrl,
+                                apiKey = key,
+                                modelId = modelInfo?.id ?: "opencode/deepseek-coder-v2-lite",
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
+                            )
+                        }
                         ModelGateway.OPENROUTER -> {
                             val key = settings.openRouterApiKey.ifBlank { settings.apiKey }
                             openAiGatewayService.generateChatCompletion(

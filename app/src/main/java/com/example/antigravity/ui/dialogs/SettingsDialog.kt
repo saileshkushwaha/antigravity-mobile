@@ -35,6 +35,8 @@ fun SettingsDialog(
     var apiKey by remember { mutableStateOf(settings.apiKey) }
     var openRouterKey by remember { mutableStateOf(settings.openRouterApiKey) }
     var groqKey by remember { mutableStateOf(settings.groqApiKey) }
+    var kiloCodeKey by remember { mutableStateOf(settings.kiloCodeApiKey) }
+    var openCodeKey by remember { mutableStateOf(settings.openCodeApiKey) }
     var customGatewayUrl by remember { mutableStateOf(settings.customGatewayUrl) }
     var selectedModel by remember { mutableStateOf(settings.activeModel) }
     var selectedModelId by remember { mutableStateOf(settings.activeModelId) }
@@ -190,6 +192,30 @@ fun SettingsDialog(
                             )
                         }
 
+                        // KiloCode API Key
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("KiloCode API Key (Free Developer Models)", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
+                            OutlinedTextField(
+                                value = kiloCodeKey,
+                                onValueChange = { kiloCodeKey = it },
+                                placeholder = { Text("kilo_live_...", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        // OpenCode API Key
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("OpenCode API Key (Free Coding & Logic Models)", fontSize = 11.sp, color = Color(0xFF38BDF8))
+                            OutlinedTextField(
+                                value = openCodeKey,
+                                onValueChange = { openCodeKey = it },
+                                placeholder = { Text("opencode_live_...", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         // Custom Gateway / Ollama Endpoint URL
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Ollama / Local Gateway URL", fontSize = 11.sp, color = Color(0xFF10B981))
@@ -261,6 +287,8 @@ fun SettingsDialog(
                                 apiKey = apiKey,
                                 openRouterApiKey = openRouterKey,
                                 groqApiKey = groqKey,
+                                kiloCodeApiKey = kiloCodeKey,
+                                openCodeApiKey = openCodeKey,
                                 customGatewayUrl = customGatewayUrl,
                                 activeModel = selectedModel,
                                 activeModelId = selectedModelId,

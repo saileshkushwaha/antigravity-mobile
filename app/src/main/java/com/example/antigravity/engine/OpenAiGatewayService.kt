@@ -75,10 +75,14 @@ class OpenAiGatewayService {
                 requestBuilder.addHeader("Authorization", "Bearer $apiKey")
             }
 
-            // OpenRouter extra headers
+            // Gateway specific client headers
             if (endpointUrl.contains("openrouter", ignoreCase = true)) {
                 requestBuilder.addHeader("HTTP-Referer", "https://github.com/saileshkushwaha/antigravity-mobile")
                 requestBuilder.addHeader("X-Title", "Antigravity Mobile")
+            } else if (endpointUrl.contains("kilo", ignoreCase = true)) {
+                requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")
+            } else if (endpointUrl.contains("opencode", ignoreCase = true)) {
+                requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")
             }
 
             val response = client.newCall(requestBuilder.build()).execute()

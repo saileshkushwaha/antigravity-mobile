@@ -158,6 +158,26 @@ class AntigravityAppTest {
         assertNotNull(ollamaModel)
         assertEquals(ModelGateway.OLLAMA, ollamaModel!!.gateway)
         assertTrue(ollamaModel.isFree)
+
+        // Check KiloCode free model
+        val kiloModel = ModelCatalog.findModel("kilo/qwen-2.5-coder-32b")
+        assertNotNull("KiloCode free model must exist in catalog", kiloModel)
+        assertEquals(ModelGateway.KILOCODE, kiloModel!!.gateway)
+        assertTrue(kiloModel.isFree)
+
+        val kiloR1 = ModelCatalog.findModel("kilo/deepseek-r1-distill-qwen-32b")
+        assertNotNull("KiloCode DeepSeek R1 model must exist in catalog", kiloR1)
+        assertTrue(kiloR1!!.isFree)
+
+        // Check OpenCode free model
+        val openCodeModel = ModelCatalog.findModel("opencode/deepseek-coder-v2-lite")
+        assertNotNull("OpenCode free model must exist in catalog", openCodeModel)
+        assertEquals(ModelGateway.OPENCODE, openCodeModel!!.gateway)
+        assertTrue(openCodeModel.isFree)
+
+        val openCodeGlm = ModelCatalog.findModel("opencode/glm-4-flash-free")
+        assertNotNull("OpenCode GLM-4 Flash free model must exist in catalog", openCodeGlm)
+        assertTrue(openCodeGlm!!.isFree)
     }
 
     @Test

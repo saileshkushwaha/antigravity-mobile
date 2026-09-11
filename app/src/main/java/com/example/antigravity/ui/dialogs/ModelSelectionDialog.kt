@@ -29,6 +29,8 @@ import com.example.antigravity.theme.AntigravityColors
 enum class ModelFilterCategory(val label: String) {
     ALL("All Models"),
     FREE_ONLY("★ Free Models"),
+    KILOCODE("KiloCode Free"),
+    OPENCODE("OpenCode Free"),
     OPENROUTER("OpenRouter"),
     GROQ("Groq"),
     GEMINI("Google Gemini"),
@@ -51,6 +53,8 @@ fun ModelSelectionDialog(
             val matchesCategory = when (selectedCategory) {
                 ModelFilterCategory.ALL -> true
                 ModelFilterCategory.FREE_ONLY -> model.isFree
+                ModelFilterCategory.KILOCODE -> model.gateway == ModelGateway.KILOCODE
+                ModelFilterCategory.OPENCODE -> model.gateway == ModelGateway.OPENCODE
                 ModelFilterCategory.OPENROUTER -> model.gateway == ModelGateway.OPENROUTER
                 ModelFilterCategory.GROQ -> model.gateway == ModelGateway.GROQ
                 ModelFilterCategory.GEMINI -> model.gateway == ModelGateway.GEMINI
@@ -227,6 +231,8 @@ fun ModelItemCard(
     onSelect: () -> Unit
 ) {
     val gatewayColor = when (model.gateway) {
+        ModelGateway.KILOCODE -> Color(0xFF06B6D4)
+        ModelGateway.OPENCODE -> Color(0xFF38BDF8)
         ModelGateway.OPENROUTER -> AntigravityColors.NeonViolet
         ModelGateway.GROQ -> Color(0xFFFF9100)
         ModelGateway.GEMINI -> AntigravityColors.ElectricCyan
