@@ -203,6 +203,22 @@ Antigravity Mobile equips the autonomous engine to tackle almost any software en
 
 ---
 
+### 8. 5-Tab Persistent Bottom Navigation & Multi-Screen Mobile Studio 🧭
+
+To ensure complete, intuitive, and immediate visibility of every core capability without hiding features inside drawers or dialogs, Antigravity Mobile features a persistent Material 3 **Bottom Navigation Bar** with 5 first-class destination screens:
+
+| Destination | Icon | Purpose & Capabilities |
+| :--- | :---: | :--- |
+| **Chat Studio** | 💬 | Central autonomous agent canvas, real model inference (Gemini, OpenRouter, Groq, Ollama), live Chain-of-Thought (CoT) reasoning stream, interactive tool execution cards, planning review gates, and docked multiline input composer. |
+| **SDLC & DevOps Hub** | 🚀 | Full-screen management of GitHub Pull Requests (diff stats, approval & merge), GitHub Issues with status badges, live CI/CD Workflow Runs with manual dispatch, multi-environment deployment pipelines with 1-click rollback, integration health checks, and editable `.antigravity.yaml` configuration. |
+| **Personas & Prompts Studio** | 🎭 | Unified dual-tab studio featuring **10 Battle-Tested Expert Personas** (Architecture, Fullstack, Mobile, Security, SRE, QA, Data AI) with 1-tap activation, and **13+ Curated Prompt Templates** with category filter chips and 1-tap insertion into the chat composer. |
+| **Skills & MCP Directory** | 🧩 | Full-screen directory of **85+ authentic desktop skills** (Core, Web, Mobile, Flutter, AI, Cloud, Data, DevOps, Security, Bio/Life Sciences) with real-time category filter chips and instant live toggle switches. |
+| **Developer Console** | 💻 | Dedicated developer auxiliary console with live active badge counters for running background tasks and concurrent subagents, interactive UNIX terminal emulator (`$ `), live subagent monitor, and side-by-side git diff viewer. |
+
+The hamburger drawer (`☰`) remains universally available across all 5 screens for workspace switching, conversation thread history, enterprise diagnostics, and gateway API credential management.
+
+---
+
 ## 🛠 Tech Stack
 
 | Layer | Technologies |
@@ -214,7 +230,7 @@ Antigravity Mobile equips the autonomous engine to tackle almost any software en
 | **Serialization** | Kotlinx Serialization JSON 1.7.3 |
 | **Asynchrony** | Kotlin Coroutines & StateFlow |
 | **Architecture** | Unidirectional Data Flow (UDF) / MVVM with AntigravityAgentEngine |
-| **Testing** | JUnit 4 (21 comprehensive unit tests covering Personas, Prompts, Skills, SDLC, Gateways, and State) |
+| **Testing** | JUnit 4 (23 comprehensive unit tests covering Navigation, Personas, Prompts, Skills, SDLC, Gateways, and State) |
 | **CI / CD** | GitHub Actions (JDK 17, Gradle Cache, Automated APK packaging) |
 
 ---
@@ -233,7 +249,7 @@ Antigravity Mobile equips the autonomous engine to tackle almost any software en
 git clone https://github.com/saileshkushwaha/antigravity-mobile.git
 cd antigravity-mobile
 
-# Run the complete test suite (15 unit tests)
+# Run the complete test suite (23 unit tests)
 ./gradlew test
 
 # Assemble Debug APK
