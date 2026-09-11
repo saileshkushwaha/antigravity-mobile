@@ -1,0 +1,197 @@
+package com.example.antigravity.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class MessageSender {
+    USER,
+    AGENT,
+    SYSTEM
+}
+
+@Serializable
+enum class ToolStatus {
+    PENDING,
+    RUNNING,
+    SUCCESS,
+    ERROR
+}
+
+@Serializable
+data class ToolCallItem(
+    val id: String,
+    val name: String,
+    val toolSummary: String,
+    val toolAction: String,
+    val arguments: Map<String, String> = emptyMap(),
+    var status: ToolStatus = ToolStatus.PENDING,
+    var output: String = "",
+    val durationMs: Long = 0L,
+    var isExpanded: Boolean = false
+)
+
+@Serializable
+data class ThinkingBlock(
+    val content: String,
+    val durationSeconds: Int = 3,
+    var isExpanded: Boolean = true
+)
+
+@Serializable
+data class ImplementationPlanItem(
+    val id: String,
+    val title: String,
+    val summary: String,
+    val rawMarkdown: String,
+    var isApproved: Boolean? = null // null: awaiting review, true: approved, false: rejected
+)
+
+@Serializable
+enum class SubagentState {
+    RUNNING,
+    IDLE,
+    WAITING_FOR_INPUT,
+    DONE,
+    ERRORED
+}
+
+@Serializable
+data class SubagentItem(
+    val conversationId: String,
+    val role: String,
+    val typeName: String,
+    val prompt: String,
+    var state: SubagentState = SubagentState.RUNNING,
+    var lastAction: String = ""
+)
+
+@Serializable
+enum class TaskStatus {
+    RUNNING,
+    COMPLETED,
+    FAILED,
+    KILLED
+}
+
+@Serializable
+data class BackgroundTaskItem(
+    val taskId: String,
+    val commandLine: String,
+    val cwd: String,
+    var status: TaskStatus = TaskStatus.RUNNING,
+    val logs: MutableList<String> = mutableListOf(),
+    val startTime: Long = System.currentTimeMillis()
+)
+
+@Serializable
+enum class DiffStatus {
+    MODIFIED,
+    ADDED,
+    DELETED
+}
+
+@Serializable
+data class FileDiffItem(
+    val filePath: String,
+    val status: DiffStatus = DiffStatus.MODIFIED,
+    val additions: Int = 0,
+    val deletions: Int = 0,
+    val diffLines: List<DiffLine> = emptyList()
+)
+
+@Serializable
+data class DiffLine(
+    val type: DiffLineType,
+    val text: String,
+    val oldLineNum: Int? = null,
+    val newLineNum: Int? = null
+)
+
+@Serializable
+enum class DiffLineType {
+    CONTEXT,
+    ADD,
+    REMOVE,
+    HEADER
+}
+
+@Serializable
+data class ChatMessage(
+    val id: String,
+    val sender: MessageSender,
+    var text: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val mentions: List<String> = emptyList(),
+    var thinking: ThinkingBlock? = null,
+    val toolCalls: MutableList<ToolCallItem> = mutableListOf(),
+    var planArtifact: ImplementationPlanItem? = null,
+    val subagentsSpawned: MutableList<SubagentItem> = mutableListOf(),
+    var isStreaming: Boolean = false
+)
+
+@Serializable
+data class Conversation(
+    val id: String,
+    var title: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    var updatedAt: Long = System.currentTimeMillis(),
+    val messages: MutableList<ChatMessage> = mutableListOf(),
+    var activeModel: String = "Gemini 2.5 Flash",
+    var workspaceName: String = "magical-bose"
+)
+
+@Serializable
+data class ProjectWorkspace(
+    val id: String,
+    val name: String,
+    val path: String,
+    val branch: String = "main",
+    val customRules: List<String> = listOf("user_rules.md", "architecture.md")
+)
+
+@Serializable
+data class ScheduledTask(
+    val id: String,
+    val prompt: String,
+    val scheduleExpression: String,
+    val isCron: Boolean,
+    var isActive: Boolean = true,
+    val nextTrigger: String
+)
+
+@Serializable
+data class SkillItem(
+    val name: String,
+    val description: String,
+    val category: String,
+    var isEnabled: Boolean = true
+)
+
+@Serializable
+data class McpServerItem(
+    val name: String,
+    val status: String,
+    val tools: List<String>
+)
+
+@Serializable
+data class AppSettings(
+    val apiKey: String = "",
+    val activeModel: String = "Gemini 2.5 Flash",
+    val toolExecutionPolicy: String = "request-review", // "always-proceed", "request-review", "strict"
+    val terminalSandbox: Boolean = true,
+    val isOfflineDemoMode: Boolean = true,
+    val isDarkTheme: Boolean = true
+)
+
+data class SlashCommand(
+    val name: String,
+    val description: String,
+    val template: String
+)
+
+data class MentionItem(
+    val label: String,
+    val category: String,
+    val detail: String
+)
