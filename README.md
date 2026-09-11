@@ -173,6 +173,36 @@ Antigravity Mobile provides a mobile-native cockpit spanning the entire **Softwa
 
 ---
 
+### 7. Expert Personas, Curated Prompts & Domain Skills 🎭✨
+
+![Antigravity Expert Personas & Curated Prompts](docs/images/antigravity_personas_prompts.jpg)
+
+Antigravity Mobile equips the autonomous engine to tackle almost any software engineering, architecture, operations, and product task with high-caliber specialization:
+
+- **🎭 10 Battle-Tested Expert Personas**:
+  - **Full-Stack Senior Engineer**: Clean architecture, domain-driven design, and multi-layer full-stack execution.
+  - **Android & Mobile Architect**: Jetpack Compose, state optimization, coroutines, and edge-to-edge Material 3.
+  - **System & Cloud Architect**: Microservices topology, distributed systems, gRPC/WebSockets, and technical RFC proposals.
+  - **Security & SAIF Penetration Tester**: OWASP Top 10 mitigation, zero-trust rules, token masking, and SAIF risk assessments.
+  - **DevOps & SRE Specialist**: CI/CD multi-stage automation, Docker containerization, Kubernetes, and blameless RCA post-mortems.
+  - **Data & AI Scientist**: BigQuery analytics, model gateway routing, parameter tuning, and evaluation benchmarks.
+  - **QA & Test Automation Specialist**: Exhaustive unit test harnesses, edge-case boundary testing, and concurrency stress testing.
+  - **UI/UX & Design Technologist**: WCAG 2.1 AA accessibility, touch targets, cyber aesthetic theming, and responsive layouts.
+  - **Technical Product Manager**: Clear PRDs, user stories, acceptance criteria, and stakeholder engineering communication.
+  - **Principal Code Reviewer**: Anti-pattern detection, branch protection enforcement, and complexity reduction.
+- **✨ Curated Prompt Templates Library**:
+  - 13+ production-grade prompts spanning **Feature Coding**, **RCA Debugging**, **Testing & QA**, **OWASP Security**, **Architecture RFCs**, and **DevOps / CI Pipelines**.
+  - Searchable by keyword or filtered by category with 1-click **Use Prompt** injection straight into the chat composer.
+- **🧠 85+ Desktop Platform Skills Directory**:
+  - Full parity with Google Antigravity desktop: **Core & Architecture** (`antigravity-guide`, `google-antigravity-sdk`, `clean-architecture`, `refactoring-engine`), **Web & Frontend** (`modern-web-guidance`, `chrome-devtools`, `chrome-extensions`, `debug-optimize-lcp`, `memory-leak-debugging`, `a11y-debugging`), **Mobile & Android** (`android-cli`, `compose-performance`, `android-security`), **Flutter & Dart Ecosystem** (20+ Flutter & Dart skills including `flutter-apply-architecture-best-practices`, `flutter-fix-layout-issues`, `dart-run-static-analysis`, `dart-add-unit-test`), **Gemini & AI** (`gemini-api-dev`, `gemini-interactions-api`, `gemini-live-api-dev`, `gemini-omni-flash-api`, `open-model-gateways`), **Cloud & Firebase** (`firebase-basics`, `firebase-firestore`, `firebase-app-hosting-basics`, `gcs-security-assessment`), **Data & BigQuery** (20+ skills including `bigquery-sql`, `bigquery-ai-ml`, `dbt-bigquery`, `dataform-bigquery`, `gcp-dataflow`), **DevOps & SDLC** (`github-actions-ci`, `multi-env-deploy`, `incident-rca`, `semantic-release`), **Security & SAIF** (`security-guardrails`, `enterprise-audit`, `saif-security`), and **Bio & Science** (30+ life sciences skills including `alphafold-database-fetch-and-analyze`, `chembl-database`, `clinvar-database`, `pubmed-database`, `pymol`).
+  - Searchable by name or category, with live instant toggle switches for activating/deactivating skills on demand.
+- **🔄 Dynamic Real-Time System Prompt Synthesis**:
+  - The `AntigravityAgentEngine` dynamically injects the active persona directives, workspace repository context, and all active loaded platform skills into live model inference (Gemini API, OpenRouter, Groq, Ollama, Hugging Face).
+- **⚡ Live GitHub Actions & Repository Synchronization**:
+  - The SDLC Center provides 1-tap live synchronization with GitHub REST API to fetch live workflow runs, pull requests, and commit statuses in real time.
+
+---
+
 ## 🛠 Tech Stack
 
 | Layer | Technologies |
@@ -184,7 +214,7 @@ Antigravity Mobile provides a mobile-native cockpit spanning the entire **Softwa
 | **Serialization** | Kotlinx Serialization JSON 1.7.3 |
 | **Asynchrony** | Kotlin Coroutines & StateFlow |
 | **Architecture** | Unidirectional Data Flow (UDF) / MVVM with AntigravityAgentEngine |
-| **Testing** | JUnit 4 (15 comprehensive unit tests covering SDLC, Guardrails, Gateways, and State) |
+| **Testing** | JUnit 4 (21 comprehensive unit tests covering Personas, Prompts, Skills, SDLC, Gateways, and State) |
 | **CI / CD** | GitHub Actions (JDK 17, Gradle Cache, Automated APK packaging) |
 
 ---

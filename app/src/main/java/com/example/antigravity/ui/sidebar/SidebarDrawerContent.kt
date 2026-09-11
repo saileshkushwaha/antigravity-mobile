@@ -42,6 +42,8 @@ fun SidebarDrawerContent(
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenSdlcHub: () -> Unit = {},
+    onOpenPersonas: () -> Unit = {},
+    onOpenPrompts: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -300,6 +302,20 @@ fun SidebarDrawerContent(
                 icon = Icons.Default.RocketLaunch,
                 title = "SDLC & DevOps Center",
                 onClick = onOpenSdlcHub
+            )
+
+            // Expert Personas
+            SidebarActionItem(
+                icon = Icons.Default.Person,
+                title = "Expert Personas",
+                onClick = onOpenPersonas
+            )
+
+            // Curated Prompt Templates
+            SidebarActionItem(
+                icon = Icons.Default.AutoAwesome,
+                title = "Prompt Templates",
+                onClick = onOpenPrompts
             )
 
             // Scheduled Tasks

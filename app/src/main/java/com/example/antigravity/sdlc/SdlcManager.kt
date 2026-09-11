@@ -467,4 +467,80 @@ environments:
     auto_deploy_on_push: false
 """.trimIndent()
     }
+
+    private val httpClient = okhttp3.OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
+    suspend fun syncWithGitHub(
+        owner: String = "saileshkushwaha",
+        repo: String = "antigravity-mobile",
+        token: String = ""
+    ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val reqBuilder = okhttp3.Request.Builder()
+                .url("https://api.github.com/repos/$owner/$repo/actions/runs?per_page=5")
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("User-Agent", "Antigravity-Mobile-App")
+            if (token.isNotBlank()) {
+                reqBuilder.header("Authorization", "Bearer $token")
+            }
+
+            val response = httpClient.newCall(reqBuilder.build()).execute()
+            if (response.isSuccessful) {
+                val body = response.body?.string() ?: ""
+                val json = org.json.JSONObject(body)
+                val runsArray = json.optJSONArray("workflow_runs")
+                if (runsArray != null && runsArray.length() > 0) {
+                    val realRuns = mutableListOf<WorkflowRunItem>()
+                    for (i in 0 until runsArray.length()) {
+                        val item = runsArray.getJSONObject(i)
+                        val id = item.optLong("id", System.currentTimeMillis())
+                        val name = item.optString("name", "Build & Package Android APK")
+                        val branch = item.optString("head_branch", "main")
+                        val sha = item.optString("head_sha", "HEAD").take(7)
+                        val statusStr = item.optString("status", "completed")
+                        val conclusionStr = item.optString("conclusion", "success")
+
+                        val status = when {
+                            statusStr.equals("in_progress", true) -> WorkflowStatus.IN_PROGRESS
+                            statusStr.equals("queued", true) -> WorkflowStatus.QUEUED
+                            else -> WorkflowStatus.COMPLETED
+                        }
+                        val conclusion = when {
+                            conclusionStr.equals("success", true) -> WorkflowConclusion.SUCCESS
+                            conclusionStr.equals("failure", true) -> WorkflowConclusion.FAILURE
+                            conclusionStr.equals("cancelled", true) -> WorkflowConclusion.CANCELLED
+                            else -> WorkflowConclusion.NEUTRAL
+                        }
+
+                        realRuns.add(
+                            WorkflowRunItem(
+                                id = id,
+                                name = name,
+                                event = item.optString("event", "push"),
+                                branch = branch,
+                                commitHash = sha,
+                                commitMessage = item.optJSONObject("head_commit")?.optString("message", "CI Run")?.lines()?.firstOrNull() ?: "CI Run",
+                                status = status,
+                                conclusion = conclusion,
+                                duration = "45s",
+                                runStartedAt = item.optString("created_at", "Recently"),
+                                artifactName = "Antigravity-Mobile-Debug-APK"
+                            )
+                        )
+                    }
+                    if (realRuns.isNotEmpty()) {
+                        _workflowRuns.value = realRuns
+                    }
+                }
+                Result.success("Synced live workflow runs from GitHub.")
+            } else {
+                Result.failure(Exception("GitHub API HTTP ${response.code}: ${response.message}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

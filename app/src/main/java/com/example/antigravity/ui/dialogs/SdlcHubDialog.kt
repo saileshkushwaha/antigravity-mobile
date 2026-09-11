@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.antigravity.model.*
@@ -47,6 +48,8 @@ fun SdlcHubDialog(
     var showNewPrDialog by remember { mutableStateOf(false) }
     var showDeployDialog by remember { mutableStateOf(false) }
     var targetDeployEnv by remember { mutableStateOf(EnvironmentType.STAGING) }
+    var isSyncing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     val pullRequests by SdlcManager.pullRequests.collectAsState()
     val issues by SdlcManager.issues.collectAsState()
@@ -128,12 +131,49 @@ fun SdlcHubDialog(
                         }
                     }
 
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = AntigravityColors.TextSecondary
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (!isSyncing) {
+                                    isSyncing = true
+                                    statusMessage = "Syncing live GitHub actions & repository data..."
+                                    coroutineScope.launch {
+                                        val res = SdlcManager.syncWithGitHub()
+                                        statusMessage = res.fold(
+                                            onSuccess = { "Synced live data with GitHub Actions!" },
+                                            onFailure = { "GitHub notice: ${it.localizedMessage}" }
+                                        )
+                                        isSyncing = false
+                                    }
+                                }
+                            },
+                            enabled = !isSyncing
+                        ) {
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = AntigravityColors.CyanElectric
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Sync with live GitHub",
+                                    tint = AntigravityColors.CyanElectric
+                                )
+                            }
+                        }
+
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = AntigravityColors.TextSecondary
+                            )
+                        }
                     }
                 }
 

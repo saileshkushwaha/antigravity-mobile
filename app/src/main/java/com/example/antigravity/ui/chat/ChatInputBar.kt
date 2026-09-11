@@ -33,6 +33,9 @@ fun ChatInputBar(
     isBusy: Boolean,
     slashCommands: List<SlashCommand>,
     mentionItems: List<MentionItem>,
+    activePersonaName: String? = null,
+    onOpenPersonaSelection: () -> Unit = {},
+    onOpenPromptLibrary: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showSlashMenu by remember { mutableStateOf(false) }
@@ -194,13 +197,72 @@ fun ChatInputBar(
             }
         }
 
-        // Quick Command Chips
+        // Quick Command Chips & Triggers
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Active Persona Chip / Switcher
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = AntigravityColors.CardBackground,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)),
+                    modifier = Modifier.clickable { onOpenPersonaSelection() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "🎭 ${activePersonaName ?: "Persona"}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AntigravityColors.ElectricCyan
+                        )
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "Switch persona",
+                            tint = AntigravityColors.ElectricCyan,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+
+            // Curated Prompt Library Trigger
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = AntigravityColors.CardBackground,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.NeonViolet.copy(alpha = 0.6f)),
+                    modifier = Modifier.clickable { onOpenPromptLibrary() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = AntigravityColors.NeonViolet,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Prompts",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AntigravityColors.NeonViolet
+                        )
+                    }
+                }
+            }
+
             items(listOf("/goal", "/schedule", "/grill-me", "/boost", "@files")) { chip ->
                 Surface(
                     shape = RoundedCornerShape(14.dp),

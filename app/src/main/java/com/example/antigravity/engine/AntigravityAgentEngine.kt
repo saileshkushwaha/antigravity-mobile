@@ -27,6 +27,39 @@ class AntigravityAgentEngine(
     private val _agentState = MutableStateFlow(AgentRunState.IDLE)
     val agentState: StateFlow<AgentRunState> = _agentState.asStateFlow()
 
+    private val _activePersona = MutableStateFlow(PersonaCatalog.allPersonas.first())
+    val activePersona: StateFlow<AgentPersona> = _activePersona.asStateFlow()
+
+    fun setActivePersona(persona: AgentPersona) {
+        _activePersona.value = persona
+        com.example.antigravity.enterprise.EnterpriseAuditLogger.log(
+            category = com.example.antigravity.enterprise.AuditCategory.SDLC_OPERATION,
+            action = "SET_PERSONA",
+            details = "Switched active agent persona to ${persona.name} (${persona.roleTitle})"
+        )
+        repository.executeTerminalCommand("echo Switched active persona to: ${persona.name}")
+    }
+
+    fun buildSynthesizedSystemPrompt(): String {
+        val persona = _activePersona.value
+        val enabledSkills = repository.skills.value.filter { it.isEnabled }.map { it.name }
+        val workspace = repository.activeWorkspace.value
+        return """
+            You are Antigravity, an enterprise-grade autonomous developer agent executing inside Antigravity Mobile Studio.
+            Current Persona: ${persona.name} - ${persona.roleTitle}
+            Workspace: ${workspace.name} (Branch: ${workspace.branch})
+            
+            Persona Directives:
+            ${persona.systemPromptDirective}
+            
+            Active Recommended Skills:
+            ${persona.recommendedSkills.joinToString(", ")}
+            
+            Loaded & Enabled Platform Skills (${enabledSkills.size}):
+            ${enabledSkills.take(30).joinToString(", ")}${if (enabledSkills.size > 30) "... and ${enabledSkills.size - 30} more" else ""}
+        """.trimIndent()
+    }
+
     private var currentJob: Job? = null
 
     val slashCommands = listOf(
@@ -77,7 +110,7 @@ class AntigravityAgentEngine(
             _agentState.value = AgentRunState.THINKING
             try {
                 if (!settings.isOfflineDemoMode) {
-                    val sysInstruction = "You are Antigravity, an AI-first pair programmer. Workspace: ${repository.activeWorkspace.value.name}. Follow user rules and provide concise, high-quality responses."
+                    val sysInstruction = buildSynthesizedSystemPrompt()
 
                     val result: Result<String> = when (gateway) {
                         ModelGateway.GEMINI -> {

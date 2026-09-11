@@ -44,6 +44,7 @@ fun AntigravityMainScreen(
     val terminalLogs by repository.terminalLogs.collectAsState()
 
     val agentState by agentEngine.agentState.collectAsState()
+    val activePersona by agentEngine.activePersona.collectAsState()
 
     // Dialog & Sheet states
     var showAuxiliarySheet by remember { mutableStateOf(false) }
@@ -54,6 +55,8 @@ fun AntigravityMainScreen(
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showSdlcHubDialog by remember { mutableStateOf(false) }
+    var showPersonaDialog by remember { mutableStateOf(false) }
+    var showPromptLibraryDialog by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -111,6 +114,14 @@ fun AntigravityMainScreen(
                     onOpenSdlcHub = {
                         showSdlcHubDialog = true
                         coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenPersonas = {
+                        showPersonaDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenPrompts = {
+                        showPromptLibraryDialog = true
+                        coroutineScope.launch { drawerState.close() }
                     }
                 )
             }
@@ -128,7 +139,14 @@ fun AntigravityMainScreen(
                     onStop = { agentEngine.cancelTask() },
                     isBusy = isBusy,
                     slashCommands = agentEngine.slashCommands,
-                    mentionItems = agentEngine.mentionItems
+                    mentionItems = agentEngine.mentionItems,
+                    activePersonaName = activePersona.name,
+                    onOpenPersonaSelection = {
+                        showPersonaDialog = true
+                    },
+                    onOpenPromptLibrary = {
+                        showPromptLibraryDialog = true
+                    }
                 )
             },
             containerColor = AntigravityColors.BackgroundDark,
@@ -223,6 +241,7 @@ fun AntigravityMainScreen(
         SkillsMcpDialog(
             skills = skills,
             mcpServers = mcpServers,
+            onToggleSkill = { repository.toggleSkill(it) },
             onDismiss = { showSkillsMcpDialog = false }
         )
     }
@@ -245,6 +264,29 @@ fun AntigravityMainScreen(
     if (showSdlcHubDialog) {
         SdlcHubDialog(
             onDismiss = { showSdlcHubDialog = false }
+        )
+    }
+
+    // Persona Selection Dialog
+    if (showPersonaDialog) {
+        PersonaSelectionDialog(
+            activePersona = activePersona,
+            onSelectPersona = { selectedPersona ->
+                agentEngine.setActivePersona(selectedPersona)
+                showPersonaDialog = false
+            },
+            onDismiss = { showPersonaDialog = false }
+        )
+    }
+
+    // Curated Prompt Library Dialog
+    if (showPromptLibraryDialog) {
+        PromptLibraryDialog(
+            onSelectPrompt = { selectedPrompt ->
+                inputText = selectedPrompt
+                showPromptLibraryDialog = false
+            },
+            onDismiss = { showPromptLibraryDialog = false }
         )
     }
 }

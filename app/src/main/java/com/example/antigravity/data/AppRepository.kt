@@ -95,16 +95,7 @@ class AppRepository {
     )
     val scheduledTasks: StateFlow<List<ScheduledTask>> = _scheduledTasks.asStateFlow()
 
-    private val _skills = MutableStateFlow(
-        listOf(
-            SkillItem("antigravity-guide", "Authoritative guide for Google Antigravity, slash commands, rules, and customizations", "Core", true),
-            SkillItem("android-cli", "Build, test, run, and manage Android emulators and SDK packages with the android CLI", "Platform", true),
-            SkillItem("modern-web-guidance", "Modern web patterns, Material Design, and CSS best practices", "Frontend", true),
-            SkillItem("bigquery-sql", "SQL optimization techniques and performance tuning for big data pipelines", "Data", true),
-            SkillItem("firebase-basics", "Firebase Auth, Firestore, and Cloud Functions management", "Backend", true),
-            SkillItem("generative_ui", "Render rich interactive widgets and custom HTML/Markdown layouts inline", "UI", true)
-        )
-    )
+    private val _skills = MutableStateFlow(SkillsCatalog.allDesktopSkills)
     val skills: StateFlow<List<SkillItem>> = _skills.asStateFlow()
 
     private val _mcpServers = MutableStateFlow(
@@ -393,6 +384,12 @@ class AppRepository {
 
     fun deleteScheduledTask(id: String) {
         _scheduledTasks.value = _scheduledTasks.value.filter { it.id != id }
+    }
+
+    fun toggleSkill(name: String) {
+        _skills.value = _skills.value.map {
+            if (it.name == name) it.copy(isEnabled = !it.isEnabled) else it
+        }
     }
 
     fun executeTerminalCommand(input: String) {
