@@ -1,5 +1,7 @@
 # Antigravity Mobile
 
+[![Build & Package Android APK](https://github.com/saileshkushwaha/antigravity-mobile/actions/workflows/build-apk.yml/badge.svg)](https://github.com/saileshkushwaha/antigravity-mobile/actions/workflows/build-apk.yml)
+
 **Antigravity Mobile** is an Android application that brings the full power and signature interface of the **Google Antigravity Desktop App** to Android devices, built with **Kotlin**, **Jetpack Compose**, and **Material 3**.
 
 ---
