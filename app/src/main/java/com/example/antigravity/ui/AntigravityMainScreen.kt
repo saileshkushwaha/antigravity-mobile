@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import com.example.antigravity.data.AppRepository
 import com.example.antigravity.engine.AgentRunState
 import com.example.antigravity.engine.AntigravityAgentEngine
+import com.example.antigravity.model.AgentPersona
 import com.example.antigravity.model.ScheduledTask
 import com.example.antigravity.theme.AntigravityColors
 import com.example.antigravity.ui.auxiliary.AuxiliaryPane
@@ -73,6 +74,8 @@ fun AntigravityMainScreen(
     var showModelSelectionDialog by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showChatPersonaDialog by remember { mutableStateOf(false) }
+    var showChatPromptDialog by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -162,10 +165,10 @@ fun AntigravityMainScreen(
                             mentionItems = agentEngine.mentionItems,
                             activePersonaName = activePersona.name,
                             onOpenPersonaSelection = {
-                                currentScreen = AntigravityAppScreen.PERSONAS
+                                showChatPersonaDialog = true
                             },
                             onOpenPromptLibrary = {
-                                currentScreen = AntigravityAppScreen.PERSONAS
+                                showChatPromptDialog = true
                             }
                         )
                     }
@@ -227,8 +230,15 @@ fun AntigravityMainScreen(
                             conversation = activeConversation,
                             agentState = agentState,
                             activeModel = settings.activeModel,
+                            activePersona = activePersona,
                             onOpenModelPicker = {
                                 showModelSelectionDialog = true
+                            },
+                            onOpenPersonaPicker = {
+                                showChatPersonaDialog = true
+                            },
+                            onOpenPromptLibrary = {
+                                showChatPromptDialog = true
                             },
                             onOpenDrawer = {
                                 coroutineScope.launch { drawerState.open() }
@@ -345,6 +355,29 @@ fun AntigravityMainScreen(
     if (showAboutDialog) {
         AboutAntigravityDialog(
             onDismiss = { showAboutDialog = false }
+        )
+    }
+
+    // Persona Selection Dialog (in-chat context without navigating away)
+    if (showChatPersonaDialog) {
+        PersonaSelectionDialog(
+            activePersona = activePersona,
+            onSelectPersona = { persona ->
+                agentEngine.setActivePersona(persona)
+                showChatPersonaDialog = false
+            },
+            onDismiss = { showChatPersonaDialog = false }
+        )
+    }
+
+    // Prompt Library Dialog (in-chat context without navigating away)
+    if (showChatPromptDialog) {
+        PromptLibraryDialog(
+            onSelectPrompt = { template ->
+                inputText = if (inputText.isBlank()) template else "$inputText\n\n$template"
+                showChatPromptDialog = false
+            },
+            onDismiss = { showChatPromptDialog = false }
         )
     }
 }
