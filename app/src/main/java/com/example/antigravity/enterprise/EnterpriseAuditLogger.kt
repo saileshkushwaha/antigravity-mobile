@@ -14,7 +14,9 @@ enum class AuditCategory {
     TOOL_EXECUTION,
     GATEWAY_CALL,
     PLAN_REVIEW,
-    WORKSPACE_INTEGRITY
+    WORKSPACE_INTEGRITY,
+    SDLC_OPERATION,
+    DEPLOYMENT
 }
 
 @Serializable

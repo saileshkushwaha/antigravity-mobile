@@ -53,6 +53,7 @@ fun AntigravityMainScreen(
     var showModelSelectionDialog by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showSdlcHubDialog by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -105,6 +106,10 @@ fun AntigravityMainScreen(
                     },
                     onOpenAbout = {
                         showAboutDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenSdlcHub = {
+                        showSdlcHubDialog = true
                         coroutineScope.launch { drawerState.close() }
                     }
                 )
@@ -233,6 +238,13 @@ fun AntigravityMainScreen(
     if (showAboutDialog) {
         AboutAntigravityDialog(
             onDismiss = { showAboutDialog = false }
+        )
+    }
+
+    // SDLC & DevOps Center Dialog
+    if (showSdlcHubDialog) {
+        SdlcHubDialog(
+            onDismiss = { showSdlcHubDialog = false }
         )
     }
 }

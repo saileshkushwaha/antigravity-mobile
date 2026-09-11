@@ -43,4 +43,12 @@ object AntigravityColors {
     val TextPrimary = Color(0xFFF3F4F6)
     val TextSecondary = Color(0xFF9CA3AF)
     val TextMuted = Color(0xFF6B7280)
+
+    // Semantic Aliases
+    val CyanElectric = ElectricCyan
+    val VioletNebula = NeonViolet
+    val DiffGreen = Color(0xFF10B981)
+    val DiffRed = Color(0xFFEF4444)
+    val AmberWarning = Color(0xFFF59E0B)
+    val BorderSubtle = CardBorder
 }

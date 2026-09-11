@@ -41,6 +41,7 @@ fun SidebarDrawerContent(
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenSdlcHub: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -293,6 +294,13 @@ fun SidebarDrawerContent(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 6.dp))
+
+            // SDLC & DevOps Center
+            SidebarActionItem(
+                icon = Icons.Default.RocketLaunch,
+                title = "SDLC & DevOps Center",
+                onClick = onOpenSdlcHub
+            )
 
             // Scheduled Tasks
             SidebarActionItem(
