@@ -47,6 +47,15 @@ data class ImplementationPlanItem(
 )
 
 @Serializable
+data class ArtifactItem(
+    val id: String,
+    val title: String,
+    val path: String,
+    val content: String,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Serializable
 enum class SubagentState {
     RUNNING,
     IDLE,

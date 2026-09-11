@@ -38,6 +38,7 @@ fun AuxiliaryPane(
     subagents: List<SubagentItem>,
     backgroundTasks: List<BackgroundTaskItem>,
     fileDiffs: List<FileDiffItem>,
+    artifacts: List<ArtifactItem> = emptyList(),
     terminalLogs: List<String>,
     onExecuteTerminalCommand: (String) -> Unit,
     onKillTask: (String) -> Unit,
@@ -133,6 +134,7 @@ fun AuxiliaryPane(
                     AuxiliaryTab.SUBAGENTS -> subagents.size
                     AuxiliaryTab.TASKS -> backgroundTasks.count { it.status == TaskStatus.RUNNING }
                     AuxiliaryTab.DIFF -> fileDiffs.size
+                    AuxiliaryTab.ARTIFACTS -> artifacts.size
                     else -> 0
                 }
 
@@ -175,7 +177,7 @@ fun AuxiliaryPane(
             when (selectedTab) {
                 AuxiliaryTab.SUBAGENTS -> SubagentsTabContent(subagents = subagents)
                 AuxiliaryTab.TASKS -> BackgroundTasksTabContent(tasks = backgroundTasks, onKillTask = onKillTask)
-                AuxiliaryTab.ARTIFACTS -> ArtifactsTabContent()
+                AuxiliaryTab.ARTIFACTS -> ArtifactsTabContent(artifacts = artifacts)
                 AuxiliaryTab.DIFF -> DiffTabContent(diffs = fileDiffs)
                 AuxiliaryTab.CONSOLE -> TerminalConsoleTabContent(logs = terminalLogs, onExecute = onExecuteTerminalCommand)
             }
@@ -336,39 +338,29 @@ fun BackgroundTasksTabContent(tasks: List<BackgroundTaskItem>, onKillTask: (Stri
 }
 
 @Composable
-fun ArtifactsTabContent() {
-    val sampleArtifact = """
-# Antigravity Mobile Architecture
-
-This document describes the unified agent orchestration architecture for Android.
-
-## Key Subsystems
-- **AntigravityAgentEngine**: Dual execution coordinator supporting live Gemini API streaming and offline simulation.
-- **Auxiliary Pane**: Inspection surfaces for Subagents, Background Tasks, Artifacts, Git Diffs, and Terminal console.
-- **Planning Mode**: Interactive approval gate guaranteeing deterministic execution before applying file changes.
-
-> [!TIP]
-> Use the `/goal` command for end-to-end autonomous multi-step feature creation.
-    """.trimIndent()
-
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = AntigravityColors.CardBackground,
-                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Article, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
-                        Text("implementation_plan.md", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AntigravityColors.TextPrimary)
+fun ArtifactsTabContent(artifacts: List<ArtifactItem>) {
+    if (artifacts.isEmpty()) {
+        EmptyTabPlaceholder("No artifacts generated yet in active workspace.")
+    } else {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(artifacts, key = { it.id }) { artifact ->
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AntigravityColors.CardBackground,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Article, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                            Text(artifact.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AntigravityColors.TextPrimary)
+                        }
+                        MarkdownRenderer(text = artifact.content)
                     }
-                    MarkdownRenderer(text = sampleArtifact)
                 }
             }
         }

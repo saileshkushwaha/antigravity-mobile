@@ -1,5 +1,7 @@
 package com.example.antigravity.engine
 
+import com.example.antigravity.model.ChatMessage
+import com.example.antigravity.model.MessageSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,7 +25,8 @@ class OpenAiGatewayService {
         apiKey: String,
         modelId: String,
         prompt: String,
-        systemInstruction: String? = null
+        systemInstruction: String? = null,
+        history: List<ChatMessage> = emptyList()
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             val cleanBase = baseUrl.trimEnd('/')
@@ -35,6 +38,20 @@ class OpenAiGatewayService {
                         put("role", "system")
                         put("content", systemInstruction)
                     })
+                }
+                // Include multi-turn conversation context
+                history.filter { it.text.isNotBlank() }.forEach { msg ->
+                    val role = when (msg.sender) {
+                        MessageSender.USER -> "user"
+                        MessageSender.AGENT -> "assistant"
+                        MessageSender.SYSTEM -> null
+                    }
+                    if (role != null) {
+                        put(JSONObject().apply {
+                            put("role", role)
+                            put("content", msg.text)
+                        })
+                    }
                 }
                 put(JSONObject().apply {
                     put("role", "user")

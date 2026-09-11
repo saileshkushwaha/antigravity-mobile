@@ -62,21 +62,17 @@ fun AntigravityMainScreen(
     val skills by repository.skills.collectAsState()
     val mcpServers by repository.mcpServers.collectAsState()
     val terminalLogs by repository.terminalLogs.collectAsState()
+    val artifacts by repository.artifacts.collectAsState()
 
     val agentState by agentEngine.agentState.collectAsState()
     val activePersona by agentEngine.activePersona.collectAsState()
 
-    // Dialog & Sheet states
-    var showAuxiliarySheet by remember { mutableStateOf(false) }
+    // Modal Utility Dialog states (for non-screen modals only)
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showScheduledTasksDialog by remember { mutableStateOf(false) }
-    var showSkillsMcpDialog by remember { mutableStateOf(false) }
     var showModelSelectionDialog by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
-    var showSdlcHubDialog by remember { mutableStateOf(false) }
-    var showPersonaDialog by remember { mutableStateOf(false) }
-    var showPromptLibraryDialog by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -287,6 +283,7 @@ fun AntigravityMainScreen(
                             subagents = subagents,
                             backgroundTasks = backgroundTasks,
                             fileDiffs = fileDiffs,
+                            artifacts = artifacts,
                             terminalLogs = terminalLogs,
                             onExecuteTerminalCommand = { repository.executeTerminalCommand(it) },
                             onKillTask = { repository.updateTaskStatus(it, com.example.antigravity.model.TaskStatus.KILLED) },
@@ -317,26 +314,6 @@ fun AntigravityMainScreen(
         )
     }
 
-    // Auxiliary Inspector Sheet
-    if (showAuxiliarySheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showAuxiliarySheet = false },
-            containerColor = AntigravityColors.SurfaceDark,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = AntigravityColors.CardBorder) },
-            modifier = Modifier.fillMaxHeight(0.85f)
-        ) {
-            AuxiliaryPane(
-                subagents = subagents,
-                backgroundTasks = backgroundTasks,
-                fileDiffs = fileDiffs,
-                terminalLogs = terminalLogs,
-                onExecuteTerminalCommand = { repository.executeTerminalCommand(it) },
-                onKillTask = { repository.updateTaskStatus(it, com.example.antigravity.model.TaskStatus.KILLED) },
-                onClose = { showAuxiliarySheet = false }
-            )
-        }
-    }
-
     // Settings Dialog
     if (showSettingsDialog) {
         SettingsDialog(
@@ -357,16 +334,6 @@ fun AntigravityMainScreen(
         )
     }
 
-    // Skills & MCP Dialog
-    if (showSkillsMcpDialog) {
-        SkillsMcpDialog(
-            skills = skills,
-            mcpServers = mcpServers,
-            onToggleSkill = { repository.toggleSkill(it) },
-            onDismiss = { showSkillsMcpDialog = false }
-        )
-    }
-
     // Enterprise Diagnostics Dialog
     if (showDiagnosticsDialog) {
         EnterpriseDiagnosticsDialog(
@@ -378,36 +345,6 @@ fun AntigravityMainScreen(
     if (showAboutDialog) {
         AboutAntigravityDialog(
             onDismiss = { showAboutDialog = false }
-        )
-    }
-
-    // SDLC & DevOps Center Dialog
-    if (showSdlcHubDialog) {
-        SdlcHubDialog(
-            onDismiss = { showSdlcHubDialog = false }
-        )
-    }
-
-    // Persona Selection Dialog
-    if (showPersonaDialog) {
-        PersonaSelectionDialog(
-            activePersona = activePersona,
-            onSelectPersona = { selectedPersona ->
-                agentEngine.setActivePersona(selectedPersona)
-                showPersonaDialog = false
-            },
-            onDismiss = { showPersonaDialog = false }
-        )
-    }
-
-    // Curated Prompt Library Dialog
-    if (showPromptLibraryDialog) {
-        PromptLibraryDialog(
-            onSelectPrompt = { selectedPrompt ->
-                inputText = selectedPrompt
-                showPromptLibraryDialog = false
-            },
-            onDismiss = { showPromptLibraryDialog = false }
         )
     }
 }

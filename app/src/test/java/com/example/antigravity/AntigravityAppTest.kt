@@ -64,7 +64,16 @@ class AntigravityAppTest {
 
     @Test
     fun testScheduledTaskToggle() {
-        val initial = repository.scheduledTasks.value.first()
+        val task = ScheduledTask(
+            id = "sched-test-1",
+            prompt = "Poll build status",
+            scheduleExpression = "*/15 * * * *",
+            isCron = true,
+            isActive = true,
+            nextTrigger = "In 15 minutes"
+        )
+        repository.addScheduledTask(task)
+        val initial = repository.scheduledTasks.value.first { it.id == task.id }
         val initialStatus = initial.isActive
 
         repository.toggleScheduledTask(initial.id)

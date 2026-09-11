@@ -1,5 +1,7 @@
 package com.example.antigravity.engine
 
+import com.example.antigravity.model.ChatMessage
+import com.example.antigravity.model.MessageSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,7 +24,8 @@ class GeminiApiService {
         apiKey: String,
         modelName: String,
         prompt: String,
-        systemInstruction: String? = null
+        systemInstruction: String? = null,
+        history: List<ChatMessage> = emptyList()
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             val endpointModel = when {
@@ -33,16 +36,36 @@ class GeminiApiService {
 
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$endpointModel:generateContent?key=$apiKey"
 
-            val contentsArray = JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("text", prompt)
+            val contentsArray = JSONArray()
+
+            // Include multi-turn conversation context
+            history.filter { it.text.isNotBlank() }.forEach { msg ->
+                val role = when (msg.sender) {
+                    MessageSender.USER -> "user"
+                    MessageSender.AGENT -> "model"
+                    MessageSender.SYSTEM -> null
+                }
+                if (role != null) {
+                    contentsArray.put(JSONObject().apply {
+                        put("role", role)
+                        put("parts", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("text", msg.text)
+                            })
                         })
                     })
-                })
+                }
             }
+
+            // Append current user prompt
+            contentsArray.put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("text", prompt)
+                    })
+                })
+            })
 
             val requestJson = JSONObject().apply {
                 put("contents", contentsArray)

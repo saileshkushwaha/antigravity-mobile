@@ -14,7 +14,7 @@ class AppRepository {
             activeModel = "Gemini 2.5 Flash",
             toolExecutionPolicy = "request-review",
             terminalSandbox = true,
-            isOfflineDemoMode = true,
+            isOfflineDemoMode = false,
             isDarkTheme = true
         )
     )
@@ -65,35 +65,11 @@ class AppRepository {
     private val _fileDiffs = MutableStateFlow<List<FileDiffItem>>(emptyList())
     val fileDiffs: StateFlow<List<FileDiffItem>> = _fileDiffs.asStateFlow()
 
-    private val _scheduledTasks = MutableStateFlow(
-        listOf(
-            ScheduledTask(
-                id = "sched-1",
-                prompt = "Poll build and integration test status every 15 minutes",
-                scheduleExpression = "*/15 * * * *",
-                isCron = true,
-                isActive = true,
-                nextTrigger = "In 8 minutes"
-            ),
-            ScheduledTask(
-                id = "sched-2",
-                prompt = "Reminder to verify release notes and update changelog.md",
-                scheduleExpression = "In 2 hours",
-                isCron = false,
-                isActive = true,
-                nextTrigger = "Today at 18:30"
-            ),
-            ScheduledTask(
-                id = "sched-3",
-                prompt = "Daily security scan of dependencies and report critical vulnerabilities",
-                scheduleExpression = "0 9 * * *",
-                isCron = true,
-                isActive = false,
-                nextTrigger = "Tomorrow at 09:00"
-            )
-        )
-    )
+    private val _scheduledTasks = MutableStateFlow<List<ScheduledTask>>(emptyList())
     val scheduledTasks: StateFlow<List<ScheduledTask>> = _scheduledTasks.asStateFlow()
+
+    private val _artifacts = MutableStateFlow<List<ArtifactItem>>(emptyList())
+    val artifacts: StateFlow<List<ArtifactItem>> = _artifacts.asStateFlow()
 
     private val _skills = MutableStateFlow(SkillsCatalog.allDesktopSkills)
     val skills: StateFlow<List<SkillItem>> = _skills.asStateFlow()
@@ -123,143 +99,27 @@ class AppRepository {
     }
 
     private fun seedInitialConversations() {
-        val initialDiffs = listOf(
-            FileDiffItem(
-                filePath = "app/src/main/java/com/example/antigravity/ui/MainScreen.kt",
-                status = DiffStatus.MODIFIED,
-                additions = 34,
-                deletions = 6,
-                diffLines = listOf(
-                    DiffLine(DiffLineType.HEADER, "@@ -15,6 +15,34 @@ class MainScreen"),
-                    DiffLine(DiffLineType.CONTEXT, " import androidx.compose.material3.*"),
-                    DiffLine(DiffLineType.REMOVE, "-    val status = \"offline\"", oldLineNum = 17),
-                    DiffLine(DiffLineType.ADD, "+    val agentEngine = remember { AntigravityAgentEngine() }", newLineNum = 17),
-                    DiffLine(DiffLineType.ADD, "+    val activeTasks by agentEngine.tasks.collectAsState()", newLineNum = 18),
-                    DiffLine(DiffLineType.ADD, "+    AntigravityCanvas(agentEngine = agentEngine)", newLineNum = 19),
-                    DiffLine(DiffLineType.CONTEXT, " }")
-                )
-            ),
-            FileDiffItem(
-                filePath = "app/build.gradle.kts",
-                status = DiffStatus.MODIFIED,
-                additions = 12,
-                deletions = 2,
-                diffLines = listOf(
-                    DiffLine(DiffLineType.HEADER, "@@ -60,2 +60,12 @@ dependencies"),
-                    DiffLine(DiffLineType.ADD, "+    implementation(libs.okhttp)", newLineNum = 61),
-                    DiffLine(DiffLineType.ADD, "+    implementation(libs.kotlinx.serialization.json)", newLineNum = 62),
-                    DiffLine(DiffLineType.CONTEXT, "     implementation(libs.androidx.compose.material3)")
-                )
-            )
-        )
-        _fileDiffs.value = initialDiffs
+        _fileDiffs.value = emptyList()
+        _backgroundTasks.value = emptyList()
+        _subagents.value = emptyList()
 
-        val initialTasks = listOf(
-            BackgroundTaskItem(
-                taskId = "task-gradle-build-96",
-                commandLine = ".\\gradlew.bat assembleDebug",
-                cwd = "c:\\Users\\SaileshKushwaha\\Documents\\antigravity\\magical-bose",
-                status = TaskStatus.COMPLETED,
-                logs = mutableListOf(
-                    "Calculating task graph for :app:assembleDebug",
-                    "> Task :app:compileDebugKotlin",
-                    "> Task :app:packageDebug",
-                    "BUILD SUCCESSFUL in 4.2s"
-                )
-            )
-        )
-        _backgroundTasks.value = initialTasks
-
-        val initialSubagents = listOf(
-            SubagentItem(
-                conversationId = "subagent-arch-eval-1",
-                role = "Architecture Auditor",
-                typeName = "research",
-                prompt = "Analyze existing Compose navigation graph and evaluate lifecycle safety",
-                state = SubagentState.DONE,
-                lastAction = "Completed evaluation. No memory leaks detected."
-            )
-        )
-        _subagents.value = initialSubagents
-
-        val conv1Id = UUID.randomUUID().toString()
-        val conv1 = Conversation(
-            id = conv1Id,
-            title = "End-to-End Mobile Agent Workspace",
-            activeModel = "Gemini 2.5 Flash",
-            workspaceName = "magical-bose",
+        val initialConvId = java.util.UUID.randomUUID().toString()
+        val initialConv = Conversation(
+            id = initialConvId,
+            title = "Main Agent Session",
+            activeModel = _settings.value.activeModel,
+            workspaceName = _activeWorkspace.value.name,
             messages = mutableListOf(
                 ChatMessage(
-                    id = "msg-1",
-                    sender = MessageSender.USER,
-                    text = "Build a complete mobile client that replicates the Antigravity desktop experience end-to-end.",
-                    timestamp = System.currentTimeMillis() - 120000
-                ),
-                ChatMessage(
-                    id = "msg-2",
-                    sender = MessageSender.AGENT,
-                    text = "I've structured the Antigravity Android client around its signature 3-surface architecture:\n\n1. **Sidebar Navigation**: Workspace management, conversations history, scheduled tasks, skills, and settings.\n2. **Chat Canvas**: Chain-of-thought accordion, interactive tool execution cards, planning mode review, and slash command docking.\n3. **Auxiliary Pane**: 5 distinct inspection surfaces (Subagents, Background Tasks, Artifacts, Git Diff Viewer, Terminal).\n\nLet me begin by analyzing the toolchain and dependencies.",
-                    timestamp = System.currentTimeMillis() - 110000,
-                    thinking = ThinkingBlock(
-                        content = "The user requires an end-to-end replica of the Antigravity desktop electron app.\n- Need to mimic the exact layout: Drawer navigation, chat canvas with tool calls, and 5 auxiliary tabs.\n- Let's verify SDK toolchain and install required dependencies.\n- Need dual mode support: direct Gemini API calls and realistic offline autonomous simulations.",
-                        durationSeconds = 4,
-                        isExpanded = false
-                    ),
-                    toolCalls = mutableListOf(
-                        ToolCallItem(
-                            id = "tool-1",
-                            name = "run_command",
-                            toolSummary = "Check Gradle toolchain",
-                            toolAction = "Running command",
-                            arguments = mapOf("CommandLine" to ".\\gradlew.bat --version"),
-                            status = ToolStatus.SUCCESS,
-                            output = "Welcome to Gradle 9.1.0!\nKotlin: 2.2.0\nJVM: OpenJDK 17.0.18\nOS: Windows 11"
-                        ),
-                        ToolCallItem(
-                            id = "tool-2",
-                            name = "write_to_file",
-                            toolSummary = "Create AgentModels schema",
-                            toolAction = "Writing file",
-                            arguments = mapOf("TargetFile" to "app/.../AgentModels.kt"),
-                            status = ToolStatus.SUCCESS,
-                            output = "Created file file:///app/src/main/java/com/example/antigravity/model/AgentModels.kt"
-                        )
-                    ),
-                    planArtifact = ImplementationPlanItem(
-                        id = "plan-1",
-                        title = "Antigravity Mobile Implementation Plan",
-                        summary = "Full-fidelity Android client implementation plan with dual execution engine, 5 auxiliary tabs, and dark studio aesthetic.",
-                        rawMarkdown = "# Implementation Plan\n\n- [x] Configure Build & Version Catalog\n- [x] Create Model Hierarchy\n- [x] Build Left Sidebar & Workspace Switcher\n- [x] Build Chat Canvas with Tool Call Cards\n- [x] Build 5 Auxiliary Tabs (Subagents, Tasks, Artifacts, Diff, Terminal)",
-                        isApproved = true
-                    )
+                    id = java.util.UUID.randomUUID().toString(),
+                    sender = MessageSender.SYSTEM,
+                    text = "Antigravity Agent session initialized. Ready for instructions. Use '/' for slash commands or '@' to attach context.",
+                    timestamp = System.currentTimeMillis()
                 )
             )
         )
-
-        val conv2Id = UUID.randomUUID().toString()
-        val conv2 = Conversation(
-            id = conv2Id,
-            title = "Cloud Data Pipeline Orchestration",
-            activeModel = "Gemini 2.5 Pro",
-            workspaceName = "cloud-pipeline",
-            messages = mutableListOf(
-                ChatMessage(
-                    id = "msg-201",
-                    sender = MessageSender.USER,
-                    text = "/goal Audit all dbt models and schedule nightly BigQuery table refreshes.",
-                    timestamp = System.currentTimeMillis() - 800000
-                ),
-                ChatMessage(
-                    id = "msg-202",
-                    sender = MessageSender.AGENT,
-                    text = "Scheduled a nightly cron task `0 2 * * *` targeting dataset `analytics_prod` and verified the DAG definition in Cloud Composer.",
-                    timestamp = System.currentTimeMillis() - 780000
-                )
-            )
-        )
-
-        _conversations.value = listOf(conv1, conv2)
-        _activeConversationId.value = conv1Id
+        _conversations.value = listOf(initialConv)
+        _activeConversationId.value = initialConvId
     }
 
     fun getActiveConversation(): Conversation? {
@@ -370,6 +230,14 @@ class AppRepository {
 
     fun addFileDiff(diff: FileDiffItem) {
         _fileDiffs.value = listOf(diff) + _fileDiffs.value
+    }
+
+    fun addArtifact(artifact: ArtifactItem) {
+        _artifacts.value = listOf(artifact) + _artifacts.value
+    }
+
+    fun clearArtifacts() {
+        _artifacts.value = emptyList()
     }
 
     fun addScheduledTask(task: ScheduledTask) {

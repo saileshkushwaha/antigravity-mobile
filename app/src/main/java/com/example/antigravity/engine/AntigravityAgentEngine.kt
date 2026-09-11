@@ -106,6 +106,10 @@ class AntigravityAgentEngine(
         val modelInfo = ModelCatalog.findModel(settings.activeModelId) ?: ModelCatalog.findModel(settings.activeModel)
         val gateway = modelInfo?.gateway ?: ModelGateway.GEMINI
 
+        val previousMessages = repository.getActiveConversation()?.messages
+            ?.filter { it.id != agentMessageId && it.id != userMessage.id }
+            ?: emptyList()
+
         currentJob = scope.launch {
             _agentState.value = AgentRunState.THINKING
             try {
@@ -119,10 +123,11 @@ class AntigravityAgentEngine(
                                     apiKey = settings.apiKey,
                                     modelName = modelInfo?.id ?: settings.activeModel,
                                     prompt = trimmed,
-                                    systemInstruction = sysInstruction
+                                    systemInstruction = sysInstruction,
+                                    history = previousMessages
                                 )
                             } else {
-                                Result.failure(Exception("Gemini API key is required. Please add your key in Settings or enable Autonomous Demo Mode."))
+                                Result.failure(Exception("Gemini API key is required. Please configure your key in Settings or choose a free open model gateway."))
                             }
                         }
                         ModelGateway.OPENROUTER -> {
@@ -132,7 +137,8 @@ class AntigravityAgentEngine(
                                 apiKey = key,
                                 modelId = modelInfo?.id ?: "meta-llama/llama-3.3-70b-instruct:free",
                                 prompt = trimmed,
-                                systemInstruction = sysInstruction
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
                             )
                         }
                         ModelGateway.GROQ -> {
@@ -142,7 +148,8 @@ class AntigravityAgentEngine(
                                 apiKey = key,
                                 modelId = modelInfo?.id ?: "llama-3.3-70b-versatile",
                                 prompt = trimmed,
-                                systemInstruction = sysInstruction
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
                             )
                         }
                         ModelGateway.OLLAMA -> {
@@ -151,7 +158,8 @@ class AntigravityAgentEngine(
                                 apiKey = settings.customGatewayApiKey,
                                 modelId = modelInfo?.id ?: "llama3.3:latest",
                                 prompt = trimmed,
-                                systemInstruction = sysInstruction
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
                             )
                         }
                         ModelGateway.HUGGINGFACE -> {
@@ -160,7 +168,8 @@ class AntigravityAgentEngine(
                                 apiKey = settings.apiKey,
                                 modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
                                 prompt = trimmed,
-                                systemInstruction = sysInstruction
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
                             )
                         }
                         ModelGateway.CUSTOM -> {
@@ -169,19 +178,30 @@ class AntigravityAgentEngine(
                                 apiKey = settings.customGatewayApiKey,
                                 modelId = settings.activeModelId,
                                 prompt = trimmed,
-                                systemInstruction = sysInstruction
+                                systemInstruction = sysInstruction,
+                                history = previousMessages
                             )
                         }
                     }
 
-                    result.onSuccess { text ->
+                    result.onSuccess { rawResponse ->
+                        val thinkRegex = Regex("""<think>([\s\S]*?)</think>""", RegexOption.IGNORE_CASE)
+                        val thinkMatch = thinkRegex.find(rawResponse)
+                        val (thinkingContent, cleanText) = if (thinkMatch != null) {
+                            val thinkText = thinkMatch.groupValues[1].trim()
+                            val textWithoutThink = rawResponse.replace(thinkRegex, "").trim()
+                            Pair(thinkText, textWithoutThink)
+                        } else {
+                            Pair("Direct model response received from ${modelInfo?.name ?: settings.activeModel} (${gateway.displayName}).", rawResponse.trim())
+                        }
+
                         repository.updateMessage(agentMessageId) {
                             it.copy(
-                                text = text,
+                                text = cleanText,
                                 isStreaming = false,
                                 thinking = ThinkingBlock(
-                                    content = "Direct response received from ${modelInfo?.name ?: settings.activeModel} (${gateway.displayName}).",
-                                    durationSeconds = 1,
+                                    content = thinkingContent,
+                                    durationSeconds = if (thinkMatch != null) 3 else 1,
                                     isExpanded = false
                                 )
                             )
@@ -189,13 +209,14 @@ class AntigravityAgentEngine(
                     }.onFailure { err ->
                         repository.updateMessage(agentMessageId) {
                             it.copy(
-                                text = "⚠️ Gateway Connection Notice (${gateway.displayName}):\n${err.localizedMessage}\n\n*Running via Autonomous Demo Engine.*",
-                                isStreaming = false
+                                text = "⚠️ Model Gateway Error (${gateway.displayName}):\n\n${err.localizedMessage ?: "Unable to complete model request."}\n\n**Resolution Options:**\n• Add or verify your API key in **Settings -> API Keys & Gateways**.\n• Or switch to a free open model (e.g. OpenRouter `meta-llama/llama-3.3-70b-instruct:free` or Groq `llama-3.3-70b-versatile`).\n• If testing offline, enable **Autonomous Demo Engine** in Settings.",
+                                isStreaming = false,
+                                thinking = ThinkingBlock(
+                                    content = "Connection failed: ${err.message ?: "Unknown error"}",
+                                    durationSeconds = 1,
+                                    isExpanded = false
+                                )
                             )
-                        }
-                        // Fallback to demo engine
-                        demoEngine.executeAutonomousWorkflow(trimmed, agentMessageId) { updated ->
-                            repository.updateMessage(agentMessageId) { updated }
                         }
                     }
                 } else {
