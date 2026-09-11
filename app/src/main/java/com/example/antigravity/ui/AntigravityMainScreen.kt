@@ -13,6 +13,7 @@ import com.example.antigravity.theme.AntigravityColors
 import com.example.antigravity.ui.auxiliary.AuxiliaryPane
 import com.example.antigravity.ui.chat.ChatCanvas
 import com.example.antigravity.ui.chat.ChatInputBar
+import com.example.antigravity.ui.dialogs.ModelSelectionDialog
 import com.example.antigravity.ui.dialogs.ScheduledTasksDialog
 import com.example.antigravity.ui.dialogs.SettingsDialog
 import com.example.antigravity.ui.dialogs.SkillsMcpDialog
@@ -52,6 +53,7 @@ fun AntigravityMainScreen(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showScheduledTasksDialog by remember { mutableStateOf(false) }
     var showSkillsMcpDialog by remember { mutableStateOf(false) }
+    var showModelSelectionDialog by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -124,8 +126,8 @@ fun AntigravityMainScreen(
                 conversation = activeConversation,
                 agentState = agentState,
                 activeModel = settings.activeModel,
-                onModelChange = { newModel ->
-                    repository.updateSettings(settings.copy(activeModel = newModel))
+                onOpenModelPicker = {
+                    showModelSelectionDialog = true
                 },
                 onOpenDrawer = {
                     coroutineScope.launch { drawerState.open() }
@@ -145,6 +147,23 @@ fun AntigravityMainScreen(
                     .padding(scaffoldPadding)
             )
         }
+    }
+
+    // Model Selection Dialog (with Search & Free Filters)
+    if (showModelSelectionDialog) {
+        ModelSelectionDialog(
+            selectedModelId = settings.activeModelId.ifBlank { settings.activeModel },
+            onSelectModel = { selectedModel ->
+                repository.updateSettings(
+                    settings.copy(
+                        activeModel = selectedModel.name,
+                        activeModelId = selectedModel.id
+                    )
+                )
+                showModelSelectionDialog = false
+            },
+            onDismiss = { showModelSelectionDialog = false }
+        )
     }
 
     // Auxiliary Inspector Sheet

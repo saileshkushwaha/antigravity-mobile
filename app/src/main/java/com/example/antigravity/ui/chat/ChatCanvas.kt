@@ -33,7 +33,7 @@ fun ChatCanvas(
     conversation: Conversation?,
     agentState: AgentRunState,
     activeModel: String,
-    onModelChange: (String) -> Unit,
+    onOpenModelPicker: () -> Unit,
     onOpenDrawer: () -> Unit,
     onToggleAuxiliary: () -> Unit,
     auxiliaryActiveCount: Int,
@@ -42,7 +42,6 @@ fun ChatCanvas(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    var showModelMenu by remember { mutableStateOf(false) }
 
     // Auto-scroll to bottom when messages change or update
     LaunchedEffect(conversation?.messages?.size, conversation?.messages?.lastOrNull()?.text) {
@@ -59,51 +58,37 @@ fun ChatCanvas(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Model Selector Dropdown Chip
-                        Box {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = AntigravityColors.SurfaceElevated,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                                modifier = Modifier.clickable { showModelMenu = true }
+                        // Model Selector Chip (Click to open searchable model catalog)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AntigravityColors.SurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                            modifier = Modifier.clickable { onOpenModelPicker() }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = activeModel,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AntigravityColors.ElectricCyan
-                                    )
-                                    Icon(
-                                        Icons.Default.ArrowDropDown,
-                                        contentDescription = null,
-                                        tint = AntigravityColors.TextSecondary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                            DropdownMenu(
-                                expanded = showModelMenu,
-                                onDismissRequest = { showModelMenu = false },
-                                modifier = Modifier.background(AntigravityColors.CardBackground)
-                            ) {
-                                listOf("Gemini 2.5 Flash", "Gemini 2.5 Pro", "Gemini Ultra").forEach { model ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                model,
-                                                color = if (model == activeModel) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary
-                                            )
-                                        },
-                                        onClick = {
-                                            onModelChange(model)
-                                            showModelMenu = false
-                                        }
-                                    )
-                                }
+                                Icon(
+                                    Icons.Default.Dns,
+                                    contentDescription = null,
+                                    tint = AntigravityColors.ElectricCyan,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = activeModel,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AntigravityColors.ElectricCyan,
+                                    maxLines = 1
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Model",
+                                    tint = AntigravityColors.TextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
 
@@ -493,7 +478,7 @@ fun ToolCallCard(tool: ToolCallItem) {
 
                     // Output
                     if (tool.output.isNotBlank()) {
-                        Divider(color = AntigravityColors.DividerColor)
+                        HorizontalDivider(color = AntigravityColors.DividerColor)
                         Text("OUTPUT:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
                         Text(
                             text = tool.output,

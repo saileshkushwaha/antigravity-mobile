@@ -175,9 +175,35 @@ data class McpServerItem(
 )
 
 @Serializable
+enum class ModelGateway(val displayName: String, val defaultBaseUrl: String) {
+    GEMINI("Google Gemini", "https://generativelanguage.googleapis.com/v1beta"),
+    OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1"),
+    GROQ("Groq", "https://api.groq.com/openai/v1"),
+    OLLAMA("Ollama (Local)", "http://localhost:11434/v1"),
+    HUGGINGFACE("Hugging Face", "https://api-inference.huggingface.co/v1"),
+    CUSTOM("Custom Gateway", "")
+}
+
+@Serializable
+data class ModelInfo(
+    val id: String,
+    val name: String,
+    val gateway: ModelGateway,
+    val isFree: Boolean = false,
+    val contextWindow: String = "128k",
+    val description: String = "",
+    val tags: List<String> = emptyList()
+)
+
+@Serializable
 data class AppSettings(
     val apiKey: String = "",
+    val openRouterApiKey: String = "",
+    val groqApiKey: String = "",
+    val customGatewayUrl: String = "http://localhost:11434/v1",
+    val customGatewayApiKey: String = "",
     val activeModel: String = "Gemini 2.5 Flash",
+    val activeModelId: String = "gemini-2.5-flash",
     val toolExecutionPolicy: String = "request-review", // "always-proceed", "request-review", "strict"
     val terminalSandbox: Boolean = true,
     val isOfflineDemoMode: Boolean = true,

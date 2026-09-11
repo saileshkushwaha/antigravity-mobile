@@ -22,6 +22,7 @@ class AntigravityAgentEngine(
 ) {
     private val demoEngine = AutonomousDemoEngine(repository)
     private val geminiService = GeminiApiService()
+    private val openAiGatewayService = OpenAiGatewayService()
 
     private val _agentState = MutableStateFlow(AgentRunState.IDLE)
     val agentState: StateFlow<AgentRunState> = _agentState.asStateFlow()
@@ -69,18 +70,76 @@ class AntigravityAgentEngine(
 
         // 3. Launch execution
         val settings = repository.settings.value
+        val modelInfo = ModelCatalog.findModel(settings.activeModelId) ?: ModelCatalog.findModel(settings.activeModel)
+        val gateway = modelInfo?.gateway ?: ModelGateway.GEMINI
+
         currentJob = scope.launch {
             _agentState.value = AgentRunState.THINKING
             try {
-                if (!settings.isOfflineDemoMode && settings.apiKey.isNotBlank()) {
-                    // Live Gemini API Execution
+                if (!settings.isOfflineDemoMode) {
                     val sysInstruction = "You are Antigravity, an AI-first pair programmer. Workspace: ${repository.activeWorkspace.value.name}. Follow user rules and provide concise, high-quality responses."
-                    val result = geminiService.generateContent(
-                        apiKey = settings.apiKey,
-                        modelName = settings.activeModel,
-                        prompt = trimmed,
-                        systemInstruction = sysInstruction
-                    )
+
+                    val result: Result<String> = when (gateway) {
+                        ModelGateway.GEMINI -> {
+                            if (settings.apiKey.isNotBlank()) {
+                                geminiService.generateContent(
+                                    apiKey = settings.apiKey,
+                                    modelName = modelInfo?.id ?: settings.activeModel,
+                                    prompt = trimmed,
+                                    systemInstruction = sysInstruction
+                                )
+                            } else {
+                                Result.failure(Exception("Gemini API key is required. Please add your key in Settings or enable Autonomous Demo Mode."))
+                            }
+                        }
+                        ModelGateway.OPENROUTER -> {
+                            val key = settings.openRouterApiKey.ifBlank { settings.apiKey }
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = ModelGateway.OPENROUTER.defaultBaseUrl,
+                                apiKey = key,
+                                modelId = modelInfo?.id ?: "meta-llama/llama-3.3-70b-instruct:free",
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction
+                            )
+                        }
+                        ModelGateway.GROQ -> {
+                            val key = settings.groqApiKey.ifBlank { settings.apiKey }
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = ModelGateway.GROQ.defaultBaseUrl,
+                                apiKey = key,
+                                modelId = modelInfo?.id ?: "llama-3.3-70b-versatile",
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction
+                            )
+                        }
+                        ModelGateway.OLLAMA -> {
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = settings.customGatewayUrl.ifBlank { ModelGateway.OLLAMA.defaultBaseUrl },
+                                apiKey = settings.customGatewayApiKey,
+                                modelId = modelInfo?.id ?: "llama3.3:latest",
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction
+                            )
+                        }
+                        ModelGateway.HUGGINGFACE -> {
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
+                                apiKey = settings.apiKey,
+                                modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction
+                            )
+                        }
+                        ModelGateway.CUSTOM -> {
+                            openAiGatewayService.generateChatCompletion(
+                                baseUrl = settings.customGatewayUrl,
+                                apiKey = settings.customGatewayApiKey,
+                                modelId = settings.activeModelId,
+                                prompt = trimmed,
+                                systemInstruction = sysInstruction
+                            )
+                        }
+                    }
 
                     result.onSuccess { text ->
                         repository.updateMessage(agentMessageId) {
@@ -88,7 +147,7 @@ class AntigravityAgentEngine(
                                 text = text,
                                 isStreaming = false,
                                 thinking = ThinkingBlock(
-                                    content = "Direct response received via Gemini 2.5 Interactions API.",
+                                    content = "Direct response received from ${modelInfo?.name ?: settings.activeModel} (${gateway.displayName}).",
                                     durationSeconds = 1,
                                     isExpanded = false
                                 )
@@ -97,7 +156,7 @@ class AntigravityAgentEngine(
                     }.onFailure { err ->
                         repository.updateMessage(agentMessageId) {
                             it.copy(
-                                text = "⚠️ Gemini API Error:\n${err.localizedMessage}\n\n*Falling back to Autonomous Demo Mode.*",
+                                text = "⚠️ Gateway Connection Notice (${gateway.displayName}):\n${err.localizedMessage}\n\n*Running via Autonomous Demo Engine.*",
                                 isStreaming = false
                             )
                         }

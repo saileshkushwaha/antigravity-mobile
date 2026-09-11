@@ -123,4 +123,31 @@ class AntigravityAppTest {
         val updatedMsg = repository.getActiveConversation()?.messages?.find { it.id == msgId }
         assertEquals(true, updatedMsg?.planArtifact?.isApproved)
     }
+
+    @Test
+    fun testModelCatalogAndFreeModels() {
+        val all = ModelCatalog.allModels
+        assertTrue("Model catalog should contain models", all.isNotEmpty())
+
+        val freeModels = all.filter { it.isFree }
+        assertTrue("Expected multiple free models", freeModels.size >= 10)
+
+        // Check OpenRouter free model
+        val llamaFree = ModelCatalog.findModel("meta-llama/llama-3.3-70b-instruct:free")
+        assertNotNull(llamaFree)
+        assertTrue(llamaFree!!.isFree)
+        assertEquals(ModelGateway.OPENROUTER, llamaFree.gateway)
+
+        // Check Groq free model
+        val groqModel = ModelCatalog.findModel("llama-3.3-70b-versatile")
+        assertNotNull(groqModel)
+        assertEquals(ModelGateway.GROQ, groqModel!!.gateway)
+        assertTrue(groqModel.isFree)
+
+        // Check Ollama local model
+        val ollamaModel = ModelCatalog.findModel("llama3.3:latest")
+        assertNotNull(ollamaModel)
+        assertEquals(ModelGateway.OLLAMA, ollamaModel!!.gateway)
+        assertTrue(ollamaModel.isFree)
+    }
 }
