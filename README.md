@@ -147,6 +147,32 @@ Antigravity Mobile is engineered with enterprise security, observability, and pe
 
 ---
 
+### 6. SDLC & DevOps Center 🚀
+
+![Antigravity SDLC Center](docs/images/antigravity_sdlc_center.jpg)
+
+Antigravity Mobile provides a mobile-native cockpit spanning the entire **Software Development Life Cycle (SDLC)**:
+
+- **🐙 GitHub Center**:
+  - **Pull Requests**: Inspect active PRs with diff stats (`+938, -206`), branch routing, CI status badges, and inline **Approve** & **Merge PR** actions.
+  - **Issue Tracker**: Filter and track bugs, enhancements, and tasks with GitHub label chips and assignees.
+  - **CI / CD Workflow Runs**: Inspect GitHub Actions build progress, durations, and commit hashes, plus trigger on-demand workflows with one-tap **Run Workflow** dispatch.
+- **🚀 Multi-Environment Deployments**:
+  - Environment cards for **Production**, **Staging**, and **Development**.
+  - Displays live URL endpoints, deployment timestamps, deployed version tags, and real-time health checks (`HEALTHY`, `DEGRADED`).
+  - **Trigger Deploy**: Deploy target tags or release branches directly from mobile.
+  - **1-Click Rollback**: Instantly revert unhealthy environments to previous known-stable releases.
+- **🔌 Integration Tools Hub**:
+  - Pre-configured connectors for **Slack Notifications**, **Sentry Error Tracking**, **Jira Software**, and **SonarQube & SAIF Security**.
+  - Real-time connection switches and **Test Ping** latency diagnostics.
+- **⚙️ Customizable SDLC Configurations (`.antigravity.yaml`)**:
+  - **Branch Protection Rules**: Enforce PR reviews, passing CI gates, and restrict direct pushes to protected branches.
+  - **Pre-Flight Gates**: Enforce automated linter, unit test pass requirements, and SAIF security vulnerability scanning.
+  - **Release Management**: Automatic changelog generation using active AI models with custom SemVer strategies.
+  - **Raw YAML View**: Real-time syntax-highlighted export of `.antigravity.yaml`.
+
+---
+
 ## 🛠 Tech Stack
 
 | Layer | Technologies |
@@ -158,7 +184,7 @@ Antigravity Mobile is engineered with enterprise security, observability, and pe
 | **Serialization** | Kotlinx Serialization JSON 1.7.3 |
 | **Asynchrony** | Kotlin Coroutines & StateFlow |
 | **Architecture** | Unidirectional Data Flow (UDF) / MVVM with AntigravityAgentEngine |
-| **Testing** | JUnit 4 (10 unit test suites covering security, gateways, state, and terminal) |
+| **Testing** | JUnit 4 (15 comprehensive unit tests covering SDLC, Guardrails, Gateways, and State) |
 | **CI / CD** | GitHub Actions (JDK 17, Gradle Cache, Automated APK packaging) |
 
 ---
@@ -177,7 +203,7 @@ Antigravity Mobile is engineered with enterprise security, observability, and pe
 git clone https://github.com/saileshkushwaha/antigravity-mobile.git
 cd antigravity-mobile
 
-# Run the complete test suite (10 test suites)
+# Run the complete test suite (15 unit tests)
 ./gradlew test
 
 # Assemble Debug APK
