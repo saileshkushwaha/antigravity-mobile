@@ -1,5 +1,6 @@
 package com.example.antigravity.ui.sidebar
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.antigravity.R
 import com.example.antigravity.model.Conversation
 import com.example.antigravity.model.ProjectWorkspace
 import com.example.antigravity.theme.AntigravityColors
@@ -36,6 +39,8 @@ fun SidebarDrawerContent(
     onOpenScheduledTasks: () -> Unit,
     onOpenSkillsMcp: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
+    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -49,35 +54,54 @@ fun SidebarDrawerContent(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            // App Header
+            // App Header with Antigravity Logo
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAbout)
+                    .padding(bottom = 16.dp)
             ) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan)
+                    shape = RoundedCornerShape(10.dp),
+                    color = AntigravityColors.SurfaceElevated,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = AntigravityColors.ElectricCyan,
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_antigravity_logo),
+                        contentDescription = "Antigravity Logo",
                         modifier = Modifier
-                            .padding(6.dp)
-                            .size(24.dp)
+                            .padding(4.dp)
+                            .size(36.dp)
                     )
                 }
                 Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Antigravity",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AntigravityColors.TextPrimary
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "PRO",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
                     Text(
-                        text = "Antigravity",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AntigravityColors.TextPrimary
-                    )
-                    Text(
-                        text = "Autonomous AI Studio v2.0",
+                        text = "Enterprise Mobile Studio v2.4",
                         fontSize = 11.sp,
                         color = AntigravityColors.TextSecondary
                     )
@@ -261,14 +285,14 @@ fun SidebarDrawerContent(
             }
         }
 
-        // Bottom Navigation Items (Scheduled Tasks, Skills & MCP, Settings)
+        // Bottom Navigation Items (Scheduled Tasks, Skills, Diagnostics, Settings)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Divider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 8.dp))
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 6.dp))
 
             // Scheduled Tasks
             SidebarActionItem(
@@ -284,10 +308,17 @@ fun SidebarDrawerContent(
                 onClick = onOpenSkillsMcp
             )
 
+            // Enterprise Diagnostics & System Health
+            SidebarActionItem(
+                icon = Icons.Default.VerifiedUser,
+                title = "Enterprise Diagnostics",
+                onClick = onOpenDiagnostics
+            )
+
             // Settings & Permissions
             SidebarActionItem(
                 icon = Icons.Default.Settings,
-                title = "Settings & Permissions",
+                title = "Settings & Gateways",
                 onClick = onOpenSettings
             )
         }
@@ -305,7 +336,7 @@ fun SidebarActionItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {

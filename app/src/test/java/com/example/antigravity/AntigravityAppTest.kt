@@ -150,4 +150,46 @@ class AntigravityAppTest {
         assertEquals(ModelGateway.OLLAMA, ollamaModel!!.gateway)
         assertTrue(ollamaModel.isFree)
     }
+
+    @Test
+    fun testEnterpriseSecurityGuardrails() {
+        // Test destructive command blocked
+        val blockedResult = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateCommand("rm -rf /")
+        assertTrue("Prohibited command should fail validation", blockedResult.isFailure)
+
+        // Test safe command passed
+        val safeResult = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateCommand("./gradlew test")
+        assertTrue("Safe command should pass validation", safeResult.isSuccess)
+
+        // Test API key masking
+        val masked = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.maskApiKey("enterprise_test_token_abcdef1234567890_xyz")
+        assertTrue("Masked key should hide characters", masked.contains("••••••••"))
+        assertTrue("Masked key should preserve prefix", masked.startsWith("ente"))
+        assertTrue("Masked key should preserve suffix", masked.endsWith("_xyz"))
+
+        // Test workspace path confinement
+        val isSafe = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath("c:/magical-bose", "app/build.gradle")
+        assertTrue(isSafe)
+
+        val isEscape = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath("c:/magical-bose", "../../windows/system32")
+        assertFalse(isEscape)
+    }
+
+    @Test
+    fun testEnterpriseAuditLogger() {
+        val initialCount = com.example.antigravity.enterprise.EnterpriseAuditLogger.events.value.size
+        com.example.antigravity.enterprise.EnterpriseAuditLogger.log(
+            category = com.example.antigravity.enterprise.AuditCategory.TOOL_EXECUTION,
+            action = "UNIT_TEST_TRIGGER",
+            details = "Testing enterprise audit event propagation",
+            severity = com.example.antigravity.enterprise.AuditSeverity.INFO
+        )
+
+        val updated = com.example.antigravity.enterprise.EnterpriseAuditLogger.events.value
+        assertEquals(initialCount + 1, updated.size)
+        assertEquals("UNIT_TEST_TRIGGER", updated.first().action)
+
+        val json = com.example.antigravity.enterprise.EnterpriseAuditLogger.exportAuditJson()
+        assertTrue("Audit export should be valid JSON array", json.contains("UNIT_TEST_TRIGGER"))
+    }
 }

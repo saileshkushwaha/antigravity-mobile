@@ -13,10 +13,7 @@ import com.example.antigravity.theme.AntigravityColors
 import com.example.antigravity.ui.auxiliary.AuxiliaryPane
 import com.example.antigravity.ui.chat.ChatCanvas
 import com.example.antigravity.ui.chat.ChatInputBar
-import com.example.antigravity.ui.dialogs.ModelSelectionDialog
-import com.example.antigravity.ui.dialogs.ScheduledTasksDialog
-import com.example.antigravity.ui.dialogs.SettingsDialog
-import com.example.antigravity.ui.dialogs.SkillsMcpDialog
+import com.example.antigravity.ui.dialogs.*
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
 
@@ -54,6 +51,8 @@ fun AntigravityMainScreen(
     var showScheduledTasksDialog by remember { mutableStateOf(false) }
     var showSkillsMcpDialog by remember { mutableStateOf(false) }
     var showModelSelectionDialog by remember { mutableStateOf(false) }
+    var showDiagnosticsDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -98,6 +97,14 @@ fun AntigravityMainScreen(
                     },
                     onOpenSettings = {
                         showSettingsDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenDiagnostics = {
+                        showDiagnosticsDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenAbout = {
+                        showAboutDialog = true
                         coroutineScope.launch { drawerState.close() }
                     }
                 )
@@ -212,6 +219,20 @@ fun AntigravityMainScreen(
             skills = skills,
             mcpServers = mcpServers,
             onDismiss = { showSkillsMcpDialog = false }
+        )
+    }
+
+    // Enterprise Diagnostics Dialog
+    if (showDiagnosticsDialog) {
+        EnterpriseDiagnosticsDialog(
+            onDismiss = { showDiagnosticsDialog = false }
+        )
+    }
+
+    // About Antigravity Studio Dialog
+    if (showAboutDialog) {
+        AboutAntigravityDialog(
+            onDismiss = { showAboutDialog = false }
         )
     }
 }
