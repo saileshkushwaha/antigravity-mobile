@@ -298,4 +298,143 @@ class AntigravityAppTest {
                 targetModel.id.equals(repository.settings.value.activeModelId, ignoreCase = true)
         assertTrue("Dropdown item for active model must be marked as selected", isBigPickleSelected)
     }
+
+    @Test
+    fun testWorkspaceGitHubRepoBindingAndConversationSync() {
+        // 1. Create a workspace explicitly associated with a GitHub repository
+        val created = repository.addWorkspace(
+            name = "analytics-core",
+            path = "",
+            branch = "dev/analytics",
+            githubOwner = "enterprise-team",
+            githubRepo = "analytics-core",
+            githubUrl = "https://github.com/enterprise-team/analytics-core"
+        )
+        assertEquals("enterprise-team", created.githubOwner)
+        assertEquals("analytics-core", created.githubRepo)
+        assertEquals("https://github.com/enterprise-team/analytics-core", created.githubUrl)
+        assertEquals("dev/analytics", created.branch)
+
+        // Verify active workspace switched and synced to Settings and SdlcManager
+        assertEquals(created.id, repository.activeWorkspace.value.id)
+        assertEquals("enterprise-team", repository.settings.value.githubOwner)
+        assertEquals("analytics-core", repository.settings.value.githubRepo)
+        assertEquals("dev/analytics", repository.settings.value.targetBranch)
+        assertEquals("enterprise-team", com.example.antigravity.sdlc.SdlcManager.sdlcConfig.value.repositoryOwner)
+
+        // 2. Create another conversation bound to a different repository
+        val convAId = repository.activeConversationId.value
+        val convBId = repository.createNewConversation(
+            title = "Cloud Infrastructure Task",
+            githubOwner = "google",
+            githubRepo = "antigravity-cloud",
+            branch = "staging"
+        )
+
+        val convB = repository.conversations.value.find { it.id == convBId }
+        assertNotNull(convB)
+        assertEquals("google", convB?.githubOwner)
+        assertEquals("antigravity-cloud", convB?.githubRepo)
+        assertEquals("staging", convB?.githubBranch)
+
+        // Settings should have shifted to repo B
+        assertEquals("google", repository.settings.value.githubOwner)
+        assertEquals("antigravity-cloud", repository.settings.value.githubRepo)
+        assertEquals("staging", repository.settings.value.targetBranch)
+
+        // 3. Switch back to Conversation A -> Settings should automatically shift back to repo A!
+        repository.switchConversation(convAId)
+        assertEquals("enterprise-team", repository.settings.value.githubOwner)
+        assertEquals("analytics-core", repository.settings.value.githubRepo)
+        assertEquals("dev/analytics", repository.settings.value.targetBranch)
+
+        // 4. Test bindWorkspaceToGitRepo
+        repository.bindWorkspaceToGitRepo(
+            workspaceId = created.id,
+            githubOwner = "enterprise-team",
+            githubRepo = "analytics-engine-v2",
+            branch = "v2-migration"
+        )
+        val updatedWs = repository.workspaces.value.find { it.id == created.id }
+        assertEquals("analytics-engine-v2", updatedWs?.githubRepo)
+        assertEquals("v2-migration", updatedWs?.branch)
+        assertEquals("analytics-engine-v2", repository.settings.value.githubRepo)
+
+        // 5. Test system prompt injection
+        val prompt = engine.buildSynthesizedSystemPrompt()
+        assertTrue("Prompt must include connected repository", prompt.contains("Connected GitHub Repository") || prompt.contains("Active Repository & Workspace Context"))
+        assertTrue("Prompt must reference active repository", prompt.contains("enterprise-team/analytics-engine-v2"))
+        assertTrue("Prompt must include codebase context tag mapping", prompt.contains("@codebase is mapped to enterprise-team/analytics-engine-v2"))
+    }
+
+    @Test
+    fun testSwarmDagTopologyAndAgents() {
+        val connectorsManager = com.example.antigravity.studio.connectors.MarketConnectorsManager()
+        val agents = connectorsManager.getInitialSwarmAgents()
+
+        assertEquals("Expected 5 agents in branching DAG", 5, agents.size)
+        assertTrue("Models must use valid Gemini 2.0 models, not legacy 2.5", agents.all { it.model == "gemini-2.0-flash" })
+
+        val archAgent = agents.find { it.id == "arch-01" }
+        assertNotNull("Must include Architect-Agent as root", archAgent)
+        assertEquals("Architect-Agent", archAgent?.name)
+
+        val codeAgent = agents.find { it.id == "code-02" }
+        assertNotNull("Must include Code-Generator for branch A", codeAgent)
+
+        val testAgent = agents.find { it.id == "test-03" }
+        assertNotNull("Must include Test-Architect for parallel branch B", testAgent)
+        assertEquals("Test-Architect", testAgent?.name)
+
+        val revAgent = agents.find { it.id == "rev-04" }
+        assertNotNull("Must include Reviewer-Bot as convergence node", revAgent)
+
+        val opsAgent = agents.find { it.id == "ops-05" }
+        assertNotNull("Must include DevOps-Runner as sink node", opsAgent)
+    }
+
+    @Test
+    fun testDynamicWorkspaceDiscoveryNoHardcoding() {
+        val discovered = com.example.antigravity.data.AppRepository.createDefaultWorkspaces()
+        assertTrue("Discovered workspaces must not be empty", discovered.isNotEmpty())
+
+        val primary = discovered.first()
+        val baseDir = java.io.File(com.example.antigravity.data.AppRepository.resolveBaseWorkspaceDir())
+        assertEquals("Primary workspace name must match filesystem directory name", baseDir.name, primary.name)
+        assertEquals("Primary workspace path must match canonical base directory path", baseDir.canonicalPath, primary.path)
+
+        // Verify git info was dynamically parsed from the actual repo
+        val gitMeta = com.example.antigravity.data.AppRepository.parseGitMetadata(baseDir)
+        assertTrue("Primary workspace branch must be non-blank", primary.branch.isNotBlank())
+        assertEquals("Primary workspace repo must match real git remote origin", gitMeta.repo, primary.githubRepo)
+        assertEquals("Primary workspace owner must match real git remote origin", gitMeta.owner, primary.githubOwner)
+
+        // Verify hardcoded dummy workspaces are completely gone
+        assertFalse("Legacy hardcoded mobile-client must not exist", discovered.any { it.name == "mobile-client" && it.githubRepo == "antigravity-mobile" && it.branch == "feature/agent-engine" })
+        assertFalse("Legacy hardcoded cloud-pipeline must not exist", discovered.any { it.name == "cloud-pipeline" && it.githubRepo == "antigravity-cloud" })
+
+        // Verify rescanWorkspaces functionality
+        val rescanned = repository.rescanWorkspaces()
+        assertTrue("Rescanned workspaces must contain primary workspace", rescanned.any { it.name == baseDir.name })
+    }
+
+    @Test
+    fun testAppConfigManagerCascadingResolution() {
+        val baseDir = com.example.antigravity.data.AppRepository.resolveBaseWorkspaceDir()
+
+        // 1. In-memory programmatic config
+        com.example.antigravity.config.AppConfigManager.saveConfig("system_region", "us-central1")
+        assertEquals("us-central1", com.example.antigravity.config.AppConfigManager.getConfig("system_region"))
+
+        // 2. Cascading settings resolution
+        val defaultSettings = AppSettings(
+            apiKey = "",
+            activeModel = "Gemini 2.0 Flash",
+            activeModelId = "gemini-2.0-flash"
+        )
+        val resolved = com.example.antigravity.config.AppConfigManager.resolveEffectiveSettings(defaultSettings, java.io.File(baseDir))
+        assertNotNull(resolved)
+        assertTrue("Model name should remain valid", resolved.activeModel.isNotBlank())
+        assertTrue("Model ID should remain valid", resolved.activeModelId.isNotBlank())
+    }
 }

@@ -38,6 +38,7 @@ fun ChatInputBar(
     mentionItems: List<MentionItem>,
     activePersonaName: String? = null,
     workspaceName: String? = null,
+    githubRepo: String? = null,
     onOpenPersonaSelection: () -> Unit = {},
     onOpenPromptLibrary: () -> Unit = {},
     onOpenWorkspaceManager: () -> Unit = {},
@@ -253,6 +254,35 @@ fun ChatInputBar(
                             contentDescription = "Switch persona",
                             tint = AntigravityColors.ElectricCyan,
                             modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+
+            // Active Workspace / GitHub Repo Chip
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = AntigravityColors.CardBackground,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.NeonViolet.copy(alpha = 0.6f)),
+                    modifier = Modifier.clickable { onOpenWorkspaceManager() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            if (!githubRepo.isNullOrBlank()) Icons.Default.Hub else Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = AntigravityColors.NeonViolet,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = if (!githubRepo.isNullOrBlank()) "🐙 $githubRepo" else "📁 ${workspaceName ?: "Project"}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AntigravityColors.NeonViolet
                         )
                     }
                 }

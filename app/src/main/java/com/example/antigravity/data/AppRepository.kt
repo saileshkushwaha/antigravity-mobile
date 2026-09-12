@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 class AppRepository {
@@ -35,9 +39,26 @@ class AppRepository {
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     private var sharedPrefs: android.content.SharedPreferences? = null
+    private var _sqlEngine: com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = null
+    fun getSqlEngine(): com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = _sqlEngine
     
     fun init(context: android.content.Context) {
         sharedPrefs = context.getSharedPreferences("antigravity_prefs", android.content.Context.MODE_PRIVATE)
+        val baseDir = resolveBaseWorkspaceDir()
+        
+        val baseDirFile = java.io.File(baseDir)
+        
+        // 1. Initialize SQLite Analytics Engine & link to Enterprise Audit Logger
+        try {
+            val engine = com.example.antigravity.studio.analytics.AnalyticsSqlEngine(context, baseDirFile)
+            _sqlEngine = engine
+            com.example.antigravity.enterprise.EnterpriseAuditLogger.sqlEngineRef = engine
+            com.example.antigravity.config.AppConfigManager.init(context, baseDirFile, engine)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 2. Load and sanitize SharedPreferences settings
         val savedJson = sharedPrefs?.getString("app_settings", null)
         if (savedJson != null) {
             try {
@@ -54,17 +75,164 @@ class AppRepository {
                 e.printStackTrace()
             }
         }
+
+        // 3. Resolve cascading effective settings from AppConfigManager (In-Memory -> SQLite -> Prefs -> .env / local.properties -> System Env)
+        try {
+            val effective = com.example.antigravity.config.AppConfigManager.resolveEffectiveSettings(_settings.value, baseDirFile)
+            _settings.value = effective
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 4. Load workspaces: SQLite DB first, then fallback to SharedPreferences, then defaults
+        try {
+            val dbWorkspaces = _sqlEngine?.getWorkspaces() ?: emptyList()
+            if (dbWorkspaces.isNotEmpty()) {
+                _workspaces.value = dbWorkspaces
+                _activeWorkspace.value = dbWorkspaces.first()
+            } else {
+                val savedWorkspacesJson = sharedPrefs?.getString("saved_workspaces", null)
+                if (!savedWorkspacesJson.isNullOrBlank()) {
+                    val parsedWs = Json.decodeFromString(ListSerializer(ProjectWorkspace.serializer()), savedWorkspacesJson)
+                    if (parsedWs.isNotEmpty()) {
+                        _workspaces.value = parsedWs
+                        _activeWorkspace.value = parsedWs.first()
+                        parsedWs.forEach { _sqlEngine?.saveWorkspace(it) }
+                    }
+                } else {
+                    _workspaces.value.forEach { _sqlEngine?.saveWorkspace(it) }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun saveWorkspacesToPrefs() {
+        try {
+            val json = Json.encodeToString(
+                ListSerializer(ProjectWorkspace.serializer()),
+                _workspaces.value
+            )
+            sharedPrefs?.edit()?.putString("saved_workspaces", json)?.apply()
+            _sqlEngine?.let { engine ->
+                _workspaces.value.forEach { engine.saveWorkspace(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     companion object {
+        data class GitRepoMetadata(
+            val branch: String = "main",
+            val owner: String = "",
+            val repo: String = "",
+            val url: String = ""
+        )
+
+        fun parseGitMetadata(dir: java.io.File): GitRepoMetadata {
+            val gitDir = java.io.File(dir, ".git")
+            if (!gitDir.exists()) return GitRepoMetadata()
+
+            var branch = "main"
+            try {
+                val headFile = if (gitDir.isDirectory) java.io.File(gitDir, "HEAD") else gitDir
+                if (headFile.exists() && headFile.isFile) {
+                    val headText = headFile.readText().trim()
+                    if (headText.startsWith("ref: refs/heads/")) {
+                        branch = headText.removePrefix("ref: refs/heads/").trim()
+                    }
+                }
+            } catch (_: Exception) {}
+
+            var owner = ""
+            var repo = ""
+            var url = ""
+            try {
+                val configFile = if (gitDir.isDirectory) java.io.File(gitDir, "config") else null
+                if (configFile != null && configFile.exists() && configFile.isFile) {
+                    val lines = configFile.readLines()
+                    var inOrigin = false
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("[remote \"origin\"]", ignoreCase = true)) {
+                            inOrigin = true
+                        } else if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                            inOrigin = false
+                        } else if (inOrigin && trimmed.startsWith("url =", ignoreCase = true)) {
+                            val rawUrl = trimmed.substringAfter("=").trim()
+                            val gitRegex = """(?:https?://|git@|ssh://git@)(?:[^@]+@)?([^/:]+)[:/]([^/]+)/([^/.]+?)(?:\.git)?$""".toRegex()
+                            val match = gitRegex.find(rawUrl)
+                            if (match != null) {
+                                val host = match.groupValues[1]
+                                owner = match.groupValues[2]
+                                repo = match.groupValues[3]
+                                url = if (host.contains("github.com", ignoreCase = true)) {
+                                    "https://github.com/$owner/$repo"
+                                } else {
+                                    "https://$host/$owner/$repo"
+                                }
+                            } else {
+                                url = rawUrl.replace("""//[^@]+@""".toRegex(), "//")
+                            }
+                            break
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            return GitRepoMetadata(
+                branch = branch.ifBlank { "main" },
+                owner = owner,
+                repo = repo,
+                url = url
+            )
+        }
+
+        fun discoverRuleFiles(dir: java.io.File): List<String> {
+            val detected = mutableListOf<String>()
+            try {
+                dir.listFiles()?.forEach { f ->
+                    if (f.isFile && f.name.endsWith(".md", ignoreCase = true)) {
+                        val lower = f.name.lowercase()
+                        if (lower.contains("rule") || lower.contains("guideline") || lower.contains("architect") ||
+                            lower.contains("readme") || lower.contains("contribut") || lower.contains("spec")) {
+                            detected.add(f.name)
+                        }
+                    }
+                }
+                listOf(".antigravity", ".gemini", ".github").forEach { sub ->
+                    val subDir = java.io.File(dir, sub)
+                    if (subDir.exists() && subDir.isDirectory) {
+                        subDir.listFiles()?.forEach { sf ->
+                            if (sf.isFile && sf.name.endsWith(".md", ignoreCase = true)) {
+                                detected.add("$sub/${sf.name}")
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+            return if (detected.isNotEmpty()) detected else listOf("user_rules.md", "guidelines.md")
+        }
+
         fun resolveBaseWorkspaceDir(): String {
             return try {
                 val userDir = System.getProperty("user.dir")
                 val userHome = System.getProperty("user.home")
-                when {
-                    !userDir.isNullOrBlank() -> java.io.File(userDir).canonicalPath
-                    !userHome.isNullOrBlank() -> java.io.File(userHome, "workspaces").canonicalPath
-                    else -> java.io.File(".").canonicalPath
+                val initialFile = when {
+                    !userDir.isNullOrBlank() -> java.io.File(userDir)
+                    !userHome.isNullOrBlank() -> java.io.File(userHome, "workspaces")
+                    else -> java.io.File(".")
+                }
+                val canonical = initialFile.canonicalFile
+                val parent = canonical.parentFile
+                if (!java.io.File(canonical, ".git").exists() && parent != null && java.io.File(parent, ".git").exists()) {
+                    parent.canonicalPath
+                } else if (canonical.name.equals("app", ignoreCase = true) && parent != null) {
+                    parent.canonicalPath
+                } else {
+                    canonical.canonicalPath
                 }
             } catch (_: Exception) {
                 java.io.File(".").absolutePath
@@ -81,29 +249,76 @@ class AppRepository {
         }
 
         fun createDefaultWorkspaces(): List<ProjectWorkspace> {
-            return listOf(
-                ProjectWorkspace(
-                    id = "ws-1",
-                    name = "magical-bose",
-                    path = resolveBaseWorkspaceDir(),
-                    branch = "main",
-                    customRules = listOf("user_rules.md", "guidelines.md")
-                ),
-                ProjectWorkspace(
-                    id = "ws-2",
-                    name = "mobile-client",
-                    path = resolveWorkspacePath("mobile-client"),
-                    branch = "feature/agent-engine",
-                    customRules = listOf("compose-best-practices.md")
-                ),
-                ProjectWorkspace(
-                    id = "ws-3",
-                    name = "cloud-pipeline",
-                    path = resolveWorkspacePath("cloud-pipeline"),
-                    branch = "develop",
-                    customRules = listOf("security-audit.md")
-                )
+            val workspaces = mutableListOf<ProjectWorkspace>()
+            val baseDir = java.io.File(resolveBaseWorkspaceDir())
+
+            // 1. Primary workspace: dynamically discovered from current base directory
+            val primaryGit = parseGitMetadata(baseDir)
+            val primaryRules = discoverRuleFiles(baseDir)
+            val primaryName = baseDir.name.ifBlank { primaryGit.repo.ifBlank { "workspace-primary" } }
+
+            val primaryWs = ProjectWorkspace(
+                id = "ws-1",
+                name = primaryName,
+                path = baseDir.canonicalPath.ifBlank { baseDir.absolutePath },
+                branch = primaryGit.branch,
+                githubOwner = primaryGit.owner,
+                githubRepo = primaryGit.repo,
+                githubUrl = primaryGit.url,
+                customRules = primaryRules
             )
+            workspaces.add(primaryWs)
+
+            // 2. Sibling workspaces: dynamically discovered from parent directory
+            try {
+                val parent = baseDir.parentFile
+                if (parent != null && parent.exists() && parent.isDirectory) {
+                    val siblings = parent.listFiles()?.filter { file ->
+                        file.isDirectory &&
+                        file.name != baseDir.name &&
+                        !file.name.startsWith(".") &&
+                        !file.name.equals("node_modules", ignoreCase = true) &&
+                        !file.name.equals("build", ignoreCase = true) &&
+                        !file.name.equals("target", ignoreCase = true) &&
+                        !file.name.equals(".gradle", ignoreCase = true)
+                    }?.sortedBy { it.name } ?: emptyList()
+
+                    var wsIndex = 2
+                    for (sibling in siblings) {
+                        val hasGit = java.io.File(sibling, ".git").exists()
+                        val hasProjectManifest = java.io.File(sibling, "build.gradle").exists() ||
+                                java.io.File(sibling, "build.gradle.kts").exists() ||
+                                java.io.File(sibling, "pom.xml").exists() ||
+                                java.io.File(sibling, "package.json").exists() ||
+                                java.io.File(sibling, "Cargo.toml").exists() ||
+                                java.io.File(sibling, "go.mod").exists() ||
+                                java.io.File(sibling, "pyproject.toml").exists() ||
+                                java.io.File(sibling, "requirements.txt").exists() ||
+                                java.io.File(sibling, "README.md").exists()
+
+                        if (hasGit || hasProjectManifest) {
+                            val gitMeta = parseGitMetadata(sibling)
+                            val rules = discoverRuleFiles(sibling)
+                            workspaces.add(
+                                ProjectWorkspace(
+                                    id = "ws-$wsIndex",
+                                    name = sibling.name,
+                                    path = sibling.canonicalPath.ifBlank { sibling.absolutePath },
+                                    branch = gitMeta.branch,
+                                    githubOwner = gitMeta.owner,
+                                    githubRepo = gitMeta.repo,
+                                    githubUrl = gitMeta.url,
+                                    customRules = rules
+                                )
+                            )
+                            wsIndex++
+                            if (wsIndex > 6) break
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            return workspaces
         }
     }
 
@@ -156,7 +371,7 @@ class AppRepository {
     private val _terminalLogs = MutableStateFlow<List<String>>(
         listOf(
             "Antigravity Studio Shell v2.4.0 (x86_64-windows)",
-            "Active Workspace: magical-bose (Branch: main)",
+            "Active Workspace: ${_workspaces.value.firstOrNull()?.name ?: "default"} (Branch: ${_workspaces.value.firstOrNull()?.branch ?: "main"})",
             "System initialized. Type 'help' or commands to execute.",
             "> "
         )
@@ -173,16 +388,23 @@ class AppRepository {
         _subagents.value = emptyList()
 
         val initialConvId = java.util.UUID.randomUUID().toString()
+        val ws = _activeWorkspace.value
         val initialConv = Conversation(
             id = initialConvId,
             title = "Main Agent Session",
             activeModel = _settings.value.activeModel,
-            workspaceName = _activeWorkspace.value.name,
+            workspaceName = ws.name,
+            workspaceId = ws.id,
+            githubOwner = ws.githubOwner,
+            githubRepo = ws.githubRepo,
+            githubBranch = ws.branch,
             messages = mutableListOf(
                 ChatMessage(
                     id = java.util.UUID.randomUUID().toString(),
                     sender = MessageSender.SYSTEM,
-                    text = "Antigravity Agent session initialized. Ready for instructions. Use '/' for slash commands or '@' to attach context.",
+                    text = "Antigravity Agent session initialized for '${ws.name}'" +
+                            (if (ws.githubOwner.isNotBlank() && ws.githubRepo.isNotBlank()) " (🐙 ${ws.githubOwner}/${ws.githubRepo} • ${ws.branch})" else "") +
+                            ". Ready for instructions. Use '/' for slash commands or '@' to attach context.",
                     timestamp = System.currentTimeMillis()
                 )
             )
@@ -198,33 +420,99 @@ class AppRepository {
     fun switchConversation(id: String) {
         _activeConversationId.value = id
         val conv = _conversations.value.find { it.id == id }
-        if (conv != null && conv.activeModel.isNotBlank()) {
-            val modelInfo = ModelCatalog.findModel(conv.activeModel, _models.value)
-            _settings.value = _settings.value.copy(
-                activeModel = conv.activeModel,
-                activeModelId = modelInfo?.id ?: _settings.value.activeModelId
-            )
+        if (conv != null) {
+            // 1. Sync Active Model
+            if (conv.activeModel.isNotBlank()) {
+                val modelInfo = ModelCatalog.findModel(conv.activeModel, _models.value)
+                _settings.value = _settings.value.copy(
+                    activeModel = conv.activeModel,
+                    activeModelId = modelInfo?.id ?: _settings.value.activeModelId
+                )
+            }
+
+            // 2. Sync Active Workspace & GitHub Repository
+            val targetWs = _workspaces.value.find { it.id == conv.workspaceId || it.name == conv.workspaceName }
+            if (targetWs != null) {
+                _activeWorkspace.value = targetWs
+            }
+
+            val owner = conv.githubOwner.ifBlank { targetWs?.githubOwner ?: "" }
+            val repo = conv.githubRepo.ifBlank { targetWs?.githubRepo ?: "" }
+            val branch = conv.githubBranch.ifBlank { targetWs?.branch ?: "main" }
+
+            if (owner.isNotBlank() && repo.isNotBlank()) {
+                _settings.value = _settings.value.copy(
+                    githubOwner = owner,
+                    githubRepo = repo,
+                    targetBranch = branch
+                )
+                com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
+                    it.copy(
+                        repositoryOwner = owner,
+                        projectName = repo,
+                        targetBranch = branch
+                    )
+                }
+            }
         }
     }
 
-    fun createNewConversation(title: String = "New Agent Session"): String {
+    fun createNewConversation(
+        title: String = "New Agent Session",
+        workspaceId: String? = null,
+        githubOwner: String? = null,
+        githubRepo: String? = null,
+        branch: String? = null
+    ): String {
         val newId = UUID.randomUUID().toString()
+        val targetWs = if (workspaceId != null) {
+            _workspaces.value.find { it.id == workspaceId } ?: _activeWorkspace.value
+        } else {
+            _activeWorkspace.value
+        }
+
+        val safeOwner = githubOwner ?: targetWs.githubOwner
+        val safeRepo = githubRepo ?: targetWs.githubRepo
+        val safeBranch = branch ?: targetWs.branch
+
         val newConv = Conversation(
             id = newId,
             title = title,
             activeModel = _settings.value.activeModel,
-            workspaceName = _activeWorkspace.value.name,
+            workspaceName = targetWs.name,
+            workspaceId = targetWs.id,
+            githubOwner = safeOwner,
+            githubRepo = safeRepo,
+            githubBranch = safeBranch,
             messages = mutableListOf(
                 ChatMessage(
                     id = UUID.randomUUID().toString(),
                     sender = MessageSender.SYSTEM,
-                    text = "Antigravity Agent session initialized. Ready for instructions. Use '/' for slash commands or '@' to attach context.",
+                    text = "Antigravity Agent session initialized for project '${targetWs.name}'" +
+                            (if (safeOwner.isNotBlank() && safeRepo.isNotBlank()) " (🐙 $safeOwner/$safeRepo • $safeBranch)" else "") +
+                            ". Ready for instructions. Use '/' for slash commands or '@' to attach context.",
                     timestamp = System.currentTimeMillis()
                 )
             )
         )
         _conversations.value = listOf(newConv) + _conversations.value
         _activeConversationId.value = newId
+        _activeWorkspace.value = targetWs
+
+        if (safeOwner.isNotBlank() && safeRepo.isNotBlank()) {
+            _settings.value = _settings.value.copy(
+                githubOwner = safeOwner,
+                githubRepo = safeRepo,
+                targetBranch = safeBranch
+            )
+            com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
+                it.copy(
+                    repositoryOwner = safeOwner,
+                    projectName = safeRepo,
+                    targetBranch = safeBranch
+                )
+            }
+        }
         return newId
     }
 
@@ -271,6 +559,21 @@ class AppRepository {
         try {
             val json = kotlinx.serialization.json.Json.encodeToString(AppSettings.serializer(), newSettings)
             sharedPrefs?.edit()?.putString("app_settings", json)?.apply()
+            
+            // Persist into enterprise AppConfigManager & SQLite app_configurations table
+            com.example.antigravity.config.AppConfigManager.saveConfig("api_key", newSettings.apiKey)
+            com.example.antigravity.config.AppConfigManager.saveConfig("active_model", newSettings.activeModel)
+            com.example.antigravity.config.AppConfigManager.saveConfig("active_model_id", newSettings.activeModelId)
+            com.example.antigravity.config.AppConfigManager.saveConfig("github_owner", newSettings.githubOwner)
+            com.example.antigravity.config.AppConfigManager.saveConfig("github_repo", newSettings.githubRepo)
+            com.example.antigravity.config.AppConfigManager.saveConfig("github_token", newSettings.githubToken)
+            com.example.antigravity.config.AppConfigManager.saveConfig("target_branch", newSettings.targetBranch)
+            com.example.antigravity.config.AppConfigManager.saveConfig("groq_api_key", newSettings.groqApiKey)
+            com.example.antigravity.config.AppConfigManager.saveConfig("openai_api_key", newSettings.openAiApiKey)
+            com.example.antigravity.config.AppConfigManager.saveConfig("openrouter_api_key", newSettings.openRouterApiKey)
+            com.example.antigravity.config.AppConfigManager.saveConfig("kilocode_api_key", newSettings.kiloCodeApiKey)
+            com.example.antigravity.config.AppConfigManager.saveConfig("opencode_api_key", newSettings.openCodeApiKey)
+            com.example.antigravity.config.AppConfigManager.saveConfig("huggingface_api_key", newSettings.huggingFaceApiKey)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -468,32 +771,104 @@ class AppRepository {
 
     fun switchWorkspace(workspace: ProjectWorkspace) {
         _activeWorkspace.value = workspace
+        val owner = workspace.githubOwner
+        val repo = workspace.githubRepo
+        val branch = workspace.branch
+        if (owner.isNotBlank() && repo.isNotBlank()) {
+            _settings.value = _settings.value.copy(
+                githubOwner = owner,
+                githubRepo = repo,
+                targetBranch = branch
+            )
+            com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
+                it.copy(
+                    repositoryOwner = owner,
+                    projectName = repo,
+                    targetBranch = branch
+                )
+            }
+        }
+        // Also sync active conversation workspace and repo metadata
+        val currentConv = getActiveConversation()
+        if (currentConv != null) {
+            val updatedConv = currentConv.copy(
+                workspaceId = workspace.id,
+                workspaceName = workspace.name,
+                githubOwner = workspace.githubOwner,
+                githubRepo = workspace.githubRepo,
+                githubBranch = workspace.branch
+            )
+            val current = _conversations.value.toMutableList()
+            val index = current.indexOfFirst { it.id == currentConv.id }
+            if (index != -1) {
+                current[index] = updatedConv
+                _conversations.value = current
+            }
+        }
     }
 
     fun addWorkspace(
         name: String,
         path: String = "",
         branch: String = "main",
-        customRules: List<String> = listOf("user_rules.md", "architecture.md")
+        customRules: List<String> = listOf("user_rules.md", "architecture.md"),
+        githubOwner: String = "",
+        githubRepo: String = "",
+        githubUrl: String = ""
     ): ProjectWorkspace {
         val safeName = name.trim().ifBlank { "workspace-${_workspaces.value.size + 1}" }
         val safePath = path.trim().ifBlank { resolveWorkspacePath(safeName.lowercase().replace("\\s+".toRegex(), "-")) }
+        val resolvedUrl = githubUrl.ifBlank {
+            if (githubOwner.isNotBlank() && githubRepo.isNotBlank()) "https://github.com/$githubOwner/$githubRepo" else ""
+        }
         val newWorkspace = ProjectWorkspace(
             id = "ws-${System.currentTimeMillis()}",
             name = safeName,
             path = safePath,
             branch = branch.trim().ifBlank { "main" },
-            customRules = customRules
+            customRules = customRules,
+            githubOwner = githubOwner.trim(),
+            githubRepo = githubRepo.trim(),
+            githubUrl = resolvedUrl.trim()
         )
         _workspaces.value = _workspaces.value + newWorkspace
-        _activeWorkspace.value = newWorkspace
+        saveWorkspacesToPrefs()
+        switchWorkspace(newWorkspace)
         return newWorkspace
+    }
+
+    fun bindWorkspaceToGitRepo(
+        workspaceId: String,
+        githubOwner: String,
+        githubRepo: String,
+        branch: String = "main",
+        githubUrl: String = ""
+    ) {
+        val resolvedUrl = githubUrl.ifBlank {
+            if (githubOwner.isNotBlank() && githubRepo.isNotBlank()) "https://github.com/$githubOwner/$githubRepo" else ""
+        }
+        _workspaces.value = _workspaces.value.map { ws ->
+            if (ws.id == workspaceId) {
+                ws.copy(
+                    githubOwner = githubOwner.trim(),
+                    githubRepo = githubRepo.trim(),
+                    branch = branch.trim().ifBlank { "main" },
+                    githubUrl = resolvedUrl.trim()
+                )
+            } else ws
+        }
+        saveWorkspacesToPrefs()
+        val targetWs = _workspaces.value.find { it.id == workspaceId }
+        if (targetWs != null && _activeWorkspace.value.id == workspaceId) {
+            switchWorkspace(targetWs)
+        }
     }
 
     fun updateWorkspace(workspace: ProjectWorkspace) {
         _workspaces.value = _workspaces.value.map {
             if (it.id == workspace.id) workspace else it
         }
+        saveWorkspacesToPrefs()
         if (_activeWorkspace.value.id == workspace.id) {
             _activeWorkspace.value = workspace
         }
@@ -503,8 +878,68 @@ class AppRepository {
         if (_workspaces.value.size <= 1) return // Keep at least one active workspace
         val remaining = _workspaces.value.filter { it.id != workspaceId }
         _workspaces.value = remaining
+        saveWorkspacesToPrefs()
+        _sqlEngine?.deleteWorkspace(workspaceId)
         if (_activeWorkspace.value.id == workspaceId) {
             _activeWorkspace.value = remaining.first()
+        }
+    }
+
+    fun rescanWorkspaces(): List<ProjectWorkspace> {
+        val freshlyDiscovered = createDefaultWorkspaces()
+        val current = _workspaces.value
+        val merged = current.toMutableList()
+        for (discovered in freshlyDiscovered) {
+            val existingIndex = merged.indexOfFirst { it.path == discovered.path || it.name.equals(discovered.name, ignoreCase = true) }
+            if (existingIndex != -1) {
+                val existing = merged[existingIndex]
+                merged[existingIndex] = existing.copy(
+                    branch = if (existing.branch.isBlank() || existing.branch == "main") discovered.branch else existing.branch,
+                    githubOwner = existing.githubOwner.ifBlank { discovered.githubOwner },
+                    githubRepo = existing.githubRepo.ifBlank { discovered.githubRepo },
+                    githubUrl = existing.githubUrl.ifBlank { discovered.githubUrl },
+                    customRules = if (existing.customRules.isEmpty()) discovered.customRules else existing.customRules
+                )
+            } else {
+                merged.add(discovered)
+            }
+        }
+        _workspaces.value = merged
+        saveWorkspacesToPrefs()
+        return merged
+    }
+
+    fun syncWithDiscoveredRepositories(repos: List<com.example.antigravity.model.GitHubRepositoryInfo>) {
+        if (repos.isEmpty()) return
+        val current = _workspaces.value.toMutableList()
+        var modified = false
+
+        current.indices.forEach { i ->
+            val ws = current[i]
+            val match = repos.find {
+                it.name.equals(ws.name, ignoreCase = true) ||
+                (ws.githubRepo.isNotBlank() && it.name.equals(ws.githubRepo, ignoreCase = true))
+            }
+            if (match != null && (ws.githubOwner.isBlank() || ws.githubRepo.isBlank() || ws.githubUrl.isBlank())) {
+                current[i] = ws.copy(
+                    githubOwner = match.owner,
+                    githubRepo = match.name,
+                    githubUrl = "https://github.com/${match.fullName}",
+                    branch = if (ws.branch == "main" && match.defaultBranch.isNotBlank()) match.defaultBranch else ws.branch
+                )
+                modified = true
+            }
+        }
+
+        if (modified) {
+            _workspaces.value = current
+            val active = _activeWorkspace.value
+            val updatedActive = current.find { it.id == active.id }
+            if (updatedActive != null) {
+                _activeWorkspace.value = updatedActive
+                switchWorkspace(updatedActive)
+            }
+            saveWorkspacesToPrefs()
         }
     }
 

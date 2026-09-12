@@ -50,6 +50,14 @@ fun DataAnalyticsScreen(
 
     val presetQueries = listOf(
         Pair(
+            "App Configurations",
+            "SELECT config_key, config_value, source, updated_at FROM app_configurations ORDER BY config_key ASC;"
+        ),
+        Pair(
+            "Project Workspaces",
+            "SELECT id, name, branch, github_owner, github_repo, github_url FROM project_workspaces ORDER BY name ASC;"
+        ),
+        Pair(
             "Model Token Metrics",
             "SELECT model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents FROM llm_metrics ORDER BY cost_cents DESC;"
         ),

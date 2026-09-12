@@ -43,9 +43,36 @@ class AntigravityAgentEngine(
     fun buildSynthesizedSystemPrompt(): String {
         val persona = _activePersona.value
         val enabledSkills = repository.skills.value.filter { it.isEnabled }.map { it.name }
+        val activeConv = repository.getActiveConversation()
+        val activeWs = repository.activeWorkspace.value
+
+        val owner = activeConv?.githubOwner?.ifBlank { activeWs.githubOwner } ?: activeWs.githubOwner
+        val repo = activeConv?.githubRepo?.ifBlank { activeWs.githubRepo } ?: activeWs.githubRepo
+        val branch = activeConv?.githubBranch?.ifBlank { activeWs.branch } ?: activeWs.branch
+        val wsName = activeConv?.workspaceName?.ifBlank { activeWs.name } ?: activeWs.name
+
+        val gitContext = if (owner.isNotBlank() && repo.isNotBlank()) {
+            """
+            - Repository: $owner/$repo
+            - Target Branch: $branch
+            - Git Remote: https://github.com/$owner/$repo.git
+            - Workspace: $wsName (${activeWs.path})
+            - Context Tag: @codebase is mapped to $owner/$repo ($branch)
+            """.trimIndent()
+        } else {
+            """
+            - Workspace: $wsName
+            - Path: ${activeWs.path}
+            - Branch: $branch
+            """.trimIndent()
+        }
+
         return """
             You are Antigravity, an enterprise-grade autonomous developer agent executing inside Antigravity Mobile Studio.
             Current Persona: ${persona.name} - ${persona.roleTitle}
+            
+            Active Repository & Workspace Context:
+            $gitContext
             
             Persona Directives:
             ${persona.systemPromptDirective}
@@ -110,6 +137,7 @@ class AntigravityAgentEngine(
             ?: emptyList()
 
         currentJob = scope.launch {
+            val requestStartTime = System.currentTimeMillis()
             _agentState.value = AgentRunState.THINKING
             try {
                 if (!settings.isOfflineDemoMode) {
@@ -295,6 +323,27 @@ class AntigravityAgentEngine(
                                 )
                             )
                         }
+
+                        // Record runtime execution metrics to SQLite DB
+                        try {
+                            val latencyMs = System.currentTimeMillis() - requestStartTime
+                            val inTokens = (trimmed.length / 4).coerceAtLeast(1)
+                            val outTokens = (cleanText.length / 4).coerceAtLeast(1)
+                            val isFree = (modelInfo?.id ?: "").contains("free", ignoreCase = true)
+                            val isFlash = (modelInfo?.id ?: "").contains("flash", ignoreCase = true)
+                            val estCost = if (isFree) 0.0 else if (isFlash) {
+                                (inTokens * 0.000000075) + (outTokens * 0.0000003)
+                            } else {
+                                (inTokens * 0.00000125) + (outTokens * 0.000005)
+                            }
+                            repository.getSqlEngine()?.recordLlmMetric(
+                                modelName = modelInfo?.name ?: settings.activeModel,
+                                promptTokens = inTokens,
+                                completionTokens = outTokens,
+                                latencyMs = latencyMs,
+                                costCents = estCost * 100.0
+                            )
+                        } catch (_: Exception) {}
                     }.onFailure { err ->
                         repository.updateMessage(agentMessageId) {
                             it.copy(

@@ -1,8 +1,13 @@
 package com.example.antigravity.studio.analytics
 
+import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.example.antigravity.model.ChatMessage
+import com.example.antigravity.model.Conversation
+import com.example.antigravity.model.MessageSender
+import com.example.antigravity.model.ProjectWorkspace
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -20,7 +25,7 @@ data class SqlQueryResult(
 
 class AnalyticsSqlEngine(private val context: Context, private val activeWorkspaceDir: File) {
 
-    private val dbHelper = object : SQLiteOpenHelper(context, "antigravity_analytics.db", null, 1) {
+    private val dbHelper = object : SQLiteOpenHelper(context, "antigravity_analytics.db", null, 2) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """
@@ -61,29 +66,131 @@ class AnalyticsSqlEngine(private val context: Context, private val activeWorkspa
                 """.trimIndent()
             )
 
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS app_configurations (
+                    config_key TEXT PRIMARY KEY,
+                    config_value TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS project_workspaces (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    branch TEXT NOT NULL,
+                    github_owner TEXT,
+                    github_repo TEXT,
+                    github_url TEXT,
+                    custom_rules TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    workspace_id TEXT,
+                    workspace_name TEXT,
+                    github_owner TEXT,
+                    github_repo TEXT,
+                    github_branch TEXT,
+                    created_at INTEGER,
+                    updated_at INTEGER
+                );
+                """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    sender TEXT NOT NULL,
+                    text TEXT NOT NULL,
+                    timestamp INTEGER,
+                    is_streaming INTEGER DEFAULT 0
+                );
+                """.trimIndent()
+            )
+
             seedInitialData(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            db.execSQL("DROP TABLE IF EXISTS llm_metrics")
-            db.execSQL("DROP TABLE IF EXISTS workspace_files")
-            db.execSQL("DROP TABLE IF EXISTS agent_audit_log")
-            onCreate(db)
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS app_configurations (
+                    config_key TEXT PRIMARY KEY,
+                    config_value TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS project_workspaces (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    branch TEXT NOT NULL,
+                    github_owner TEXT,
+                    github_repo TEXT,
+                    github_url TEXT,
+                    custom_rules TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    workspace_id TEXT,
+                    workspace_name TEXT,
+                    github_owner TEXT,
+                    github_repo TEXT,
+                    github_branch TEXT,
+                    created_at INTEGER,
+                    updated_at INTEGER
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    sender TEXT NOT NULL,
+                    text TEXT NOT NULL,
+                    timestamp INTEGER,
+                    is_streaming INTEGER DEFAULT 0
+                );
+                """.trimIndent()
+            )
         }
     }
 
     private fun seedInitialData(db: SQLiteDatabase) {
         val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        db.execSQL("INSERT INTO llm_metrics (model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents, timestamp) VALUES ('gemini-2.5-flash', 1240, 480, 290, 0.012, '$now')")
-        db.execSQL("INSERT INTO llm_metrics (model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents, timestamp) VALUES ('gemini-2.5-pro', 3420, 1850, 840, 0.085, '$now')")
-        db.execSQL("INSERT INTO llm_metrics (model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents, timestamp) VALUES ('claude-3-7-sonnet', 2180, 920, 620, 0.045, '$now')")
-        db.execSQL("INSERT INTO llm_metrics (model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents, timestamp) VALUES ('gpt-4o', 1890, 710, 480, 0.038, '$now')")
-        db.execSQL("INSERT INTO llm_metrics (model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents, timestamp) VALUES ('deepseek-v3', 4100, 2200, 710, 0.021, '$now')")
+        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('DEFAULT_MODEL', 'Gemini 2.0 Flash', 'MODEL', '$now')")
+        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('DEFAULT_MODEL_ID', 'gemini-2.0-flash', 'MODEL', '$now')")
+        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('TOOL_EXECUTION_POLICY', 'request-review', 'POLICY', '$now')")
+        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('TERMINAL_SANDBOX', 'true', 'SECURITY', '$now')")
 
-        db.execSQL("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Architect-Agent', 'Synthesized system DAG architecture', 'SUCCESS', 380, '$now')")
-        db.execSQL("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Code-Generator', 'Generated Jetpack Compose studio screen', 'SUCCESS', 720, '$now')")
-        db.execSQL("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Reviewer-Bot', 'Accessibility and linting compliance audit', 'SUCCESS', 190, '$now')")
-        db.execSQL("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('DevOps-Runner', 'Docker containerized build verification', 'SUCCESS', 1140, '$now')")
+        db.execSQL("INSERT OR IGNORE INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('System', 'Antigravity database initialized with zero-hardcoding architecture', 'SUCCESS', 10, '$now')")
     }
 
     fun syncWorkspaceFilesIntoDatabase() {
@@ -180,5 +287,153 @@ class AnalyticsSqlEngine(private val context: Context, private val activeWorkspa
             // Return empty
         }
         return tables
+    }
+
+    // --- Configuration Persistence in Database ---
+    fun saveConfiguration(key: String, value: String, category: String = "GENERAL") {
+        try {
+            val db = dbHelper.writableDatabase
+            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+            val values = ContentValues().apply {
+                put("config_key", key)
+                put("config_value", value)
+                put("category", category)
+                put("updated_at", now)
+            }
+            db.insertWithOnConflict("app_configurations", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getConfiguration(key: String): String? {
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT config_value FROM app_configurations WHERE config_key = ? LIMIT 1", arrayOf(key))
+            var result: String? = null
+            if (cursor.moveToFirst()) {
+                result = cursor.getString(0)
+            }
+            cursor.close()
+            result
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun getAllConfigurations(): Map<String, String> {
+        val configs = mutableMapOf<String, String>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT config_key, config_value FROM app_configurations", null)
+            while (cursor.moveToNext()) {
+                configs[cursor.getString(0)] = cursor.getString(1)
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return configs
+    }
+
+    // --- Workspaces Persistence in Database ---
+    fun saveWorkspace(ws: ProjectWorkspace) {
+        try {
+            val db = dbHelper.writableDatabase
+            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+            val values = ContentValues().apply {
+                put("id", ws.id)
+                put("name", ws.name)
+                put("path", ws.path)
+                put("branch", ws.branch)
+                put("github_owner", ws.githubOwner)
+                put("github_repo", ws.githubRepo)
+                put("github_url", ws.githubUrl)
+                put("custom_rules", ws.customRules.joinToString(","))
+                put("updated_at", now)
+            }
+            db.insertWithOnConflict("project_workspaces", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getWorkspaces(): List<ProjectWorkspace> {
+        val workspaces = mutableListOf<ProjectWorkspace>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT id, name, path, branch, github_owner, github_repo, github_url, custom_rules FROM project_workspaces ORDER BY name", null)
+            while (cursor.moveToNext()) {
+                val rulesStr = cursor.getString(7) ?: ""
+                val rules = if (rulesStr.isNotBlank()) rulesStr.split(",").map { it.trim() } else emptyList()
+                workspaces.add(
+                    ProjectWorkspace(
+                        id = cursor.getString(0),
+                        name = cursor.getString(1),
+                        path = cursor.getString(2),
+                        branch = cursor.getString(3),
+                        githubOwner = cursor.getString(4) ?: "",
+                        githubRepo = cursor.getString(5) ?: "",
+                        githubUrl = cursor.getString(6) ?: "",
+                        customRules = rules
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return workspaces
+    }
+
+    fun deleteWorkspace(workspaceId: String) {
+        try {
+            val db = dbHelper.writableDatabase
+            db.delete("project_workspaces", "id = ?", arrayOf(workspaceId))
+        } catch (_: Exception) {}
+    }
+
+    // --- LLM Metrics Recording in Database ---
+    fun recordLlmMetric(
+        modelName: String,
+        promptTokens: Int,
+        completionTokens: Int,
+        latencyMs: Long,
+        costCents: Double
+    ) {
+        try {
+            val db = dbHelper.writableDatabase
+            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+            val values = ContentValues().apply {
+                put("model_name", modelName)
+                put("prompt_tokens", promptTokens)
+                put("completion_tokens", completionTokens)
+                put("latency_ms", latencyMs)
+                put("cost_cents", costCents)
+                put("timestamp", now)
+            }
+            db.insert("llm_metrics", null, values)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // --- Agent Audit Recording in Database ---
+    fun recordAgentAudit(
+        agentName: String,
+        actionTaken: String,
+        status: String,
+        executionTimeMs: Long
+    ) {
+        try {
+            val db = dbHelper.writableDatabase
+            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+            val values = ContentValues().apply {
+                put("agent_name", agentName)
+                put("action_taken", actionTaken)
+                put("status", status)
+                put("execution_time_ms", executionTimeMs)
+                put("recorded_at", now)
+            }
+            db.insert("agent_audit_log", null, values)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

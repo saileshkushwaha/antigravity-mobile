@@ -146,7 +146,11 @@ data class Conversation(
     var updatedAt: Long = System.currentTimeMillis(),
     val messages: MutableList<ChatMessage> = mutableListOf(),
     var activeModel: String = "Gemini 2.0 Flash",
-    var workspaceName: String = "magical-bose"
+    var workspaceName: String = "",
+    var workspaceId: String = "",
+    var githubOwner: String = "",
+    var githubRepo: String = "",
+    var githubBranch: String = "main"
 )
 
 @Serializable
@@ -155,6 +159,10 @@ data class ProjectWorkspace(
     val name: String,
     val path: String,
     val branch: String = "main",
+    val githubOwner: String = "",
+    val githubRepo: String = "",
+    val githubUrl: String = "",
+    val connectedServices: List<String> = emptyList(),
     val customRules: List<String> = listOf("user_rules.md", "architecture.md")
 )
 

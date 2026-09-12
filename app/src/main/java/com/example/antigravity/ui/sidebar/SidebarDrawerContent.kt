@@ -244,7 +244,11 @@ fun SidebarDrawerContent(
                                                 Text("• Active", fontSize = 10.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.Bold)
                                             }
                                         }
-                                        Text(ws.path, fontSize = 10.sp, color = AntigravityColors.TextMuted)
+                                        if (ws.githubOwner.isNotBlank() && ws.githubRepo.isNotBlank()) {
+                                            Text("🐙 ${ws.githubOwner}/${ws.githubRepo} • ${ws.branch}", fontSize = 10.sp, color = AntigravityColors.ElectricCyan, fontFamily = FontFamily.Monospace)
+                                        } else {
+                                            Text(ws.path, fontSize = 10.sp, color = AntigravityColors.TextMuted)
+                                        }
                                     }
                                     if (workspaces.size > 1 && !isSelected) {
                                         IconButton(
@@ -589,12 +593,29 @@ fun SidebarDrawerContent(
                                 tint = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
                                 modifier = Modifier.size(14.dp)
                             )
-                            Text(
-                                text = conv.title,
-                                fontSize = 12.sp,
-                                color = if (isSelected) AntigravityColors.TextPrimary else AntigravityColors.TextSecondary,
-                                maxLines = 1
-                            )
+                            Column {
+                                Text(
+                                    text = conv.title,
+                                    fontSize = 12.sp,
+                                    color = if (isSelected) AntigravityColors.TextPrimary else AntigravityColors.TextSecondary,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
+                                val repoBadge = if (conv.githubOwner.isNotBlank() && conv.githubRepo.isNotBlank()) {
+                                    "🐙 ${conv.githubOwner}/${conv.githubRepo} • ${conv.githubBranch}"
+                                } else if (conv.workspaceName.isNotBlank()) {
+                                    "📁 ${conv.workspaceName}"
+                                } else ""
+                                if (repoBadge.isNotBlank()) {
+                                    Text(
+                                        text = repoBadge,
+                                        fontSize = 9.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextMuted,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
 
                         if (conversations.size > 1) {

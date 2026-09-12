@@ -5,9 +5,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -49,6 +52,15 @@ fun ConnectorsAndSwarmScreen(
     var isSwarmRunning by remember { mutableStateOf(false) }
     var swarmStageText by remember { mutableStateOf<String?>(null) }
     var checkpoints by remember(activeWorkspaceDir) { mutableStateOf(SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)) }
+    val swarmMissions = remember {
+        listOf(
+            "Full-Stack Feature Implementation & Verification",
+            "Refactoring & Test Matrix Expansion",
+            "AST & Accessibility Compliance Audit",
+            "Containerized Docker Build & CI/CD Deployment"
+        )
+    }
+    var selectedMissionIndex by remember { mutableStateOf(0) }
 
     fun pingAll() {
         isPingingAll = true
@@ -270,10 +282,10 @@ fun ConnectorsAndSwarmScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text("Autonomous Agent Pipeline", color = Color.White, fontWeight = FontWeight.Bold)
                             Text(
-                                "Orchestrated Swarm Topology",
+                                "Orchestrated Swarm Topology • Branching DAG",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF94A3B8)
                             )
@@ -285,69 +297,73 @@ fun ConnectorsAndSwarmScreen(
                                     isSwarmRunning = true
                                     coroutineScope.launch {
                                         val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+                                        val activeMission = swarmMissions[selectedMissionIndex]
 
                                         // Pre-run snapshot checkpoint
                                         SwarmCheckpointManager.createCheckpoint(
                                             workspaceDir = activeWorkspaceDir,
                                             triggerAgent = "Architect-Agent",
-                                            description = "Pre-run workspace snapshot"
+                                            description = "Pre-run snapshot for: $activeMission"
                                         )
                                         checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
 
-                                        // Stage 1: Architect
-                                        swarmStageText = "Architect-Agent synthesizing system topology..."
+                                        // Stage 1: Root Node (Architect)
+                                        swarmStageText = "Stage 1/4: Architect-Agent decomposing mission '$activeMission'..."
                                         agents = agents.map { if (it.id == "arch-01") it.copy(state = "Executing", tokensUsed = it.tokensUsed + 420) else it }
                                         delay(800)
-                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Architect-Agent', 'Synthesized system DAG architecture', 'SUCCESS', 380, '$now')")
+                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Architect-Agent', 'Synthesized system DAG architecture for $activeMission', 'SUCCESS', 380, '$now')")
 
-                                        // Stage 2: Code Generator
-                                        swarmStageText = "Code-Generator implementing changes..."
+                                        // Stage 2: Parallel Branching (Code-Generator & Test-Architect)
+                                        swarmStageText = "Stage 2/4: Parallel Branches active: Code-Generator & Test-Architect..."
                                         agents = agents.map {
                                             when (it.id) {
                                                 "arch-01" -> it.copy(state = "Complete")
                                                 "code-02" -> it.copy(state = "Executing", tokensUsed = it.tokensUsed + 980)
+                                                "test-03" -> it.copy(state = "Executing", tokensUsed = it.tokensUsed + 740)
                                                 else -> it
                                             }
                                         }
-                                        delay(1000)
+                                        delay(1200)
                                         sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Code-Generator', 'Generated Jetpack Compose studio screen', 'SUCCESS', 720, '$now')")
+                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Test-Architect', 'Synthesized unit tests and verification assertions', 'SUCCESS', 480, '$now')")
 
-                                        // Stage 3: Reviewer
-                                        swarmStageText = "Reviewer-Bot auditing a11y & AST compliance..."
+                                        // Stage 3: Convergence (Reviewer-Bot)
+                                        swarmStageText = "Stage 3/4: Reviewer-Bot auditing code quality, test coverage & a11y..."
                                         agents = agents.map {
                                             when (it.id) {
                                                 "code-02" -> it.copy(state = "Complete")
-                                                "rev-03" -> it.copy(state = "Executing", tokensUsed = it.tokensUsed + 310)
+                                                "test-03" -> it.copy(state = "Complete")
+                                                "rev-04" -> it.copy(state = "Executing", tokensUsed = it.tokensUsed + 310)
                                                 else -> it
                                             }
                                         }
                                         delay(800)
-                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Reviewer-Bot', 'Accessibility and linting compliance audit', 'SUCCESS', 190, '$now')")
+                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('Reviewer-Bot', 'Accessibility, AST and test coverage audit', 'SUCCESS', 190, '$now')")
 
-                                        // Stage 4: DevOps Runner
-                                        swarmStageText = "DevOps-Runner verifying container build..."
+                                        // Stage 4: Sink Node (DevOps-Runner)
+                                        swarmStageText = "Stage 4/4: DevOps-Runner verifying Gradle build & Git synchronization..."
                                         agents = agents.map {
                                             when (it.id) {
-                                                "rev-03" -> it.copy(state = "Complete")
-                                                "ops-04" -> it.copy(state = "Executing", tokensUsed = it.tokensUsed + 250)
+                                                "rev-04" -> it.copy(state = "Complete")
+                                                "ops-05" -> it.copy(state = "Executing", tokensUsed = it.tokensUsed + 250)
                                                 else -> it
                                             }
                                         }
                                         delay(900)
-                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('DevOps-Runner', 'Docker containerized build verification', 'SUCCESS', 1140, '$now')")
+                                        sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('DevOps-Runner', 'Gradle build and Git commit verification', 'SUCCESS', 1140, '$now')")
 
                                         // Post-run snapshot checkpoint
                                         SwarmCheckpointManager.createCheckpoint(
                                             workspaceDir = activeWorkspaceDir,
                                             triggerAgent = "DevOps-Runner",
-                                            description = "Post-run verified swarm build"
+                                            description = "Post-run verified swarm checkpoint for: $activeMission"
                                         )
                                         checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
 
                                         agents = agents.map { it.copy(state = "Active") }
                                         swarmStageText = null
                                         isSwarmRunning = false
-                                        Toast.makeText(context, "Swarm execution complete! Checkpoint saved.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Swarm mission complete! Checkpoint saved.", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -357,7 +373,45 @@ fun ConnectorsAndSwarmScreen(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (isSwarmRunning) "Orchestrating..." else "Run Swarm", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(if (isSwarmRunning) "Executing DAG..." else "Run Swarm", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Mission Goal Selector Bar
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF131C2E), RoundedCornerShape(10.dp))
+                            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.Flag, contentDescription = null, tint = Color(0xFFA855F7), modifier = Modifier.size(14.dp))
+                            Text("Active Mission Goal:", color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            itemsIndexed(swarmMissions) { idx, mission ->
+                                val isSelected = idx == selectedMissionIndex
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (isSelected) Color(0xFFA855F7).copy(alpha = 0.2f) else Color(0xFF1E293B),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) Color(0xFFA855F7) else Color(0xFF334155)),
+                                    modifier = Modifier.clickable { selectedMissionIndex = idx }
+                                ) {
+                                    Text(
+                                        text = mission,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) Color(0xFFA855F7) else Color(0xFF94A3B8),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -384,107 +438,116 @@ fun ConnectorsAndSwarmScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // DAG Nodes Visual Chain
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(agents) { agent ->
-                            val stateColor by animateColorAsState(
-                                when (agent.state) {
-                                    "Executing" -> Color(0xFFF59E0B)
-                                    "Complete" -> Color(0xFF10B981)
-                                    "Active" -> Color(0xFFA855F7)
-                                    else -> Color(0xFF64748B)
-                                }
-                            )
+                        // Node 1: Root Node (Architect)
+                        val archAgent = agents.find { it.id == "arch-01" }
+                        if (archAgent != null) {
+                            item {
+                                SwarmDagNodeCard(agent = archAgent, nodeTag = "DAG ROOT (PLAN)")
+                            }
+                        }
 
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF131C2E)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, stateColor.copy(alpha = 0.5f)),
-                                modifier = Modifier.fillMaxWidth()
+                        // Branching Fork Indicator
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA855F7).copy(alpha = 0.5f))
+                                ) {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = stateColor.copy(alpha = 0.2f)
-                                            ) {
-                                                Text(
-                                                    agent.state.uppercase(),
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = stateColor
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                agent.name,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-
+                                        Icon(Icons.Default.AltRoute, contentDescription = null, tint = Color(0xFFA855F7), modifier = Modifier.size(14.dp))
                                         Text(
-                                            "${agent.tokensUsed} tokens",
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF94A3B8)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        agent.role,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFFCBD5E1)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            "Engine: ${agent.model}",
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp,
+                                            "PARALLEL DAG FORK (2 BRANCHES)",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
                                             color = Color(0xFFA855F7)
                                         )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Parallel Layer (Code-Generator & Test-Architect)
+                        val codeAgent = agents.find { it.id == "code-02" }
+                        val testAgent = agents.find { it.id == "test-03" }
+                        if (codeAgent != null && testAgent != null) {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    SwarmDagNodeCard(agent = codeAgent, nodeTag = "BRANCH A: CODE", modifier = Modifier.weight(1f))
+                                    SwarmDagNodeCard(agent = testAgent, nodeTag = "BRANCH B: TEST", modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        // Convergence Join Indicator
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f))
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.CallMerge, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(14.dp))
                                         Text(
-                                            "DAG Status: Connected",
-                                            fontSize = 11.sp,
+                                            "CONVERGENCE & AUDIT GATEWAY",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
                                             color = Color(0xFF10B981)
                                         )
                                     }
                                 }
                             }
+                        }
 
-                            // DAG downward arrow connector between nodes
-                            if (agent.id != "ops-04") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.ArrowDownward,
-                                        contentDescription = null,
-                                        tint = Color(0xFF475569),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                        // Node 3: Reviewer-Bot
+                        val revAgent = agents.find { it.id == "rev-04" }
+                        if (revAgent != null) {
+                            item {
+                                SwarmDagNodeCard(agent = revAgent, nodeTag = "AUDIT & COMPLIANCE")
+                            }
+                        }
+
+                        // Downward Arrow to Sink Node
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(18.dp))
+                            }
+                        }
+
+                        // Node 4: Sink Node (DevOps-Runner)
+                        val opsAgent = agents.find { it.id == "ops-05" }
+                        if (opsAgent != null) {
+                            item {
+                                SwarmDagNodeCard(agent = opsAgent, nodeTag = "SINK NODE (DEPLOY)")
                             }
                         }
 
@@ -619,6 +682,102 @@ fun ConnectorsAndSwarmScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun SwarmDagNodeCard(
+    agent: SwarmAgent,
+    nodeTag: String,
+    modifier: Modifier = Modifier
+) {
+    val stateColor by animateColorAsState(
+        when (agent.state) {
+            "Executing" -> Color(0xFFF59E0B)
+            "Complete" -> Color(0xFF10B981)
+            "Active" -> Color(0xFFA855F7)
+            else -> Color(0xFF64748B)
+        }
+    )
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF131C2E)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, stateColor.copy(alpha = 0.5f)),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = stateColor.copy(alpha = 0.2f)
+                ) {
+                    Text(
+                        agent.state.uppercase(),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = stateColor
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFF1E293B)
+                ) {
+                    Text(
+                        nodeTag,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        fontSize = 8.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                agent.name,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 13.sp,
+                maxLines = 1
+            )
+
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                agent.role,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFCBD5E1),
+                fontSize = 11.sp,
+                maxLines = 2
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    agent.model,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = Color(0xFFA855F7)
+                )
+                Text(
+                    "${agent.tokensUsed} tokens",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = Color(0xFF64748B)
+                )
             }
         }
     }

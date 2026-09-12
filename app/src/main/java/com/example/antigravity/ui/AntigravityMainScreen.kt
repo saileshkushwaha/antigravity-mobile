@@ -118,8 +118,13 @@ fun AntigravityMainScreen(
     var newWorkspaceName by remember { mutableStateOf("") }
     var newWorkspacePath by remember { mutableStateOf("") }
     var newWorkspaceBranch by remember { mutableStateOf("main") }
+    var newWorkspaceGithubOwner by remember { mutableStateOf("") }
+    var newWorkspaceGithubRepo by remember { mutableStateOf("") }
+    var newWorkspaceGithubUrl by remember { mutableStateOf("") }
+    var showDiscoveredReposDropdown by remember { mutableStateOf(false) }
     var newFolderInput by remember { mutableStateOf("") }
     var isAddingFolderMode by remember { mutableStateOf(false) }
+    val discoveredRepos by com.example.antigravity.sdlc.SdlcManager.discoveredRepositories.collectAsState()
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -385,7 +390,8 @@ fun AntigravityMainScreen(
                         slashCommands = agentEngine.slashCommands,
                         mentionItems = agentEngine.mentionItems,
                         activePersonaName = activePersona.name,
-                        workspaceName = null,
+                        workspaceName = activeConversation?.workspaceName?.ifBlank { activeWorkspace.name } ?: activeWorkspace.name,
+                        githubRepo = activeConversation?.githubRepo?.ifBlank { activeWorkspace.githubRepo } ?: activeWorkspace.githubRepo,
                         onOpenPersonaSelection = {
                             showChatPersonaDialog = true
                         },
@@ -416,7 +422,11 @@ fun AntigravityMainScreen(
                             agentState = agentState,
                             activeModel = activeConversation?.activeModel?.takeIf { it.isNotBlank() } ?: settings.activeModel,
                             activePersona = activePersona,
-                            activeWorkspace = null,
+                            activeWorkspace = activeWorkspace,
+                            workspaces = workspaces,
+                            onSelectWorkspace = { ws ->
+                                repository.switchWorkspace(ws)
+                            },
                             models = models,
                             onSelectModel = { selectedModel ->
                                 repository.selectModel(selectedModel)
@@ -788,6 +798,107 @@ fun AntigravityMainScreen(
                             fontSize = 11.sp,
                             color = AntigravityColors.TextSecondary
                         )
+
+                        // Discovered Repositories Quick Picker
+                        if (discoveredRepos.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Select from GitHub Account (${discoveredRepos.size} repos)", fontSize = 11.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.SemiBold)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AntigravityColors.SurfaceElevated,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showDiscoveredReposDropdown = !showDiscoveredReposDropdown }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Hub, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                            Text(
+                                                text = if (newWorkspaceGithubRepo.isNotBlank()) "$newWorkspaceGithubOwner/$newWorkspaceGithubRepo" else "Choose a GitHub Repository...",
+                                                fontSize = 12.sp,
+                                                color = if (newWorkspaceGithubRepo.isNotBlank()) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = if (showDiscoveredReposDropdown) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = AntigravityColors.TextSecondary
+                                        )
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = showDiscoveredReposDropdown,
+                                    onDismissRequest = { showDiscoveredReposDropdown = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.85f)
+                                        .background(AntigravityColors.CardBackground)
+                                ) {
+                                    discoveredRepos.forEach { repo ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(repo.fullName, color = AntigravityColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                                    Text("Branch: ${repo.defaultBranch} • ${if (repo.isPrivate) "Private" else "Public"}", color = AntigravityColors.TextSecondary, fontSize = 10.sp)
+                                                }
+                                            },
+                                            onClick = {
+                                                showDiscoveredReposDropdown = false
+                                                newWorkspaceName = repo.name
+                                                newWorkspaceGithubOwner = repo.owner
+                                                newWorkspaceGithubRepo = repo.name
+                                                newWorkspaceBranch = repo.defaultBranch
+                                                newWorkspaceGithubUrl = "https://github.com/${repo.fullName}"
+                                                newWorkspacePath = com.example.antigravity.data.AppRepository.resolveWorkspacePath(repo.name)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // GitHub Repository (owner/repo)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("GitHub Repository (owner/repo)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                            OutlinedTextField(
+                                value = if (newWorkspaceGithubOwner.isNotBlank() && newWorkspaceGithubRepo.isNotBlank()) "$newWorkspaceGithubOwner/$newWorkspaceGithubRepo" else newWorkspaceGithubRepo,
+                                onValueChange = { input ->
+                                    val trimmed = input.trim()
+                                    if (trimmed.contains("/")) {
+                                        val parts = trimmed.split("/")
+                                        newWorkspaceGithubOwner = parts.getOrNull(0) ?: ""
+                                        newWorkspaceGithubRepo = parts.getOrNull(1) ?: ""
+                                    } else {
+                                        newWorkspaceGithubRepo = trimmed
+                                    }
+                                    if (newWorkspaceName.isBlank()) {
+                                        newWorkspaceName = newWorkspaceGithubRepo
+                                        newWorkspacePath = com.example.antigravity.data.AppRepository.resolveWorkspacePath(newWorkspaceGithubRepo)
+                                    }
+                                },
+                                placeholder = { Text("e.g. owner/repo or https://github.com/owner/repo", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = AntigravityColors.TextPrimary,
+                                    unfocusedTextColor = AntigravityColors.TextPrimary,
+                                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                                    unfocusedBorderColor = AntigravityColors.CardBorder
+                                )
+                            )
+                        }
+
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Workspace Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
                             OutlinedTextField(
@@ -861,9 +972,19 @@ fun AntigravityMainScreen(
                             val finalPath = newWorkspacePath.trim().ifBlank {
                                 com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
                             }
-                            repository.addWorkspace(finalName, finalPath, newWorkspaceBranch.trim().ifBlank { "main" })
+                            repository.addWorkspace(
+                                name = finalName,
+                                path = finalPath,
+                                branch = newWorkspaceBranch.trim().ifBlank { "main" },
+                                githubOwner = newWorkspaceGithubOwner,
+                                githubRepo = newWorkspaceGithubRepo,
+                                githubUrl = newWorkspaceGithubUrl
+                            )
                             newWorkspaceName = ""
                             newWorkspacePath = ""
+                            newWorkspaceGithubOwner = ""
+                            newWorkspaceGithubRepo = ""
+                            newWorkspaceGithubUrl = ""
                             showAddWorkspaceDialog = false
                         }
                     },

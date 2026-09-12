@@ -43,7 +43,7 @@ object EnterpriseAuditLogger {
             AuditEvent(
                 category = AuditCategory.SECURITY_POLICY,
                 action = "WORKSPACE_INITIALIZED",
-                details = "Enterprise Sandbox container active. Root: magical-bose.",
+                details = "Enterprise Sandbox container active. Dynamic workspace environment initialized.",
                 severity = AuditSeverity.INFO
             ),
             AuditEvent(
@@ -55,6 +55,8 @@ object EnterpriseAuditLogger {
         )
     )
     val events: StateFlow<List<AuditEvent>> = _events.asStateFlow()
+
+    var sqlEngineRef: com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = null
 
     fun log(
         category: AuditCategory,
@@ -69,6 +71,12 @@ object EnterpriseAuditLogger {
             severity = severity
         )
         _events.value = listOf(newEvent) + _events.value
+        sqlEngineRef?.recordAgentAudit(
+            agentName = category.name,
+            actionTaken = action,
+            status = severity.name,
+            executionTimeMs = 15L
+        )
     }
 
     fun exportAuditJson(): String {
