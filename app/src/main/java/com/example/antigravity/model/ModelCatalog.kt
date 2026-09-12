@@ -249,6 +249,24 @@ object ModelCatalog {
             description = "Zen internal experimental foundation model with extremely advanced coding capabilities.",
             tags = listOf("free", "opencode", "zen", "bigpickle", "experimental")
         ),
+        ModelInfo(
+            id = "opencode/zen-coder-internal",
+            name = "Zen Coder Internal (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Zen internal high-velocity coding and architecture synthesis foundation model.",
+            tags = listOf("free", "opencode", "zen", "coder", "coding")
+        ),
+        ModelInfo(
+            id = "opencode/zen-multimodal-internal",
+            name = "Zen Vision Multimodal (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Zen internal vision-language multimodal reasoning foundation model.",
+            tags = listOf("free", "opencode", "zen", "multimodal", "vision")
+        ),
 
         // --- OpenRouter Free Models ---
         ModelInfo(
@@ -514,7 +532,16 @@ object ModelCatalog {
 
     fun findModel(id: String, customList: List<ModelInfo>? = null): ModelInfo? {
         val pool = customList ?: allModels
-        return pool.find { it.id.equals(id, ignoreCase = true) || it.name.equals(id, ignoreCase = true) }
-            ?: allModels.find { it.id.equals(id, ignoreCase = true) || it.name.equals(id, ignoreCase = true) }
+        return pool.find { 
+            it.id.equals(id, ignoreCase = true) || 
+            it.name.equals(id, ignoreCase = true) ||
+            it.id.substringAfter("/").equals(id.substringAfter("/"), ignoreCase = true) ||
+            it.name.startsWith(id, ignoreCase = true)
+        } ?: allModels.find { 
+            it.id.equals(id, ignoreCase = true) || 
+            it.name.equals(id, ignoreCase = true) ||
+            it.id.substringAfter("/").equals(id.substringAfter("/"), ignoreCase = true) ||
+            it.name.startsWith(id, ignoreCase = true)
+        }
     }
 }

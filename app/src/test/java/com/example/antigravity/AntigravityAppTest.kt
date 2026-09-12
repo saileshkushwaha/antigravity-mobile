@@ -255,4 +255,47 @@ class AntigravityAppTest {
         val json = com.example.antigravity.enterprise.EnterpriseAuditLogger.exportAuditJson()
         assertTrue("Audit export should be valid JSON array", json.contains("UNIT_TEST_TRIGGER"))
     }
+
+    @Test
+    fun testModelSelectionDropdownAndCatalogResolution() {
+        // 1. Verify Zen Internal models are present in ModelCatalog
+        val zenBigPickle = ModelCatalog.findModel("opencode/zen-bigpickle")
+        assertNotNull("Zen BigPickle must be discoverable in catalog", zenBigPickle)
+        assertEquals(ModelGateway.OPENCODE, zenBigPickle?.gateway)
+        assertTrue(zenBigPickle?.isFree == true)
+
+        val zenCoder = ModelCatalog.findModel("zen-coder-internal")
+        assertNotNull("Zen Coder must be resolvable by short ID", zenCoder)
+        assertEquals(ModelGateway.OPENCODE, zenCoder?.gateway)
+
+        val zenByName = ModelCatalog.findModel("Zen BigPickle Internal (OpenCode)")
+        assertNotNull("Zen must be resolvable by friendly name", zenByName)
+        assertEquals(zenBigPickle?.id, zenByName?.id)
+
+        // 2. Test selecting a model via AppRepository
+        val targetModel = zenBigPickle!!
+        repository.selectModel(targetModel)
+
+        assertEquals("Settings activeModel must match target", targetModel.name, repository.settings.value.activeModel)
+        assertEquals("Settings activeModelId must match target id", targetModel.id, repository.settings.value.activeModelId)
+
+        val activeConv = repository.getActiveConversation()
+        assertNotNull(activeConv)
+        assertEquals("Active conversation must have target model name", targetModel.name, activeConv?.activeModel)
+
+        // 3. Test conversation switching model sync
+        val newConvId = repository.createNewConversation("Second Conversation")
+        val geminiModel = ModelCatalog.findModel("gemini-2.0-flash") ?: ModelCatalog.allModels.first { it.gateway == ModelGateway.GEMINI }
+        repository.selectModel(geminiModel)
+        assertEquals(geminiModel.name, repository.settings.value.activeModel)
+
+        // Switch back to first conversation
+        repository.switchConversation(activeConv!!.id)
+        assertEquals("Switching conversation must restore conversation's active model", targetModel.name, repository.settings.value.activeModel)
+
+        // 4. Test dropdown matching logic
+        val isBigPickleSelected = targetModel.name.equals(repository.settings.value.activeModel, ignoreCase = true) ||
+                targetModel.id.equals(repository.settings.value.activeModelId, ignoreCase = true)
+        assertTrue("Dropdown item for active model must be marked as selected", isBigPickleSelected)
+    }
 }

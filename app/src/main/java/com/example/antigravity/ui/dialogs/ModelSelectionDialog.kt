@@ -419,7 +419,9 @@ fun ModelSelectionDialog(
                     ) {
                         items(filteredModels, key = { "${it.gateway.name}_${it.id}" }) { model ->
                             val isSelected = model.id.equals(selectedModelId, ignoreCase = true) ||
-                                    model.name.equals(selectedModelId, ignoreCase = true)
+                                    model.name.equals(selectedModelId, ignoreCase = true) ||
+                                    model.id.substringAfter("/").equals(selectedModelId.substringAfter("/"), ignoreCase = true) ||
+                                    model.name.startsWith(selectedModelId, ignoreCase = true)
 
                             ModelItemCard(
                                 model = model,

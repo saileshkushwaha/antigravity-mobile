@@ -35,6 +35,8 @@ fun ChatCanvas(
     activeModel: String,
     activePersona: AgentPersona? = null,
     activeWorkspace: ProjectWorkspace? = null,
+    models: List<ModelInfo> = ModelCatalog.allModels,
+    onSelectModel: ((ModelInfo) -> Unit)? = null,
     onOpenModelPicker: () -> Unit,
     onOpenPersonaPicker: (() -> Unit)? = null,
     onOpenPromptLibrary: (() -> Unit)? = null,
@@ -48,6 +50,8 @@ fun ChatCanvas(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    var showModelDropdown by remember { mutableStateOf(false) }
+    var modelSearchQuery by remember { mutableStateOf("") }
 
     // Auto-scroll to bottom when messages change or update
     LaunchedEffect(conversation?.messages?.size, conversation?.messages?.lastOrNull()?.text) {
@@ -64,30 +68,346 @@ fun ChatCanvas(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Model Selector Chip (Click to open searchable model catalog)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = AntigravityColors.SurfaceElevated,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                            modifier = Modifier.clickable { onOpenModelPicker() }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        // Model Selector Dropdown & Anchor
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AntigravityColors.SurfaceElevated,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (showModelDropdown) AntigravityColors.ElectricCyan else AntigravityColors.CardBorder
+                                ),
+                                modifier = Modifier.clickable {
+                                    showModelDropdown = !showModelDropdown
+                                    modelSearchQuery = ""
+                                }
                             ) {
-                                Icon(
-                                    Icons.Default.Dns,
-                                    contentDescription = null,
-                                    tint = AntigravityColors.ElectricCyan,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text(
-                                    text = activeModel,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = AntigravityColors.ElectricCyan,
-                                    maxLines = 1
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Dns,
+                                        contentDescription = null,
+                                        tint = AntigravityColors.ElectricCyan,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Text(
+                                        text = activeModel,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = AntigravityColors.ElectricCyan,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        modifier = Modifier.widthIn(max = 130.dp)
+                                    )
+                                    Icon(
+                                        imageVector = if (showModelDropdown) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select model",
+                                        tint = AntigravityColors.ElectricCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            // Anchored Dropdown Menu
+                            DropdownMenu(
+                                expanded = showModelDropdown,
+                                onDismissRequest = {
+                                    showModelDropdown = false
+                                    modelSearchQuery = ""
+                                },
+                                modifier = Modifier
+                                    .widthIn(min = 290.dp, max = 340.dp)
+                                    .background(AntigravityColors.SurfaceDark)
+                                    .border(1.dp, AntigravityColors.CardBorder, RoundedCornerShape(8.dp))
+                            ) {
+                                // Dropdown Header with Search Input
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Dns,
+                                                contentDescription = null,
+                                                tint = AntigravityColors.ElectricCyan,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Text(
+                                                text = "Model Gateways",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AntigravityColors.TextPrimary
+                                            )
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = AntigravityColors.SurfaceElevated,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder)
+                                        ) {
+                                            Text(
+                                                text = "${models.size} online",
+                                                fontSize = 9.sp,
+                                                color = AntigravityColors.TextSecondary,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    OutlinedTextField(
+                                        value = modelSearchQuery,
+                                        onValueChange = { modelSearchQuery = it },
+                                        placeholder = {
+                                            Text(
+                                                "Filter models (e.g. zen, free, r1)...",
+                                                fontSize = 11.sp,
+                                                color = AntigravityColors.TextMuted
+                                            )
+                                        },
+                                        singleLine = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Search,
+                                                contentDescription = null,
+                                                tint = AntigravityColors.TextSecondary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            if (modelSearchQuery.isNotBlank()) {
+                                                IconButton(
+                                                    onClick = { modelSearchQuery = "" },
+                                                    modifier = Modifier.size(18.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Close,
+                                                        contentDescription = "Clear",
+                                                        tint = AntigravityColors.TextSecondary,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(6.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AntigravityColors.ElectricCyan,
+                                            unfocusedBorderColor = AntigravityColors.CardBorder,
+                                            focusedContainerColor = AntigravityColors.SurfaceElevated,
+                                            unfocusedContainerColor = AntigravityColors.SurfaceElevated,
+                                            focusedTextColor = AntigravityColors.TextPrimary,
+                                            unfocusedTextColor = AntigravityColors.TextPrimary
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp)
+                                    )
+                                }
+
+                                HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                val filteredDropdownModels = remember(models, modelSearchQuery, activeModel) {
+                                    val q = modelSearchQuery.trim().lowercase()
+                                    if (q.isBlank()) {
+                                        models.sortedWith(
+                                            compareByDescending<ModelInfo> {
+                                                it.name.equals(activeModel, ignoreCase = true) ||
+                                                        it.id.equals(activeModel, ignoreCase = true) ||
+                                                        it.id.substringAfter("/").equals(activeModel.substringAfter("/"), ignoreCase = true)
+                                            }
+                                            .thenByDescending { it.isFree }
+                                            .thenBy { it.gateway.name }
+                                        )
+                                    } else {
+                                        models.filter {
+                                            it.name.contains(q, ignoreCase = true) ||
+                                                    it.id.contains(q, ignoreCase = true) ||
+                                                    it.gateway.displayName.contains(q, ignoreCase = true) ||
+                                                    it.providerName.contains(q, ignoreCase = true) ||
+                                                    it.tags.any { tag -> tag.contains(q, ignoreCase = true) }
+                                        }
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 280.dp)
+                                ) {
+                                    if (filteredDropdownModels.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No matching models found",
+                                                fontSize = 11.sp,
+                                                color = AntigravityColors.TextSecondary
+                                            )
+                                        }
+                                    } else {
+                                        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                                            items(filteredDropdownModels, key = { "${it.gateway.name}_${it.id}" }) { model ->
+                                                val isSelected = model.name.equals(activeModel, ignoreCase = true) ||
+                                                        model.id.equals(activeModel, ignoreCase = true) ||
+                                                        model.id.substringAfter("/").equals(activeModel.substringAfter("/"), ignoreCase = true) ||
+                                                        model.name.startsWith(activeModel, ignoreCase = true)
+
+                                                val gwColor = when (model.gateway) {
+                                                    ModelGateway.KILOCODE -> Color(0xFF06B6D4)
+                                                    ModelGateway.OPENCODE -> Color(0xFF38BDF8)
+                                                    ModelGateway.OPENROUTER -> AntigravityColors.NeonViolet
+                                                    ModelGateway.GROQ -> Color(0xFFFF9100)
+                                                    ModelGateway.GEMINI -> AntigravityColors.ElectricCyan
+                                                    ModelGateway.OPENAI -> Color(0xFF10A37F)
+                                                    ModelGateway.OLLAMA -> Color(0xFF10B981)
+                                                    ModelGateway.HUGGINGFACE -> Color(0xFFFFD21E)
+                                                    ModelGateway.CUSTOM -> Color(0xFF10B981)
+                                                }
+
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Column(
+                                                                modifier = Modifier
+                                                                    .weight(1f)
+                                                                    .padding(end = 6.dp)
+                                                            ) {
+                                                                Row(
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = model.name,
+                                                                        fontSize = 12.sp,
+                                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                                        color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary,
+                                                                        maxLines = 1,
+                                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                                    )
+                                                                    if (model.isFree) {
+                                                                        Surface(
+                                                                            shape = RoundedCornerShape(3.dp),
+                                                                            color = AntigravityColors.StatusSuccess.copy(alpha = 0.2f),
+                                                                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.StatusSuccess)
+                                                                        ) {
+                                                                            Text(
+                                                                                text = "FREE",
+                                                                                fontSize = 9.sp,
+                                                                                fontWeight = FontWeight.Bold,
+                                                                                color = AntigravityColors.StatusSuccess,
+                                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                }
+                                                                Row(
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = model.gateway.displayName,
+                                                                        fontSize = 10.sp,
+                                                                        fontWeight = FontWeight.SemiBold,
+                                                                        color = gwColor
+                                                                    )
+                                                                    Text(
+                                                                        text = "•",
+                                                                        fontSize = 10.sp,
+                                                                        color = AntigravityColors.TextMuted
+                                                                    )
+                                                                    Text(
+                                                                        text = model.contextWindow,
+                                                                        fontSize = 10.sp,
+                                                                        fontFamily = FontFamily.Monospace,
+                                                                        color = AntigravityColors.TextSecondary
+                                                                    )
+                                                                }
+                                                            }
+                                                            if (isSelected) {
+                                                                Icon(
+                                                                    Icons.Default.Check,
+                                                                    contentDescription = "Selected",
+                                                                    tint = AntigravityColors.ElectricCyan,
+                                                                    modifier = Modifier.size(16.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    },
+                                                    onClick = {
+                                                        onSelectModel?.invoke(model)
+                                                        showModelDropdown = false
+                                                        modelSearchQuery = ""
+                                                    },
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .background(
+                                                            if (isSelected) AntigravityColors.ElectricCyan.copy(alpha = 0.12f)
+                                                            else Color.Transparent
+                                                        )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                // Action to open full Model Selection modal
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Tune,
+                                                contentDescription = null,
+                                                tint = AntigravityColors.NeonViolet,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Browse Full Catalog & Filters...",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AntigravityColors.NeonViolet
+                                                )
+                                                Text(
+                                                    text = "All 100+ models, specs & custom providers",
+                                                    fontSize = 10.sp,
+                                                    color = AntigravityColors.TextSecondary
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        showModelDropdown = false
+                                        modelSearchQuery = ""
+                                        onOpenModelPicker()
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(AntigravityColors.SurfaceElevated)
                                 )
                             }
                         }

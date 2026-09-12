@@ -197,6 +197,14 @@ class AppRepository {
 
     fun switchConversation(id: String) {
         _activeConversationId.value = id
+        val conv = _conversations.value.find { it.id == id }
+        if (conv != null && conv.activeModel.isNotBlank()) {
+            val modelInfo = ModelCatalog.findModel(conv.activeModel, _models.value)
+            _settings.value = _settings.value.copy(
+                activeModel = conv.activeModel,
+                activeModelId = modelInfo?.id ?: _settings.value.activeModelId
+            )
+        }
     }
 
     fun createNewConversation(title: String = "New Agent Session"): String {

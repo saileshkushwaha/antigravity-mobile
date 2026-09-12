@@ -414,9 +414,13 @@ fun AntigravityMainScreen(
                         ChatCanvas(
                             conversation = activeConversation,
                             agentState = agentState,
-                            activeModel = settings.activeModel,
+                            activeModel = activeConversation?.activeModel?.takeIf { it.isNotBlank() } ?: settings.activeModel,
                             activePersona = activePersona,
                             activeWorkspace = null,
+                            models = models,
+                            onSelectModel = { selectedModel ->
+                                repository.selectModel(selectedModel)
+                            },
                             onOpenModelPicker = {
                                 showModelSelectionDialog = true
                             },
