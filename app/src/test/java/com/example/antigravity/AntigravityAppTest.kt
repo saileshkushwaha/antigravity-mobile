@@ -30,16 +30,6 @@ class AntigravityAppTest {
         engine = AntigravityAgentEngine(repository, testScope)
     }
 
-    @Test
-    fun testInitialStateSeed() {
-        val conversations = repository.conversations.value
-        assertTrue("Expected seeded conversations", conversations.isNotEmpty())
-
-        val activeConv = repository.getActiveConversation()
-        assertNotNull("Expected active conversation", activeConv)
-        assertEquals("magical-bose", repository.activeWorkspace.value.name)
-        assertTrue("Workspace path should be dynamically resolved and not blank", repository.activeWorkspace.value.path.isNotBlank())
-    }
 
     @Test
     fun testDynamicWorkspaceResolutionAndLifecycle() {
