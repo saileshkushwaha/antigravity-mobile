@@ -95,36 +95,6 @@ fun ChatCanvas(
                             }
                         }
 
-                        // Active Persona Chip (In-chat switcher)
-                        if (activePersona != null && onOpenPersonaPicker != null) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = AntigravityColors.SurfaceElevated,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.NeonViolet.copy(alpha = 0.5f)),
-                                modifier = Modifier.clickable { onOpenPersonaPicker() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        text = "🎭 ${activePersona.name.split(" ").firstOrNull() ?: activePersona.name}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AntigravityColors.NeonViolet,
-                                        maxLines = 1
-                                    )
-                                    Icon(
-                                        Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select Persona",
-                                        tint = AntigravityColors.NeonViolet,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-
                         // Agent Status Pill
                         StatusBadge(agentState = agentState)
                     }
