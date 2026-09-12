@@ -44,6 +44,10 @@ import com.example.antigravity.studio.code.CodeStudioScreen
 import com.example.antigravity.studio.connectors.ConnectorsAndSwarmScreen
 import com.example.antigravity.studio.design.ProductDesignScreen
 import com.example.antigravity.studio.research.ResearchHubScreen
+import com.example.antigravity.studio.api.ApiStudioScreen
+import com.example.antigravity.studio.observability.ObservabilityStudioScreen
+import com.example.antigravity.studio.architecture.ArchitectureStudioScreen
+import com.example.antigravity.studio.iac.IacStudioScreen
 import com.example.antigravity.ui.navigation.AntigravityAppScreen
 import com.example.antigravity.ui.navigation.EnterpriseStudioMatrixDialog
 import com.example.antigravity.ui.navigation.StudioScreenRegistry
@@ -359,6 +363,22 @@ fun AntigravityMainScreen(
                             currentScreen = AntigravityAppScreen.INSPECTOR
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
+                        onOpenApiStudio = {
+                            currentScreen = AntigravityAppScreen.API_STUDIO
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenObservability = {
+                            currentScreen = AntigravityAppScreen.OBSERVABILITY
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenArchitecture = {
+                            currentScreen = AntigravityAppScreen.ARCHITECTURE
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenIacStudio = {
+                            currentScreen = AntigravityAppScreen.IAC
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
                         onOpenAddProjectOrFolder = {
                             showAddWorkspaceDialog = true
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
@@ -571,6 +591,34 @@ fun AntigravityMainScreen(
                                         onKillTask = { repository.updateTaskStatus(it, com.example.antigravity.model.TaskStatus.KILLED) },
                                         onClose = { currentScreen = AntigravityAppScreen.CHAT },
                                         onOpenDrawer = handleOpenDrawer,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.API_STUDIO -> {
+                                    ApiStudioScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.OBSERVABILITY -> {
+                                    ObservabilityStudioScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.ARCHITECTURE -> {
+                                    ArchitectureStudioScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.IAC -> {
+                                    IacStudioScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }

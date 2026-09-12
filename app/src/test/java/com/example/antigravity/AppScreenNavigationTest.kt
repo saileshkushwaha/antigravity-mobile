@@ -11,11 +11,15 @@ class AppScreenNavigationTest {
     @Test
     fun testAllStudioScreensExist() {
         val screens = AntigravityAppScreen.values()
-        assertEquals("Must contain 10 first-class studio & system screens", 10, screens.size)
+        assertEquals("Must contain 14 first-class studio & system screens", 14, screens.size)
 
-        val expectedTitles = setOf("Agent", "Code", "Design", "Research", "Analytics", "DevOps", "SDLC", "Personas", "Skills", "Console")
+        val expectedTitles = setOf(
+            "Agent", "Code", "Design", "Research", "Analytics",
+            "DevOps", "SDLC", "Personas", "Skills", "Console",
+            "API", "Observability", "Architecture", "IaC"
+        )
         val actualTitles = screens.map { it.title }.toSet()
-        assertEquals("All 10 studio & destination titles must match", expectedTitles, actualTitles)
+        assertEquals("All 14 studio & destination titles must match", expectedTitles, actualTitles)
     }
 
     @Test
@@ -30,6 +34,10 @@ class AppScreenNavigationTest {
         assertEquals("Personas", AntigravityAppScreen.PERSONAS.title)
         assertEquals("Skills", AntigravityAppScreen.SKILLS.title)
         assertEquals("Console", AntigravityAppScreen.INSPECTOR.title)
+        assertEquals("API", AntigravityAppScreen.API_STUDIO.title)
+        assertEquals("Observability", AntigravityAppScreen.OBSERVABILITY.title)
+        assertEquals("Architecture", AntigravityAppScreen.ARCHITECTURE.title)
+        assertEquals("IaC", AntigravityAppScreen.IAC.title)
 
         // Verify each screen has a non-null icon and non-empty title
         AntigravityAppScreen.values().forEach { screen ->
@@ -41,19 +49,19 @@ class AppScreenNavigationTest {
     @Test
     fun testStudioScreenRegistryCategorizationAndLookup() {
         val allStudios = StudioScreenRegistry.allStudios
-        assertEquals("Registry must hold all 10 studios", 10, allStudios.size)
+        assertEquals("Registry must hold all 14 studios", 14, allStudios.size)
 
         val engineering = StudioScreenRegistry.byCategory(StudioCategory.CORE_ENGINEERING)
-        assertEquals("5 core engineering studios expected", 5, engineering.size)
+        assertEquals("7 core engineering studios expected", 7, engineering.size)
 
         val governance = StudioScreenRegistry.byCategory(StudioCategory.PLATFORM_GOVERNANCE)
-        assertEquals("5 platform governance hubs expected", 5, governance.size)
+        assertEquals("7 platform governance hubs expected", 7, governance.size)
 
         val primaryNav = StudioScreenRegistry.primaryBottomNav()
         assertEquals("Primary bottom nav must have 5 balanced touch points", 5, primaryNav.size)
 
         val secondary = StudioScreenRegistry.secondaryStudios()
-        assertEquals("Secondary hubs must have 5 studios", 5, secondary.size)
+        assertEquals("Secondary hubs must have 9 studios", 9, secondary.size)
 
         // Test descriptor lookups
         AntigravityAppScreen.values().forEach { screen ->

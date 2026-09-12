@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import com.example.antigravity.model.PullRequestItem
 import com.example.antigravity.sdlc.DesignToPrPipeline
 import com.example.antigravity.studio.code.CodeStudioManager
+import com.example.antigravity.studio.vision.VisionToCodeService
+import com.example.antigravity.studio.vision.A11ySeverity
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -193,6 +195,17 @@ fun ProductDesignScreen(
                             }
                         }
                     )
+                    Tab(
+                        selected = activeStudioTab == 5,
+                        onClick = { activeStudioTab = 5 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color(0xFF00E5FF))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Wireframe AI & A11y", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -225,6 +238,14 @@ fun ProductDesignScreen(
                         .fillMaxSize()
                         .padding(paddingValues)
                 )
+            }
+            5 -> {
+                Box(modifier = Modifier.padding(paddingValues)) {
+                    WireframeAiAndA11yView(
+                        tokens = tokens,
+                        activeWorkspaceDir = activeWorkspaceDir
+                    )
+                }
             }
             else -> {
                 Column(
@@ -913,3 +934,193 @@ fun FigmaSyncView(
         }
     }
 }
+
+@Composable
+fun WireframeAiAndA11yView(
+    tokens: DesignTokens,
+    activeWorkspaceDir: File
+) {
+    val context = LocalContext.current
+    var wireframePrompt by remember { mutableStateOf("Sign in screen with email, password, and primary action button") }
+    var synthesisResult by remember {
+        mutableStateOf(VisionToCodeService.synthesizeWireframeToCode(wireframePrompt, tokens))
+    }
+    var isSynthesizing by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B0F19))
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Hero Header
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF131C2E)),
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.3f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(20.dp))
+                    Text("Multimodal Wireframe-to-Code & A11y", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Describe your sketch, whiteboard diagram, or UI wireframe. Antigravity synthesizes Compose UI with your active design tokens and audits for WCAG 2.1 AA accessibility.",
+                    color = Color.LightGray,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        // Preset Chips
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val presets = listOf(
+                "Sign-In Flow" to "Sign in screen with email, password, remember me, and primary action button",
+                "Product Card" to "E-commerce product card with image thumbnail, price tag, discount badge, and Add to Cart button",
+                "Metric Card" to "Analytics dashboard metric card with line chart preview, percentage delta, and export button"
+            )
+            presets.forEach { (label, prompt) ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+                    modifier = Modifier.clickable {
+                        wireframePrompt = prompt
+                        synthesisResult = VisionToCodeService.synthesizeWireframeToCode(prompt, tokens)
+                    }
+                ) {
+                    Text(label, color = Color(0xFF00E5FF), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                }
+            }
+        }
+
+        // Prompt Input
+        OutlinedTextField(
+            value = wireframePrompt,
+            onValueChange = { wireframePrompt = it },
+            label = { Text("Wireframe / Sketch Layout Description", fontSize = 11.sp) },
+            modifier = Modifier.fillMaxWidth().height(80.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, color = Color.White)
+        )
+
+        Button(
+            onClick = {
+                synthesisResult = VisionToCodeService.synthesizeWireframeToCode(wireframePrompt, tokens)
+                Toast.makeText(context, "Synthesized code and verified WCAG a11y!", Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF))
+        ) {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Synthesize UI & Run A11y Audit", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+        }
+
+        // Accessibility (a11y) Audit Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF131C2E)),
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (synthesisResult.a11yIssues.isEmpty()) Color(0xFF10B981) else Color(0xFFFF9100)
+            )
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(
+                            imageVector = if (synthesisResult.a11yIssues.isEmpty()) Icons.Default.CheckCircle else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (synthesisResult.a11yIssues.isEmpty()) Color(0xFF10B981) else Color(0xFFFF9100),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text("WCAG 2.1 AA Accessibility Audit", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                    }
+                    Text(
+                        if (synthesisResult.a11yIssues.isEmpty()) "100% Compliant" else "${synthesisResult.a11yIssues.size} Alerts",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (synthesisResult.a11yIssues.isEmpty()) Color(0xFF10B981) else Color(0xFFFF9100)
+                    )
+                }
+
+                if (synthesisResult.a11yIssues.isEmpty()) {
+                    Text(
+                        "All touch targets satisfy >= 48.dp, icons have descriptive content descriptions, and contrast ratio meets standards.",
+                        fontSize = 11.sp,
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                } else {
+                    Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        synthesisResult.a11yIssues.forEach { issue ->
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF0F172A),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(issue.ruleId, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00E5FF))
+                                        Text("Line ${issue.line}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color.LightGray)
+                                    }
+                                    Text(issue.message, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                                    Text("💡 ${issue.suggestion}", fontSize = 10.sp, color = Color(0xFFFFB703), modifier = Modifier.padding(top = 2.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Synthesized Code Preview
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Synthesized Jetpack Compose Code", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                    Button(
+                        onClick = {
+                            val targetFile = File(activeWorkspaceDir, "SynthesizedWireframeScreen.kt")
+                            targetFile.writeText(synthesisResult.composeCode)
+                            Toast.makeText(context, "Saved to SynthesizedWireframeScreen.kt!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text("Save to Workspace", fontSize = 10.sp, color = Color(0xFF00E5FF))
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = synthesisResult.composeCode.take(600) + "\n// ... [Full code ready to export]",
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color(0xFF94A3B8),
+                    lineHeight = 14.sp
+                )
+            }
+        }
+    }
+}
+

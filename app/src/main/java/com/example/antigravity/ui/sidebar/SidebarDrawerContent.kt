@@ -54,6 +54,10 @@ fun SidebarDrawerContent(
     onOpenPersonas: () -> Unit = {},
     onOpenPrompts: () -> Unit = {},
     onOpenInspector: () -> Unit = {},
+    onOpenApiStudio: () -> Unit = {},
+    onOpenObservability: () -> Unit = {},
+    onOpenArchitecture: () -> Unit = {},
+    onOpenIacStudio: () -> Unit = {},
     onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
     onDeleteWorkspace: (String) -> Unit = {},
     onOpenAddProjectOrFolder: () -> Unit = {},
@@ -452,6 +456,42 @@ fun SidebarDrawerContent(
                         tint = Color(0xFFFF5252),
                         isActive = currentScreen == AntigravityAppScreen.INSPECTOR,
                         onClick = onOpenInspector,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Http,
+                        label = "API Studio",
+                        tint = Color(0xFF10B981),
+                        isActive = currentScreen == AntigravityAppScreen.API_STUDIO,
+                        onClick = onOpenApiStudio,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.BugReport,
+                        label = "Observability",
+                        tint = Color(0xFFEF4444),
+                        isActive = currentScreen == AntigravityAppScreen.OBSERVABILITY,
+                        onClick = onOpenObservability,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.AccountTree,
+                        label = "Architecture",
+                        tint = Color(0xFF7C4DFF),
+                        isActive = currentScreen == AntigravityAppScreen.ARCHITECTURE,
+                        onClick = onOpenArchitecture,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.Layers,
+                        label = "IaC & Containers",
+                        tint = Color(0xFF00E5FF),
+                        isActive = currentScreen == AntigravityAppScreen.IAC,
+                        onClick = onOpenIacStudio,
                         modifier = Modifier.weight(1f)
                     )
                 }

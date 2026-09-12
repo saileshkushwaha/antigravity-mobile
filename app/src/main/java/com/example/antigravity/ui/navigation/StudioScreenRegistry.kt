@@ -44,7 +44,11 @@ enum class AntigravityAppScreen(
     SDLC("SDLC", "Autonomous SDLC Command Center", Icons.Default.RocketLaunch),
     PERSONAS("Personas", "Agent Personas & Prompts", Icons.Default.Psychology),
     SKILLS("Skills", "Skills & MCP Tools Hub", Icons.Default.Extension),
-    INSPECTOR("Console", "Console & Task Inspector", Icons.Default.Terminal)
+    INSPECTOR("Console", "Console & Task Inspector", Icons.Default.Terminal),
+    API_STUDIO("API", "API & Microservices Studio", Icons.Default.Http),
+    OBSERVABILITY("Observability", "Crash & Observability Studio", Icons.Default.BugReport),
+    ARCHITECTURE("Architecture", "Architecture & ADR Studio", Icons.Default.AccountTree),
+    IAC("IaC", "IaC & Container Studio", Icons.Default.Layers)
 }
 
 /**
@@ -188,6 +192,54 @@ object StudioScreenRegistry {
             accentColor = Color(0xFFFF5252),
             subtitle = "Terminal drawer & background tasks",
             description = "Live terminal logs, background tasks supervisor, active subagents monitoring, and file diff changelog.",
+            isPrimaryBottomNav = false
+        ),
+        StudioScreenDescriptor(
+            screen = AntigravityAppScreen.API_STUDIO,
+            title = "API & Microservices Studio",
+            shortLabel = "API",
+            icon = Icons.Default.Http,
+            category = StudioCategory.CORE_ENGINEERING,
+            badge = "POSTMAN",
+            accentColor = Color(0xFF10B981),
+            subtitle = "HTTP Runner & Retrofit/Ktor CodeGen",
+            description = "Interactive REST & GraphQL dispatcher, OpenAPI v3 spec ingestion, and 1-tap client code generation.",
+            isPrimaryBottomNav = false
+        ),
+        StudioScreenDescriptor(
+            screen = AntigravityAppScreen.OBSERVABILITY,
+            title = "Crash & Observability Studio",
+            shortLabel = "Observability",
+            icon = Icons.Default.BugReport,
+            category = StudioCategory.PLATFORM_GOVERNANCE,
+            badge = "SENTRY",
+            accentColor = Color(0xFFEF4444),
+            subtitle = "Stack Trace Auto-Mapper & AI Fix PR",
+            description = "Paste Android crash traces to locate exact source lines and generate automated bug-fix pull requests.",
+            isPrimaryBottomNav = false
+        ),
+        StudioScreenDescriptor(
+            screen = AntigravityAppScreen.ARCHITECTURE,
+            title = "Architecture & ADR Studio",
+            shortLabel = "Architecture",
+            icon = Icons.Default.AccountTree,
+            category = StudioCategory.CORE_ENGINEERING,
+            badge = "MERMAID",
+            accentColor = Color(0xFF7C4DFF),
+            subtitle = "Mermaid Diagrams & MADR Tracking",
+            description = "Automated AST-to-Mermaid class, sequence and ER diagrams with Room migration generator and ADR catalog.",
+            isPrimaryBottomNav = false
+        ),
+        StudioScreenDescriptor(
+            screen = AntigravityAppScreen.IAC,
+            title = "IaC & Container Studio",
+            shortLabel = "IaC",
+            icon = Icons.Default.Layers,
+            category = StudioCategory.PLATFORM_GOVERNANCE,
+            badge = "CONTAINER",
+            accentColor = Color(0xFF00E5FF),
+            subtitle = "Docker Compose & Kubernetes Manifests",
+            description = "Visual container topology editor, production Kubernetes templates, and security policy verification.",
             isPrimaryBottomNav = false
         )
     )
