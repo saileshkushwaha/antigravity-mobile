@@ -21,7 +21,7 @@ class AutonomousDemoEngine(private val repository: AppRepository) {
             sender = MessageSender.AGENT,
             text = "",
             thinking = ThinkingBlock(
-                content = "Analyzing user intent and workspace context...\n- Workspace: ${repository.activeWorkspace.value.name}\n- Target: \"$userPrompt\"\n- Formulating task decomposition and necessary tool invocations.",
+                content = "Analyzing user intent...\n- Target: \"$userPrompt\"\n- Formulating task decomposition and necessary tool invocations.",
                 durationSeconds = 1,
                 isExpanded = true
             ),

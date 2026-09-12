@@ -43,11 +43,9 @@ class AntigravityAgentEngine(
     fun buildSynthesizedSystemPrompt(): String {
         val persona = _activePersona.value
         val enabledSkills = repository.skills.value.filter { it.isEnabled }.map { it.name }
-        val workspace = repository.activeWorkspace.value
         return """
             You are Antigravity, an enterprise-grade autonomous developer agent executing inside Antigravity Mobile Studio.
             Current Persona: ${persona.name} - ${persona.roleTitle}
-            Workspace: ${workspace.name} (Branch: ${workspace.branch})
             
             Persona Directives:
             ${persona.systemPromptDirective}
@@ -117,18 +115,42 @@ class AntigravityAgentEngine(
                 if (!settings.isOfflineDemoMode) {
                     val sysInstruction = buildSynthesizedSystemPrompt()
 
+                    val configuredGateways = mutableListOf<String>()
+                    if (settings.apiKey.isNotBlank()) configuredGateways.add("Google Gemini")
+                    if (settings.openAiApiKey.isNotBlank()) configuredGateways.add("OpenAI")
+                    if (settings.groqApiKey.isNotBlank()) configuredGateways.add("Groq")
+                    if (settings.openRouterApiKey.isNotBlank()) configuredGateways.add("OpenRouter")
+                    if (settings.kiloCodeApiKey.isNotBlank()) configuredGateways.add("KiloCode")
+                    if (settings.openCodeApiKey.isNotBlank()) configuredGateways.add("OpenCode")
+                    if (settings.huggingFaceApiKey.isNotBlank()) configuredGateways.add("Hugging Face")
+
+                    fun missingKeyMessage(gwName: String): String {
+                        return if (configuredGateways.isNotEmpty()) {
+                            "API key for $gwName is not configured.\n\n💡 **Note:** You have API key(s) configured for: **${configuredGateways.joinToString(", ")}**.\n• Switch your active model to one of these providers in the header/settings.\n• Or add your $gwName API key in **Settings -> Model Gateways & API Credentials**."
+                        } else {
+                            "$gwName API key is required. Please configure your key in **Settings -> Model Gateways & API Credentials**, or switch to a free open model (e.g. Groq or OpenRouter)."
+                        }
+                    }
+
                     val result: Result<String> = when (gateway) {
                         ModelGateway.GEMINI -> {
-                            if (settings.apiKey.isNotBlank()) {
+                            val key = when {
+                                settings.apiKey.isNotBlank() && !settings.apiKey.startsWith("sk-") && !settings.apiKey.startsWith("gsk_") -> settings.apiKey
+                                settings.apiKey.startsWith("AIza") -> settings.apiKey
+                                settings.openAiApiKey.startsWith("AIza") -> settings.openAiApiKey
+                                settings.customGatewayApiKey.startsWith("AIza") -> settings.customGatewayApiKey
+                                else -> settings.apiKey
+                            }
+                            if (key.isNotBlank()) {
                                 geminiService.generateContent(
-                                    apiKey = settings.apiKey,
+                                    apiKey = key,
                                     modelName = modelInfo?.id ?: settings.activeModel,
                                     prompt = trimmed,
                                     systemInstruction = sysInstruction,
                                     history = previousMessages
                                 )
                             } else {
-                                Result.failure(Exception("Gemini API key is required. Please configure your key in Settings or choose a free open model gateway."))
+                                Result.failure(Exception(missingKeyMessage("Google Gemini")))
                             }
                         }
                         ModelGateway.KILOCODE -> {
@@ -154,7 +176,11 @@ class AntigravityAgentEngine(
                             )
                         }
                         ModelGateway.OPENROUTER -> {
-                            val key = settings.openRouterApiKey.ifBlank { settings.apiKey }
+                            val key = when {
+                                settings.openRouterApiKey.isNotBlank() -> settings.openRouterApiKey
+                                settings.apiKey.startsWith("sk-or-") -> settings.apiKey
+                                else -> settings.apiKey
+                            }
                             openAiGatewayService.generateChatCompletion(
                                 baseUrl = ModelGateway.OPENROUTER.defaultBaseUrl,
                                 apiKey = key,
@@ -165,7 +191,11 @@ class AntigravityAgentEngine(
                             )
                         }
                         ModelGateway.GROQ -> {
-                            val key = settings.groqApiKey.ifBlank { settings.apiKey }
+                            val key = when {
+                                settings.groqApiKey.isNotBlank() -> settings.groqApiKey
+                                settings.apiKey.startsWith("gsk_") -> settings.apiKey
+                                else -> settings.apiKey
+                            }
                             openAiGatewayService.generateChatCompletion(
                                 baseUrl = ModelGateway.GROQ.defaultBaseUrl,
                                 apiKey = key,
@@ -176,17 +206,22 @@ class AntigravityAgentEngine(
                             )
                         }
                         ModelGateway.OPENAI -> {
-                            if (settings.openAiApiKey.isNotBlank()) {
+                            val key = when {
+                                settings.openAiApiKey.isNotBlank() -> settings.openAiApiKey
+                                settings.apiKey.startsWith("sk-") && !settings.apiKey.startsWith("sk-or-") -> settings.apiKey
+                                else -> settings.openAiApiKey
+                            }
+                            if (key.isNotBlank()) {
                                 openAiGatewayService.generateChatCompletion(
                                     baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
-                                    apiKey = settings.openAiApiKey,
+                                    apiKey = key,
                                     modelId = modelInfo?.id ?: "gpt-4o",
                                     prompt = trimmed,
                                     systemInstruction = sysInstruction,
                                     history = previousMessages
                                 )
                             } else {
-                                Result.failure(Exception("OpenAI API key is required. Please configure your key in Settings -> Open Model Gateways & API Keys."))
+                                Result.failure(Exception(missingKeyMessage("OpenAI")))
                             }
                         }
                         ModelGateway.OLLAMA -> {
@@ -200,7 +235,11 @@ class AntigravityAgentEngine(
                             )
                         }
                         ModelGateway.HUGGINGFACE -> {
-                            val key = settings.huggingFaceApiKey.ifBlank { settings.apiKey }
+                            val key = when {
+                                settings.huggingFaceApiKey.isNotBlank() -> settings.huggingFaceApiKey
+                                settings.apiKey.startsWith("hf_") -> settings.apiKey
+                                else -> settings.apiKey
+                            }
                             openAiGatewayService.generateChatCompletion(
                                 baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
                                 apiKey = key,

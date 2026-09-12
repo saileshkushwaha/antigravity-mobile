@@ -350,7 +350,7 @@ fun AntigravityMainScreen(
                             slashCommands = agentEngine.slashCommands,
                             mentionItems = agentEngine.mentionItems,
                             activePersonaName = activePersona.name,
-                            workspaceName = activeWorkspace.name,
+                            workspaceName = null,
                             onOpenPersonaSelection = {
                                 showChatPersonaDialog = true
                             },
@@ -419,7 +419,7 @@ fun AntigravityMainScreen(
                             agentState = agentState,
                             activeModel = settings.activeModel,
                             activePersona = activePersona,
-                            activeWorkspace = activeWorkspace,
+                            activeWorkspace = null,
                             onOpenModelPicker = {
                                 showModelSelectionDialog = true
                             },

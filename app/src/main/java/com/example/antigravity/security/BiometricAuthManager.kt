@@ -34,6 +34,35 @@ object BiometricAuthManager {
         }
     }
 
+    fun openBiometricEnrollment(context: Context) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val enrollIntent = android.content.Intent(android.provider.Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                    putExtra(
+                        android.provider.Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(enrollIntent)
+            } else {
+                val secIntent = android.content.Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS).apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(secIntent)
+            }
+        } catch (e: Exception) {
+            try {
+                val secIntent = android.content.Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS).apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(secIntent)
+            } catch (e2: Exception) {
+                e2.printStackTrace()
+            }
+        }
+    }
+
     fun authenticate(
         activity: FragmentActivity,
         title: String = "Unlock Antigravity Studio",

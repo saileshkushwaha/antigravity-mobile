@@ -228,34 +228,6 @@ fun ChatInputBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Add Project or Folder Quick Action Chip
-            item {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = AntigravityColors.CardBackground,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)),
-                    modifier = Modifier.clickable { onOpenWorkspaceManager() }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.CreateNewFolder,
-                            contentDescription = null,
-                            tint = AntigravityColors.ElectricCyan,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = "+ Project/Folder",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AntigravityColors.ElectricCyan
-                        )
-                    }
-                }
-            }
 
             // Active Persona Chip / Switcher
             item {

@@ -46,7 +46,7 @@ fun PromptOptimizerDialog(
                 originalPrompt = currentInput,
                 mode = selectedMode,
                 activePersonaName = activePersonaName,
-                workspaceName = workspaceName
+                workspaceName = null
             )
         )
     }

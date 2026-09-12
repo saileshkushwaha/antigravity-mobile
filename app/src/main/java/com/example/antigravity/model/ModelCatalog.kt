@@ -346,31 +346,49 @@ object ModelCatalog {
 
         // --- Google Gemini Models ---
         ModelInfo(
-            id = "gemini-2.5-flash",
-            name = "Gemini 2.5 Flash",
+            id = "gemini-2.0-flash",
+            name = "Gemini 2.0 Flash",
             gateway = ModelGateway.GEMINI,
             isFree = true,
             contextWindow = "1M",
             description = "Google's recommended agentic model. Free tier included with fast multimodal reasoning.",
-            tags = listOf("free", "google", "gemini", "flash", "agentic", "multimodal")
+            tags = listOf("free", "google", "gemini", "flash", "agentic", "multimodal", "fast")
         ),
         ModelInfo(
-            id = "gemini-2.5-flash-lite",
-            name = "Gemini 2.5 Flash-Lite",
+            id = "gemini-1.5-flash",
+            name = "Gemini 1.5 Flash",
             gateway = ModelGateway.GEMINI,
             isFree = true,
             contextWindow = "1M",
-            description = "Optimized for extreme efficiency and cost-free high throughput agent tasks.",
-            tags = listOf("free", "google", "gemini", "lite", "high-throughput")
+            description = "Ultra-stable, highly efficient workhorse model supported across all Google AI Studio tiers.",
+            tags = listOf("free", "google", "gemini", "flash", "stable", "multimodal")
         ),
         ModelInfo(
-            id = "gemini-2.5-pro",
-            name = "Gemini 2.5 Pro",
+            id = "gemini-1.5-pro",
+            name = "Gemini 1.5 Pro",
             gateway = ModelGateway.GEMINI,
             isFree = false,
             contextWindow = "2M",
-            description = "Google's most capable model for complex multi-file coding and advanced tool reasoning.",
+            description = "Google's premier model for complex multi-file coding and advanced tool reasoning.",
             tags = listOf("google", "gemini", "pro", "coding", "complex")
+        ),
+        ModelInfo(
+            id = "gemini-2.5-flash",
+            name = "Gemini 2.5 Flash (Preview)",
+            gateway = ModelGateway.GEMINI,
+            isFree = true,
+            contextWindow = "1M",
+            description = "Preview hybrid reasoning model with dynamic thinking budgets.",
+            tags = listOf("free", "google", "gemini", "flash", "preview")
+        ),
+        ModelInfo(
+            id = "gemini-2.5-pro",
+            name = "Gemini 2.5 Pro (Preview)",
+            gateway = ModelGateway.GEMINI,
+            isFree = false,
+            contextWindow = "2M",
+            description = "Preview deep coding reasoning model in the 2.5 family.",
+            tags = listOf("google", "gemini", "pro", "preview")
         ),
         ModelInfo(
             id = "gemma-4",

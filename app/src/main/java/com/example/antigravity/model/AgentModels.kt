@@ -145,7 +145,7 @@ data class Conversation(
     val createdAt: Long = System.currentTimeMillis(),
     var updatedAt: Long = System.currentTimeMillis(),
     val messages: MutableList<ChatMessage> = mutableListOf(),
-    var activeModel: String = "Gemini 2.5 Flash",
+    var activeModel: String = "Gemini 2.0 Flash",
     var workspaceName: String = "magical-bose"
 )
 
@@ -237,8 +237,8 @@ data class AppSettings(
     val customGatewayUrl: String = "http://localhost:11434/v1",
     val customGatewayApiKey: String = "",
     val customProviders: List<CustomProviderConfig> = emptyList(),
-    val activeModel: String = "Gemini 2.5 Flash",
-    val activeModelId: String = "gemini-2.5-flash",
+    val activeModel: String = "Gemini 2.0 Flash",
+    val activeModelId: String = "gemini-2.0-flash",
     val toolExecutionPolicy: String = "request-review", // "always-proceed", "request-review", "strict"
     val terminalSandbox: Boolean = true,
     val isOfflineDemoMode: Boolean = false,

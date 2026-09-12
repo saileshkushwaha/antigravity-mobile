@@ -31,6 +31,7 @@ class OpenAiGatewayService {
         history: List<ChatMessage> = emptyList()
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
+            val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
             val cleanBase = baseUrl.trimEnd('/')
             val endpointUrl = if (cleanBase.endsWith("/chat/completions")) cleanBase else "$cleanBase/chat/completions"
 
@@ -41,8 +42,14 @@ class OpenAiGatewayService {
                         put("content", systemInstruction)
                     })
                 }
-                // Include multi-turn conversation context
-                history.filter { it.text.isNotBlank() }.forEach { msg ->
+                // Include multi-turn conversation context (skip errors, streaming, or empty)
+                history.filter { msg ->
+                    msg.text.isNotBlank() &&
+                    !msg.isStreaming &&
+                    !msg.text.startsWith("⚠️") &&
+                    !msg.text.startsWith("Error during execution") &&
+                    !msg.text.startsWith("*[Task execution")
+                }.forEach { msg ->
                     val role = when (msg.sender) {
                         MessageSender.USER -> "user"
                         MessageSender.AGENT -> "assistant"
@@ -73,8 +80,8 @@ class OpenAiGatewayService {
                 .post(body)
                 .addHeader("Content-Type", "application/json")
 
-            if (apiKey.isNotBlank()) {
-                requestBuilder.addHeader("Authorization", "Bearer $apiKey")
+            if (cleanKey.isNotBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $cleanKey")
             }
 
             // Gateway specific client headers
@@ -90,7 +97,24 @@ class OpenAiGatewayService {
             val response = client.newCall(requestBuilder.build()).execute()
             if (!response.isSuccessful) {
                 val errBody = response.body?.string() ?: "HTTP ${response.code}"
-                return@withContext Result.failure(Exception("Gateway Error (${response.code}): $errBody"))
+                var detailedMsg = errBody
+                try {
+                    val errJson = JSONObject(errBody)
+                    val errObj = errJson.optJSONObject("error")
+                    val msg = errObj?.optString("message")
+                    if (!msg.isNullOrBlank()) {
+                        detailedMsg = msg
+                    }
+                } catch (_: Exception) {}
+
+                val userFriendlyMessage = when (response.code) {
+                    401 -> "API Key Authentication Error (401): $detailedMsg\nPlease check that your API key is correct and valid."
+                    403 -> "Access Forbidden (403): $detailedMsg\nYour account or API key does not have permission to access model '$modelId'."
+                    404 -> "Model Endpoint Not Found (404): $detailedMsg\nModel '$modelId' was not found on this gateway."
+                    429 -> "Rate Limit / Quota Exceeded (429): $detailedMsg\nPlease check your account quota or billing."
+                    else -> "Gateway Error (${response.code}): $detailedMsg"
+                }
+                return@withContext Result.failure(Exception(userFriendlyMessage))
             }
 
             val respString = response.body?.string() ?: ""

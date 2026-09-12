@@ -29,45 +29,122 @@ class GeminiApiService {
         systemInstruction: String? = null,
         history: List<ChatMessage> = emptyList()
     ): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val endpointModel = when {
-                modelName.contains("Pro", ignoreCase = true) -> "gemini-2.5-pro"
-                modelName.contains("Ultra", ignoreCase = true) -> "gemini-2.5-pro"
-                else -> "gemini-2.5-flash"
+        val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
+        if (cleanKey.isBlank()) {
+            return@withContext Result.failure(Exception("Gemini API key is required. Please configure your key in Settings -> Model Gateways & API Credentials."))
+        }
+
+        var endpointModel = resolveEndpointModel(modelName)
+        var result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
+
+        // If 404 (model not found), attempt fallback to gemini-1.5-flash (guaranteed across all Google AI Studio tiers)
+        if (result.isFailure && endpointModel != "gemini-1.5-flash") {
+            val err = result.exceptionOrNull()?.message ?: ""
+            if (err.contains("404") || err.contains("not found", ignoreCase = true)) {
+                endpointModel = "gemini-1.5-flash"
+                result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
+            }
+        }
+
+        result
+    }
+
+    private fun resolveEndpointModel(rawModel: String): String {
+        val clean = rawModel.trim().removePrefix("models/")
+        return when {
+            clean.equals("gemini-2.5-flash", ignoreCase = true) -> "gemini-2.0-flash"
+            clean.equals("gemini-2.5-flash-lite", ignoreCase = true) -> "gemini-2.0-flash"
+            clean.equals("gemini-2.5-pro", ignoreCase = true) -> "gemini-1.5-pro"
+            clean.startsWith("gemini-", ignoreCase = true) || clean.startsWith("gemma-", ignoreCase = true) -> clean
+            clean.contains("1.5", ignoreCase = true) && clean.contains("pro", ignoreCase = true) -> "gemini-1.5-pro"
+            clean.contains("1.5", ignoreCase = true) -> "gemini-1.5-flash"
+            clean.contains("2.0", ignoreCase = true) -> "gemini-2.0-flash"
+            clean.contains("Pro", ignoreCase = true) || clean.contains("Ultra", ignoreCase = true) -> "gemini-1.5-pro"
+            clean.contains("Flash", ignoreCase = true) -> "gemini-2.0-flash"
+            else -> "gemini-2.0-flash"
+        }
+    }
+
+    private fun buildGeminiContents(history: List<ChatMessage>, currentPrompt: String): JSONArray {
+        val contentsArray = JSONArray()
+
+        // Filter out empty, streaming, and error messages from chat history
+        val validHistory = history.filter { msg ->
+            msg.text.isNotBlank() &&
+            !msg.isStreaming &&
+            !msg.text.startsWith("⚠️") &&
+            !msg.text.startsWith("Error during execution") &&
+            !msg.text.startsWith("*[Task execution")
+        }
+
+        var lastRole: String? = null
+
+        for (msg in validHistory) {
+            val role = when (msg.sender) {
+                MessageSender.USER -> "user"
+                MessageSender.AGENT -> "model"
+                MessageSender.SYSTEM -> null
+            } ?: continue
+
+            // Google Gemini API requires the first turn to have role 'user'
+            if (lastRole == null && role != "user") {
+                continue
             }
 
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/$endpointModel:generateContent?key=$apiKey"
-
-            val contentsArray = JSONArray()
-
-            // Include multi-turn conversation context
-            history.filter { it.text.isNotBlank() }.forEach { msg ->
-                val role = when (msg.sender) {
-                    MessageSender.USER -> "user"
-                    MessageSender.AGENT -> "model"
-                    MessageSender.SYSTEM -> null
+            if (role == lastRole) {
+                // Merge consecutive turns with the same role into parts
+                if (contentsArray.length() > 0) {
+                    val lastTurn = contentsArray.getJSONObject(contentsArray.length() - 1)
+                    val parts = lastTurn.getJSONArray("parts")
+                    parts.put(JSONObject().apply { put("text", "\n" + msg.text) })
                 }
-                if (role != null) {
-                    contentsArray.put(JSONObject().apply {
-                        put("role", role)
-                        put("parts", JSONArray().apply {
-                            put(JSONObject().apply {
-                                put("text", msg.text)
-                            })
-                        })
+            } else {
+                contentsArray.put(JSONObject().apply {
+                    put("role", role)
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply { put("text", msg.text) })
                     })
-                }
+                })
+                lastRole = role
             }
+        }
 
-            // Append current user prompt
+        // Append the current user prompt
+        if (lastRole == "user") {
+            if (contentsArray.length() > 0) {
+                val lastTurn = contentsArray.getJSONObject(contentsArray.length() - 1)
+                val parts = lastTurn.getJSONArray("parts")
+                parts.put(JSONObject().apply { put("text", "\n" + currentPrompt) })
+            } else {
+                contentsArray.put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply { put("text", currentPrompt) })
+                    })
+                })
+            }
+        } else {
             contentsArray.put(JSONObject().apply {
                 put("role", "user")
                 put("parts", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("text", prompt)
-                    })
+                    put(JSONObject().apply { put("text", currentPrompt) })
                 })
             })
+        }
+
+        return contentsArray
+    }
+
+    private fun executeRequest(
+        apiKey: String,
+        endpointModel: String,
+        prompt: String,
+        systemInstruction: String?,
+        history: List<ChatMessage>
+    ): Result<String> {
+        try {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$endpointModel:generateContent?key=$apiKey"
+            val contentsArray = buildGeminiContents(history, prompt)
 
             val requestJson = JSONObject().apply {
                 put("contents", contentsArray)
@@ -91,7 +168,24 @@ class GeminiApiService {
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: "HTTP ${response.code}"
-                return@withContext Result.failure(Exception("Gemini API Error (${response.code}): $errorBody"))
+                var detailedMsg = errorBody
+                try {
+                    val errJson = JSONObject(errorBody)
+                    val errObj = errJson.optJSONObject("error")
+                    val msg = errObj?.optString("message")
+                    if (!msg.isNullOrBlank()) {
+                        detailedMsg = msg
+                    }
+                } catch (_: Exception) {}
+
+                val userFriendlyMessage = when (response.code) {
+                    400 -> "Request Error (400): $detailedMsg"
+                    401, 403 -> "Authentication Error (${response.code}): $detailedMsg\nPlease verify that your Google Gemini API key is valid and has active permissions."
+                    404 -> "Model Endpoint Not Found (404): $detailedMsg\nEndpoint '$endpointModel' was not found for this API version."
+                    429 -> "Rate Limit / Quota Exceeded (429): $detailedMsg\nPlease check your Google AI Studio quota."
+                    else -> "Gemini API Error (${response.code}): $detailedMsg"
+                }
+                return Result.failure(Exception(userFriendlyMessage))
             }
 
             val responseBody = response.body?.string() ?: ""
@@ -103,13 +197,13 @@ class GeminiApiService {
                 val parts = content?.optJSONArray("parts")
                 if (parts != null && parts.length() > 0) {
                     val text = parts.getJSONObject(0).optString("text")
-                    return@withContext Result.success(text)
+                    return Result.success(text)
                 }
             }
 
-            Result.success("No text candidates returned by Gemini.")
+            return Result.success("No text candidates returned by Gemini.")
         } catch (e: Exception) {
-            Result.failure(e)
+            return Result.failure(e)
         }
     }
 

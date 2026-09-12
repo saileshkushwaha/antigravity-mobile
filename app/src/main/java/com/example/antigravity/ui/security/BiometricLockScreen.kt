@@ -24,7 +24,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.antigravity.R
+import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.security.BiometricHardwareStatus
 import com.example.antigravity.theme.AntigravityColors
 
@@ -36,9 +41,38 @@ fun BiometricLockScreen(
     errorMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
-    // Launch biometric prompt once on initial compose
-    LaunchedEffect(Unit) {
-        onTriggerBiometric()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var currentStatus by remember { mutableStateOf(hardwareStatus) }
+
+    val sharedPrefs = remember(context) {
+        context.getSharedPreferences("antigravity_security_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var enrolledPin by remember {
+        mutableStateOf(sharedPrefs.getString("enclave_pin", null))
+    }
+
+    var showPinDialog by remember { mutableStateOf(false) }
+    var isEnrollMode by remember { mutableStateOf(enrolledPin == null) }
+    var enteredPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var pinErrorText by remember { mutableStateOf<String?>(null) }
+
+    // Re-check biometric status on resume (e.g. after returning from Android Settings enrollment)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val updated = BiometricAuthManager.checkBiometricAvailability(context)
+                currentStatus = updated
+                if (updated.isUsable) {
+                    onTriggerBiometric()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "BiometricRings")
@@ -60,10 +94,6 @@ fun BiometricLockScreen(
         ),
         label = "PulseAlpha"
     )
-
-    var showPinBypassDialog by remember { mutableStateOf(false) }
-    var enteredPin by remember { mutableStateOf("") }
-    var pinError by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -198,11 +228,11 @@ fun BiometricLockScreen(
             // Hardware Status Pill
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (hardwareStatus.isUsable) AntigravityColors.StatusSuccess.copy(alpha = 0.12f)
+                color = if (currentStatus.isUsable) AntigravityColors.StatusSuccess.copy(alpha = 0.12f)
                 else AntigravityColors.NeonViolet.copy(alpha = 0.12f),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (hardwareStatus.isUsable) AntigravityColors.StatusSuccess.copy(alpha = 0.4f)
+                    if (currentStatus.isUsable) AntigravityColors.StatusSuccess.copy(alpha = 0.4f)
                     else AntigravityColors.NeonViolet.copy(alpha = 0.4f)
                 )
             ) {
@@ -212,16 +242,17 @@ fun BiometricLockScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        if (hardwareStatus.isUsable) Icons.Default.VerifiedUser else Icons.Default.Shield,
+                        if (currentStatus.isUsable) Icons.Default.VerifiedUser else Icons.Default.Shield,
                         contentDescription = null,
-                        tint = if (hardwareStatus.isUsable) AntigravityColors.StatusSuccess else AntigravityColors.NeonViolet,
+                        tint = if (currentStatus.isUsable) AntigravityColors.StatusSuccess else AntigravityColors.NeonViolet,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = hardwareStatus.displayName,
+                        text = if (currentStatus == BiometricHardwareStatus.NOT_ENROLLED) "Biometric Enrollment Required"
+                        else currentStatus.displayName,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (hardwareStatus.isUsable) AntigravityColors.StatusSuccess else AntigravityColors.NeonViolet
+                        color = if (currentStatus.isUsable) AntigravityColors.StatusSuccess else AntigravityColors.NeonViolet
                     )
                 }
             }
@@ -245,85 +276,209 @@ fun BiometricLockScreen(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Action: Unlock with Biometrics
-            Button(
-                onClick = onTriggerBiometric,
-                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                Icon(
-                    Icons.Default.Fingerprint,
-                    contentDescription = null,
-                    tint = Color(0xFF00363D),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Unlock with Biometrics",
-                    color = Color(0xFF00363D),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-            }
+            when {
+                currentStatus.isUsable -> {
+                    // Ready for Biometric Scan
+                    Button(
+                        onClick = onTriggerBiometric,
+                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Fingerprint,
+                            contentDescription = null,
+                            tint = Color(0xFF00363D),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Scan Fingerprint to Unlock",
+                            color = Color(0xFF00363D),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
 
-            // Fallback / Passcode Bypass
-            OutlinedButton(
-                onClick = { showPinBypassDialog = true },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.TextSecondary),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(42.dp)
-            ) {
-                Icon(
-                    Icons.Default.Pin,
-                    contentDescription = null,
-                    tint = AntigravityColors.TextSecondary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Use Passcode / Developer Bypass",
-                    fontSize = 12.sp,
-                    color = AntigravityColors.TextSecondary
-                )
+                    OutlinedButton(
+                        onClick = {
+                            isEnrollMode = (enrolledPin == null)
+                            enteredPin = ""
+                            confirmPin = ""
+                            pinErrorText = null
+                            showPinDialog = true
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.TextSecondary),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Pin,
+                            contentDescription = null,
+                            tint = AntigravityColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (enrolledPin == null) "Set Up Enclave Passcode" else "Use Enclave Passcode",
+                            fontSize = 12.sp,
+                            color = AntigravityColors.TextSecondary
+                        )
+                    }
+                }
+
+                currentStatus == BiometricHardwareStatus.NOT_ENROLLED -> {
+                    // Prompt user to enroll in Android Settings
+                    Button(
+                        onClick = {
+                            BiometricAuthManager.openBiometricEnrollment(context)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.NeonViolet),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Security,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Enroll Biometrics in Android Settings",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Text(
+                        text = "No biometric credentials registered yet. Register fingerprint in Settings, or enroll an Enclave Passcode below to unlock internal screens.",
+                        fontSize = 11.sp,
+                        color = AntigravityColors.TextMuted,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            isEnrollMode = (enrolledPin == null)
+                            enteredPin = ""
+                            confirmPin = ""
+                            pinErrorText = null
+                            showPinDialog = true
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.ElectricCyan),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Key,
+                            contentDescription = null,
+                            tint = AntigravityColors.ElectricCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (enrolledPin == null) "Enroll Enclave Passcode" else "Unlock with Enclave Passcode",
+                            fontSize = 12.sp,
+                            color = AntigravityColors.ElectricCyan
+                        )
+                    }
+                }
+
+                else -> {
+                    // Sensor not present / emulators
+                    Button(
+                        onClick = {
+                            isEnrollMode = (enrolledPin == null)
+                            enteredPin = ""
+                            confirmPin = ""
+                            pinErrorText = null
+                            showPinDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Key,
+                            contentDescription = null,
+                            tint = Color(0xFF00363D),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (enrolledPin == null) "Enroll Enclave Passcode" else "Enter Enclave Passcode",
+                            color = Color(0xFF00363D),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
         }
     }
 
-    // In-App Passcode / Developer Bypass Dialog
-    if (showPinBypassDialog) {
+    // Security Passcode Enrollment / Verification Dialog
+    if (showPinDialog) {
         AlertDialog(
-            onDismissRequest = { showPinBypassDialog = false },
+            onDismissRequest = { showPinDialog = false },
             containerColor = AntigravityColors.SurfaceDark,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = AntigravityColors.ElectricCyan)
-                    Text("Developer Passcode", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        if (isEnrollMode) Icons.Default.AppRegistration else Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = AntigravityColors.ElectricCyan
+                    )
+                    Text(
+                        if (isEnrollMode) "Enroll Enclave Passcode" else "Verify Enclave Passcode",
+                        color = AntigravityColors.TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Enter the developer master passcode to bypass biometric authentication (Default: 0000 or any 4-digit code):",
+                        if (isEnrollMode)
+                            "Create a secure 4-6 digit Passcode to enroll and protect Antigravity internal screens."
+                        else
+                            "Enter your enrolled 4-6 digit Enclave Passcode to unlock.",
                         fontSize = 12.sp,
                         color = AntigravityColors.TextSecondary
                     )
+
                     OutlinedTextField(
                         value = enteredPin,
                         onValueChange = {
-                            if (it.length <= 6) {
+                            if (it.length <= 6 && it.all { ch -> ch.isDigit() }) {
                                 enteredPin = it
-                                pinError = false
+                                pinErrorText = null
                             }
                         },
-                        placeholder = { Text("Enter 4-digit PIN", color = AntigravityColors.TextMuted) },
+                        placeholder = { Text("Enter 4-6 digit PIN", color = AntigravityColors.TextMuted) },
                         singleLine = true,
-                        isError = pinError,
+                        isError = pinErrorText != null,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                        ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AntigravityColors.ElectricCyan,
                             unfocusedBorderColor = AntigravityColors.CardBorder,
@@ -332,28 +487,72 @@ fun BiometricLockScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (pinError) {
-                        Text("Invalid PIN. Please enter at least 4 digits.", color = AntigravityColors.StatusError, fontSize = 11.sp)
+
+                    if (isEnrollMode) {
+                        OutlinedTextField(
+                            value = confirmPin,
+                            onValueChange = {
+                                if (it.length <= 6 && it.all { ch -> ch.isDigit() }) {
+                                    confirmPin = it
+                                    pinErrorText = null
+                                }
+                            },
+                            placeholder = { Text("Confirm 4-6 digit PIN", color = AntigravityColors.TextMuted) },
+                            singleLine = true,
+                            isError = pinErrorText != null,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder,
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    if (pinErrorText != null) {
+                        Text(pinErrorText!!, color = AntigravityColors.StatusError, fontSize = 11.sp)
                     }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (enteredPin.length >= 4) {
-                            showPinBypassDialog = false
-                            onUnlock()
+                        if (isEnrollMode) {
+                            if (enteredPin.length < 4) {
+                                pinErrorText = "PIN must be at least 4 digits"
+                            } else if (enteredPin != confirmPin) {
+                                pinErrorText = "PINs do not match"
+                            } else {
+                                sharedPrefs.edit().putString("enclave_pin", enteredPin).apply()
+                                enrolledPin = enteredPin
+                                showPinDialog = false
+                                onUnlock()
+                            }
                         } else {
-                            pinError = true
+                            if (enteredPin == enrolledPin || (enrolledPin == null && enteredPin == "0000")) {
+                                showPinDialog = false
+                                onUnlock()
+                            } else {
+                                pinErrorText = "Incorrect passcode. Please retry."
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
                 ) {
-                    Text("Unlock Enclave", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                    Text(
+                        if (isEnrollMode) "Enroll & Unlock" else "Unlock Studio",
+                        color = Color(0xFF00363D),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPinBypassDialog = false }) {
+                TextButton(onClick = { showPinDialog = false }) {
                     Text("Cancel", color = AntigravityColors.TextSecondary)
                 }
             }

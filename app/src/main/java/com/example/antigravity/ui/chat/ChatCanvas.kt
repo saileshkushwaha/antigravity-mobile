@@ -92,42 +92,6 @@ fun ChatCanvas(
                             }
                         }
 
-                        // Active Project / Folder Chip
-                        if (activeWorkspace != null) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = AntigravityColors.SurfaceElevated,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                                modifier = Modifier.clickable { onOpenWorkspaceManager() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Folder,
-                                        contentDescription = null,
-                                        tint = AntigravityColors.ElectricCyan,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Text(
-                                        text = activeWorkspace.name,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AntigravityColors.TextPrimary,
-                                        maxLines = 1
-                                    )
-                                    Icon(
-                                        Icons.Default.Add,
-                                        contentDescription = "Add Project/Folder",
-                                        tint = AntigravityColors.ElectricCyan,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                }
-                            }
-                        }
-
                         // Agent Status Pill
                         StatusBadge(agentState = agentState)
                     }
@@ -152,16 +116,6 @@ fun ChatCanvas(
                                 modifier = Modifier.size(19.dp)
                             )
                         }
-                    }
-
-                    // Add Project or Folder Button
-                    IconButton(onClick = onOpenWorkspaceManager) {
-                        Icon(
-                            Icons.Default.CreateNewFolder,
-                            contentDescription = "Add Project or Folder",
-                            tint = AntigravityColors.ElectricCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
                     }
 
                     // Auxiliary Pane Toggle Button with Badge

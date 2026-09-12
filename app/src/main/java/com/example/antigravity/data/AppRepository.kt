@@ -24,7 +24,8 @@ class AppRepository {
     private val _settings = MutableStateFlow(
         AppSettings(
             apiKey = "",
-            activeModel = "Gemini 2.5 Flash",
+            activeModel = "Gemini 2.0 Flash",
+            activeModelId = "gemini-2.0-flash",
             toolExecutionPolicy = "request-review",
             terminalSandbox = true,
             isOfflineDemoMode = false,
@@ -41,7 +42,14 @@ class AppRepository {
         if (savedJson != null) {
             try {
                 val parsed = kotlinx.serialization.json.Json.decodeFromString(AppSettings.serializer(), savedJson)
-                _settings.value = parsed.copy(biometricLockEnabled = true)
+                var safeSettings = parsed.copy(biometricLockEnabled = true)
+                if (safeSettings.activeModelId.equals("gemini-2.5-flash", ignoreCase = true) || safeSettings.activeModel.equals("Gemini 2.5 Flash", ignoreCase = true)) {
+                    safeSettings = safeSettings.copy(
+                        activeModel = "Gemini 2.0 Flash",
+                        activeModelId = "gemini-2.0-flash"
+                    )
+                }
+                _settings.value = safeSettings
             } catch (e: Exception) {
                 e.printStackTrace()
             }
