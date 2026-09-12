@@ -30,14 +30,21 @@ import com.example.antigravity.theme.AntigravityColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PromptLibraryDialog(
+    prompts: List<PromptTemplate> = PromptLibrary.allPrompts,
     onSelectPrompt: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<PromptCategory?>(null) }
 
-    val filteredPrompts = remember(searchQuery, selectedCategory) {
-        PromptLibrary.searchPrompts(searchQuery, selectedCategory)
+    val filteredPrompts = remember(searchQuery, selectedCategory, prompts) {
+        val q = searchQuery.trim().lowercase()
+        prompts.filter { prompt ->
+            (selectedCategory == null || prompt.category == selectedCategory) &&
+                    (q.isEmpty() || prompt.title.lowercase().contains(q) ||
+                            prompt.description.lowercase().contains(q) ||
+                            prompt.content.lowercase().contains(q))
+        }
     }
 
     Dialog(

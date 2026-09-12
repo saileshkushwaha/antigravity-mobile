@@ -33,10 +33,12 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     var apiKey by remember { mutableStateOf(settings.apiKey) }
+    var openAiKey by remember { mutableStateOf(settings.openAiApiKey) }
     var openRouterKey by remember { mutableStateOf(settings.openRouterApiKey) }
     var groqKey by remember { mutableStateOf(settings.groqApiKey) }
     var kiloCodeKey by remember { mutableStateOf(settings.kiloCodeApiKey) }
     var openCodeKey by remember { mutableStateOf(settings.openCodeApiKey) }
+    var huggingFaceKey by remember { mutableStateOf(settings.huggingFaceApiKey) }
     var customGatewayUrl by remember { mutableStateOf(settings.customGatewayUrl) }
     var selectedModel by remember { mutableStateOf(settings.activeModel) }
     var selectedModelId by remember { mutableStateOf(settings.activeModelId) }
@@ -168,6 +170,18 @@ fun SettingsDialog(
                             )
                         }
 
+                        // OpenAI API Key
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("OpenAI API Key (GPT-4o, o3-mini)", fontSize = 11.sp, color = Color(0xFF10A37F))
+                            OutlinedTextField(
+                                value = openAiKey,
+                                onValueChange = { openAiKey = it },
+                                placeholder = { Text("sk-proj-...", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         // OpenRouter API Key
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("OpenRouter API Key (Free & Open Models)", fontSize = 11.sp, color = AntigravityColors.NeonViolet)
@@ -211,6 +225,18 @@ fun SettingsDialog(
                                 value = openCodeKey,
                                 onValueChange = { openCodeKey = it },
                                 placeholder = { Text("opencode_live_...", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        // Hugging Face API Key
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Hugging Face API Token", fontSize = 11.sp, color = Color(0xFFFFD21E))
+                            OutlinedTextField(
+                                value = huggingFaceKey,
+                                onValueChange = { huggingFaceKey = it },
+                                placeholder = { Text("hf_...", fontSize = 12.sp) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -285,10 +311,12 @@ fun SettingsDialog(
                         onSave(
                             settings.copy(
                                 apiKey = apiKey,
+                                openAiApiKey = openAiKey,
                                 openRouterApiKey = openRouterKey,
                                 groqApiKey = groqKey,
                                 kiloCodeApiKey = kiloCodeKey,
                                 openCodeApiKey = openCodeKey,
+                                huggingFaceApiKey = huggingFaceKey,
                                 customGatewayUrl = customGatewayUrl,
                                 activeModel = selectedModel,
                                 activeModelId = selectedModelId,

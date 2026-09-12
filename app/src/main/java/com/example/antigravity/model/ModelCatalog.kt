@@ -211,6 +211,44 @@ object ModelCatalog {
             tags = listOf("free", "google", "gemma", "open-weights")
         ),
 
+        // --- OpenAI Models ---
+        ModelInfo(
+            id = "gpt-4o",
+            name = "GPT-4o (Omni)",
+            gateway = ModelGateway.OPENAI,
+            isFree = false,
+            contextWindow = "128k",
+            description = "OpenAI's flagship multimodal model for high-intelligence coding and reasoning.",
+            tags = listOf("openai", "gpt-4o", "flagship", "multimodal", "coding")
+        ),
+        ModelInfo(
+            id = "gpt-4o-mini",
+            name = "GPT-4o Mini",
+            gateway = ModelGateway.OPENAI,
+            isFree = false,
+            contextWindow = "128k",
+            description = "Fast, cost-efficient small model for everyday coding and agent tasks.",
+            tags = listOf("openai", "gpt-4o-mini", "fast", "affordable")
+        ),
+        ModelInfo(
+            id = "o3-mini",
+            name = "OpenAI o3-mini",
+            gateway = ModelGateway.OPENAI,
+            isFree = false,
+            contextWindow = "200k",
+            description = "OpenAI's latest cost-efficient reasoning model optimized for STEM, coding, and math.",
+            tags = listOf("openai", "o3-mini", "reasoning", "stem", "coding")
+        ),
+        ModelInfo(
+            id = "o1-mini",
+            name = "OpenAI o1-mini",
+            gateway = ModelGateway.OPENAI,
+            isFree = false,
+            contextWindow = "128k",
+            description = "Reasoning model designed for complex multi-step programming challenges.",
+            tags = listOf("openai", "o1-mini", "reasoning", "programming")
+        ),
+
         // --- Ollama / Local (100% Free & Private) ---
         ModelInfo(
             id = "llama3.3:latest",

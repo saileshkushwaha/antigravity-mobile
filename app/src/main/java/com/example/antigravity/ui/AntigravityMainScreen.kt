@@ -67,6 +67,8 @@ fun AntigravityMainScreen(
 
     val agentState by agentEngine.agentState.collectAsState()
     val activePersona by agentEngine.activePersona.collectAsState()
+    val personas by repository.personas.collectAsState()
+    val prompts by repository.prompts.collectAsState()
 
     // Modal Utility Dialog states (for non-screen modals only)
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -266,6 +268,8 @@ fun AntigravityMainScreen(
                     AntigravityAppScreen.PERSONAS -> {
                         PersonasAndPromptsContent(
                             activePersona = activePersona,
+                            personas = personas,
+                            prompts = prompts,
                             onSelectPersona = { selectedPersona ->
                                 agentEngine.setActivePersona(selectedPersona)
                             },
@@ -273,6 +277,14 @@ fun AntigravityMainScreen(
                                 inputText = promptTemplate
                                 currentScreen = AntigravityAppScreen.CHAT
                             },
+                            onAddPersona = { repository.addPersona(it) },
+                            onUpdatePersona = { repository.updatePersona(it) },
+                            onDeletePersona = { repository.deletePersona(it) },
+                            onResetPersonas = { repository.resetPersonasToDefault() },
+                            onAddPrompt = { repository.addPrompt(it) },
+                            onUpdatePrompt = { repository.updatePrompt(it) },
+                            onDeletePrompt = { repository.deletePrompt(it) },
+                            onResetPrompts = { repository.resetPromptsToDefault() },
                             onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
                             onClose = { currentScreen = AntigravityAppScreen.CHAT },
                             modifier = Modifier.fillMaxSize()
@@ -320,6 +332,10 @@ fun AntigravityMainScreen(
                 )
                 showModelSelectionDialog = false
             },
+            onOpenApiKeys = {
+                showModelSelectionDialog = false
+                showSettingsDialog = true
+            },
             onDismiss = { showModelSelectionDialog = false }
         )
     }
@@ -362,6 +378,7 @@ fun AntigravityMainScreen(
     if (showChatPersonaDialog) {
         PersonaSelectionDialog(
             activePersona = activePersona,
+            personas = personas,
             onSelectPersona = { persona ->
                 agentEngine.setActivePersona(persona)
                 showChatPersonaDialog = false
@@ -373,6 +390,7 @@ fun AntigravityMainScreen(
     // Prompt Library Dialog (in-chat context without navigating away)
     if (showChatPromptDialog) {
         PromptLibraryDialog(
+            prompts = prompts,
             onSelectPrompt = { template ->
                 inputText = if (inputText.isBlank()) template else "$inputText\n\n$template"
                 showChatPromptDialog = false

@@ -31,15 +31,16 @@ import com.example.antigravity.theme.AntigravityColors
 @Composable
 fun PersonaSelectionDialog(
     activePersona: AgentPersona,
+    personas: List<AgentPersona> = PersonaCatalog.allPersonas,
     onSelectPersona: (AgentPersona) -> Unit,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<PersonaCategory?>(null) }
 
-    val filteredPersonas = remember(searchQuery, selectedCategory) {
+    val filteredPersonas = remember(searchQuery, selectedCategory, personas) {
         val q = searchQuery.trim().lowercase()
-        PersonaCatalog.allPersonas.filter { persona ->
+        personas.filter { persona ->
             (selectedCategory == null || persona.category == selectedCategory) &&
                     (q.isEmpty() || persona.name.lowercase().contains(q) ||
                             persona.roleTitle.lowercase().contains(q) ||

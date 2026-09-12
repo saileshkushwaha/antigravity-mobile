@@ -174,6 +174,20 @@ class AntigravityAgentEngine(
                                 history = previousMessages
                             )
                         }
+                        ModelGateway.OPENAI -> {
+                            if (settings.openAiApiKey.isNotBlank()) {
+                                openAiGatewayService.generateChatCompletion(
+                                    baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
+                                    apiKey = settings.openAiApiKey,
+                                    modelId = modelInfo?.id ?: "gpt-4o",
+                                    prompt = trimmed,
+                                    systemInstruction = sysInstruction,
+                                    history = previousMessages
+                                )
+                            } else {
+                                Result.failure(Exception("OpenAI API key is required. Please configure your key in Settings -> Open Model Gateways & API Keys."))
+                            }
+                        }
                         ModelGateway.OLLAMA -> {
                             openAiGatewayService.generateChatCompletion(
                                 baseUrl = settings.customGatewayUrl.ifBlank { ModelGateway.OLLAMA.defaultBaseUrl },
@@ -185,9 +199,10 @@ class AntigravityAgentEngine(
                             )
                         }
                         ModelGateway.HUGGINGFACE -> {
+                            val key = settings.huggingFaceApiKey.ifBlank { settings.apiKey }
                             openAiGatewayService.generateChatCompletion(
                                 baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
-                                apiKey = settings.apiKey,
+                                apiKey = key,
                                 modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
                                 prompt = trimmed,
                                 systemInstruction = sysInstruction,

@@ -34,6 +34,7 @@ enum class ModelFilterCategory(val label: String) {
     OPENROUTER("OpenRouter"),
     GROQ("Groq"),
     GEMINI("Google Gemini"),
+    OPENAI("OpenAI"),
     OLLAMA("Ollama Local"),
     HUGGINGFACE("Hugging Face")
 }
@@ -42,6 +43,7 @@ enum class ModelFilterCategory(val label: String) {
 fun ModelSelectionDialog(
     selectedModelId: String,
     onSelectModel: (ModelInfo) -> Unit,
+    onOpenApiKeys: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -58,6 +60,7 @@ fun ModelSelectionDialog(
                 ModelFilterCategory.OPENROUTER -> model.gateway == ModelGateway.OPENROUTER
                 ModelFilterCategory.GROQ -> model.gateway == ModelGateway.GROQ
                 ModelFilterCategory.GEMINI -> model.gateway == ModelGateway.GEMINI
+                ModelFilterCategory.OPENAI -> model.gateway == ModelGateway.OPENAI
                 ModelFilterCategory.OLLAMA -> model.gateway == ModelGateway.OLLAMA
                 ModelFilterCategory.HUGGINGFACE -> model.gateway == ModelGateway.HUGGINGFACE
             }
@@ -121,8 +124,23 @@ fun ModelSelectionDialog(
                             )
                         }
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (onOpenApiKeys != null) {
+                            OutlinedButton(
+                                onClick = onOpenApiKeys,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.ElectricCyan),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f)),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("API Keys", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
+                        }
                     }
                 }
 
@@ -236,6 +254,7 @@ fun ModelItemCard(
         ModelGateway.OPENROUTER -> AntigravityColors.NeonViolet
         ModelGateway.GROQ -> Color(0xFFFF9100)
         ModelGateway.GEMINI -> AntigravityColors.ElectricCyan
+        ModelGateway.OPENAI -> Color(0xFF10A37F)
         ModelGateway.OLLAMA -> Color(0xFF10B981)
         ModelGateway.HUGGINGFACE -> Color(0xFFFFD21E)
         ModelGateway.CUSTOM -> AntigravityColors.TextSecondary

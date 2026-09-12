@@ -74,6 +74,12 @@ class AppRepository {
     private val _skills = MutableStateFlow(SkillsCatalog.allDesktopSkills)
     val skills: StateFlow<List<SkillItem>> = _skills.asStateFlow()
 
+    private val _personas = MutableStateFlow<List<AgentPersona>>(PersonaCatalog.allPersonas)
+    val personas: StateFlow<List<AgentPersona>> = _personas.asStateFlow()
+
+    private val _prompts = MutableStateFlow<List<PromptTemplate>>(PromptLibrary.allPrompts)
+    val prompts: StateFlow<List<PromptTemplate>> = _prompts.asStateFlow()
+
     private val _mcpServers = MutableStateFlow(
         listOf(
             McpServerItem("gemini-api-docs", "Connected", listOf("gemini_search_docs", "gemini_get_doc")),
@@ -312,5 +318,67 @@ class AppRepository {
         }
         currentLogs.add("> ")
         _terminalLogs.value = currentLogs
+    }
+
+    // Persona CRUD
+    fun addPersona(persona: AgentPersona) {
+        val current = _personas.value.toMutableList()
+        val index = current.indexOfFirst { it.id == persona.id }
+        if (index >= 0) {
+            current[index] = persona
+        } else {
+            current.add(0, persona)
+        }
+        _personas.value = current
+    }
+
+    fun updatePersona(persona: AgentPersona) {
+        val current = _personas.value.toMutableList()
+        val index = current.indexOfFirst { it.id == persona.id }
+        if (index >= 0) {
+            current[index] = persona
+            _personas.value = current
+        } else {
+            addPersona(persona)
+        }
+    }
+
+    fun deletePersona(personaId: String) {
+        _personas.value = _personas.value.filter { it.id != personaId }
+    }
+
+    fun resetPersonasToDefault() {
+        _personas.value = PersonaCatalog.allPersonas
+    }
+
+    // Prompt Template CRUD
+    fun addPrompt(prompt: PromptTemplate) {
+        val current = _prompts.value.toMutableList()
+        val index = current.indexOfFirst { it.id == prompt.id }
+        if (index >= 0) {
+            current[index] = prompt
+        } else {
+            current.add(0, prompt)
+        }
+        _prompts.value = current
+    }
+
+    fun updatePrompt(prompt: PromptTemplate) {
+        val current = _prompts.value.toMutableList()
+        val index = current.indexOfFirst { it.id == prompt.id }
+        if (index >= 0) {
+            current[index] = prompt
+            _prompts.value = current
+        } else {
+            addPrompt(prompt)
+        }
+    }
+
+    fun deletePrompt(promptId: String) {
+        _prompts.value = _prompts.value.filter { it.id != promptId }
+    }
+
+    fun resetPromptsToDefault() {
+        _prompts.value = PromptLibrary.allPrompts
     }
 }

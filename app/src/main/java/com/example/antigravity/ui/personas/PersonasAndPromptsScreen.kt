@@ -24,13 +24,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.model.*
 import com.example.antigravity.theme.AntigravityColors
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonasAndPromptsContent(
     activePersona: AgentPersona,
+    personas: List<AgentPersona> = PersonaCatalog.allPersonas,
+    prompts: List<PromptTemplate> = PromptLibrary.allPrompts,
     onSelectPersona: (AgentPersona) -> Unit,
     onSelectPrompt: (String) -> Unit,
+    onAddPersona: ((AgentPersona) -> Unit)? = null,
+    onUpdatePersona: ((AgentPersona) -> Unit)? = null,
+    onDeletePersona: ((String) -> Unit)? = null,
+    onResetPersonas: (() -> Unit)? = null,
+    onAddPrompt: ((PromptTemplate) -> Unit)? = null,
+    onUpdatePrompt: ((PromptTemplate) -> Unit)? = null,
+    onDeletePrompt: ((String) -> Unit)? = null,
+    onResetPrompts: (() -> Unit)? = null,
     onOpenDrawer: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -106,7 +117,7 @@ fun PersonasAndPromptsContent(
                         }
                     }
                     Text(
-                        text = "Switch specialized reasoning personas & launch curated prompt templates",
+                        text = "Customize specialized reasoning personas & create custom prompts",
                         fontSize = 11.sp,
                         color = AntigravityColors.TextSecondary
                     )
@@ -132,7 +143,7 @@ fun PersonasAndPromptsContent(
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text("Expert Personas (${PersonaCatalog.allPersonas.size})", fontWeight = FontWeight.SemiBold)
+                        Text("Personas (${personas.size})", fontWeight = FontWeight.SemiBold)
                     }
                 }
             )
@@ -142,7 +153,7 @@ fun PersonasAndPromptsContent(
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text("Prompt Templates (${PromptLibrary.allPrompts.size})", fontWeight = FontWeight.SemiBold)
+                        Text("Prompts (${prompts.size})", fontWeight = FontWeight.SemiBold)
                     }
                 }
             )
@@ -152,11 +163,21 @@ fun PersonasAndPromptsContent(
         if (selectedTab == 0) {
             PersonasTabContent(
                 activePersona = activePersona,
-                onSelectPersona = onSelectPersona
+                personasList = personas,
+                onSelectPersona = onSelectPersona,
+                onAddPersona = onAddPersona,
+                onUpdatePersona = onUpdatePersona,
+                onDeletePersona = onDeletePersona,
+                onResetPersonas = onResetPersonas
             )
         } else {
             PromptsTabContent(
-                onSelectPrompt = onSelectPrompt
+                promptsList = prompts,
+                onSelectPrompt = onSelectPrompt,
+                onAddPrompt = onAddPrompt,
+                onUpdatePrompt = onUpdatePrompt,
+                onDeletePrompt = onDeletePrompt,
+                onResetPrompts = onResetPrompts
             )
         }
     }
@@ -166,14 +187,24 @@ fun PersonasAndPromptsContent(
 @Composable
 private fun PersonasTabContent(
     activePersona: AgentPersona,
-    onSelectPersona: (AgentPersona) -> Unit
+    personasList: List<AgentPersona>,
+    onSelectPersona: (AgentPersona) -> Unit,
+    onAddPersona: ((AgentPersona) -> Unit)? = null,
+    onUpdatePersona: ((AgentPersona) -> Unit)? = null,
+    onDeletePersona: ((String) -> Unit)? = null,
+    onResetPersonas: (() -> Unit)? = null
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<PersonaCategory?>(null) }
 
-    val filteredPersonas = remember(searchQuery, selectedCategory) {
+    // Dialog states for CRUD
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var editingPersona by remember { mutableStateOf<AgentPersona?>(null) }
+    var deletingPersona by remember { mutableStateOf<AgentPersona?>(null) }
+
+    val filteredPersonas = remember(searchQuery, selectedCategory, personasList) {
         val q = searchQuery.trim().lowercase()
-        PersonaCatalog.allPersonas.filter { persona ->
+        personasList.filter { persona ->
             (selectedCategory == null || persona.category == selectedCategory) &&
                     (q.isEmpty() || persona.name.lowercase().contains(q) ||
                             persona.roleTitle.lowercase().contains(q) ||
@@ -187,32 +218,60 @@ private fun PersonasTabContent(
             .fillMaxSize()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        // Search bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Search personas, skills, or directives...", fontSize = 13.sp) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextMuted) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = AntigravityColors.TextMuted)
+        // Search & Action Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search personas, skills...", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextMuted) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear", tint = AntigravityColors.TextMuted)
+                        }
                     }
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                    unfocusedBorderColor = AntigravityColors.CardBorder,
+                    focusedContainerColor = AntigravityColors.SurfaceElevated,
+                    unfocusedContainerColor = AntigravityColors.SurfaceElevated,
+                    focusedTextColor = AntigravityColors.TextPrimary,
+                    unfocusedTextColor = AntigravityColors.TextPrimary
+                ),
+                modifier = Modifier.weight(1f)
+            )
+
+            // Add Custom Persona Button
+            Button(
+                onClick = { showCreateDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.height(48.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("New", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+
+            if (onResetPersonas != null) {
+                IconButton(
+                    onClick = onResetPersonas,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reset Defaults", tint = AntigravityColors.TextMuted)
                 }
-            },
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AntigravityColors.ElectricCyan,
-                unfocusedBorderColor = AntigravityColors.CardBorder,
-                focusedContainerColor = AntigravityColors.SurfaceElevated,
-                unfocusedContainerColor = AntigravityColors.SurfaceElevated,
-                focusedTextColor = AntigravityColors.TextPrimary,
-                unfocusedTextColor = AntigravityColors.TextPrimary
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Horizontal Category Filter Chips
         Row(
@@ -225,7 +284,7 @@ private fun PersonasTabContent(
             FilterChip(
                 selected = selectedCategory == null,
                 onClick = { selectedCategory = null },
-                label = { Text("All Roles (${PersonaCatalog.allPersonas.size})", fontSize = 11.sp) },
+                label = { Text("All Roles (${personasList.size})", fontSize = 11.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.2f),
                     selectedLabelColor = AntigravityColors.ElectricCyan
@@ -235,7 +294,7 @@ private fun PersonasTabContent(
                 FilterChip(
                     selected = selectedCategory == category,
                     onClick = { selectedCategory = if (selectedCategory == category) null else category },
-                    label = { Text(category.name.replace("_", " "), fontSize = 11.sp) },
+                    label = { Text(category.displayName, fontSize = 11.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.2f),
                         selectedLabelColor = AntigravityColors.ElectricCyan
@@ -268,7 +327,8 @@ private fun PersonasTabContent(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
@@ -293,37 +353,92 @@ private fun PersonasTabContent(
                                     Text(
                                         text = persona.roleTitle,
                                         fontSize = 11.sp,
-                                        color = AntigravityColors.TextMuted
+                                        color = AntigravityColors.TextMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
 
-                            if (isActive) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = AntigravityColors.DiffGreen.copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.DiffGreen.copy(alpha = 0.4f))
+                            // Card Actions: Edit, Clone, Delete, Activate
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                // Edit button
+                                IconButton(
+                                    onClick = { editingPersona = persona },
+                                    modifier = Modifier.size(28.dp)
                                 ) {
-                                    Text(
-                                        text = "✓ ACTIVE",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AntigravityColors.DiffGreen,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit Persona",
+                                        tint = AntigravityColors.TextSecondary,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
-                            } else {
-                                Button(
-                                    onClick = { onSelectPersona(persona) },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.15f),
-                                        contentColor = AntigravityColors.ElectricCyan
-                                    ),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(28.dp)
+
+                                // Clone / Duplicate button
+                                IconButton(
+                                    onClick = {
+                                        val clone = persona.copy(
+                                            id = "custom-${UUID.randomUUID().toString().take(8)}",
+                                            name = "${persona.name} (Copy)"
+                                        )
+                                        onAddPersona?.invoke(clone)
+                                    },
+                                    modifier = Modifier.size(28.dp)
                                 ) {
-                                    Text("Activate", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Icon(
+                                        Icons.Default.ContentCopy,
+                                        contentDescription = "Duplicate Persona",
+                                        tint = AntigravityColors.TextSecondary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+
+                                // Delete button
+                                IconButton(
+                                    onClick = { deletingPersona = persona },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = "Delete Persona",
+                                        tint = if (isActive) AntigravityColors.TextMuted else AntigravityColors.DiffRed,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                if (isActive) {
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = AntigravityColors.DiffGreen.copy(alpha = 0.15f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.DiffGreen.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = "✓ ACTIVE",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AntigravityColors.DiffGreen,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { onSelectPersona(persona) },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.15f),
+                                            contentColor = AntigravityColors.ElectricCyan
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Text("Activate", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -336,24 +451,26 @@ private fun PersonasTabContent(
                         )
 
                         // Tags
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            persona.tags.forEach { tag ->
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = AntigravityColors.SurfaceDark,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle)
-                                ) {
-                                    Text(
-                                        text = "#$tag",
-                                        fontSize = 10.sp,
-                                        color = AntigravityColors.NeonViolet,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                        if (persona.tags.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                persona.tags.forEach { tag ->
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = AntigravityColors.SurfaceDark,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle)
+                                    ) {
+                                        Text(
+                                            text = "#$tag",
+                                            fontSize = 10.sp,
+                                            color = AntigravityColors.NeonViolet,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -362,18 +479,91 @@ private fun PersonasTabContent(
             }
         }
     }
+
+    // Create Custom Persona Dialog
+    if (showCreateDialog) {
+        PersonaEditorDialog(
+            initialPersona = null,
+            onSave = { newPersona ->
+                onAddPersona?.invoke(newPersona)
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false }
+        )
+    }
+
+    // Edit Persona Dialog
+    if (editingPersona != null) {
+        PersonaEditorDialog(
+            initialPersona = editingPersona,
+            onSave = { updated ->
+                onUpdatePersona?.invoke(updated)
+                editingPersona = null
+            },
+            onDismiss = { editingPersona = null }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (deletingPersona != null) {
+        val target = deletingPersona!!
+        val isActive = target.id == activePersona.id
+        AlertDialog(
+            onDismissRequest = { deletingPersona = null },
+            title = { Text("Delete Persona?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    if (isActive) "This persona '${target.name}' is currently active. If deleted, another persona will need to be activated."
+                    else "Are you sure you want to delete '${target.name}'? This action cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeletePersona?.invoke(target.id)
+                        deletingPersona = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = AntigravityColors.DiffRed)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingPersona = null }) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = AntigravityColors.SurfaceElevated
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PromptsTabContent(
-    onSelectPrompt: (String) -> Unit
+    promptsList: List<PromptTemplate>,
+    onSelectPrompt: (String) -> Unit,
+    onAddPrompt: ((PromptTemplate) -> Unit)? = null,
+    onUpdatePrompt: ((PromptTemplate) -> Unit)? = null,
+    onDeletePrompt: ((String) -> Unit)? = null,
+    onResetPrompts: (() -> Unit)? = null
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<PromptCategory?>(null) }
 
-    val filteredPrompts = remember(searchQuery, selectedCategory) {
-        PromptLibrary.searchPrompts(searchQuery, selectedCategory)
+    // Dialog states for CRUD
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var editingPrompt by remember { mutableStateOf<PromptTemplate?>(null) }
+    var deletingPrompt by remember { mutableStateOf<PromptTemplate?>(null) }
+
+    val filteredPrompts = remember(searchQuery, selectedCategory, promptsList) {
+        val q = searchQuery.trim().lowercase()
+        promptsList.filter { prompt ->
+            (selectedCategory == null || prompt.category == selectedCategory) &&
+                    (q.isEmpty() || prompt.title.lowercase().contains(q) ||
+                            prompt.description.lowercase().contains(q) ||
+                            prompt.content.lowercase().contains(q))
+        }
     }
 
     Column(
@@ -381,32 +571,60 @@ private fun PromptsTabContent(
             .fillMaxSize()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        // Search bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Search prompt templates...", fontSize = 13.sp) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextMuted) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = AntigravityColors.TextMuted)
+        // Search & Action Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search prompt templates...", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextMuted) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear", tint = AntigravityColors.TextMuted)
+                        }
                     }
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                    unfocusedBorderColor = AntigravityColors.CardBorder,
+                    focusedContainerColor = AntigravityColors.SurfaceElevated,
+                    unfocusedContainerColor = AntigravityColors.SurfaceElevated,
+                    focusedTextColor = AntigravityColors.TextPrimary,
+                    unfocusedTextColor = AntigravityColors.TextPrimary
+                ),
+                modifier = Modifier.weight(1f)
+            )
+
+            // Add Custom Prompt Button
+            Button(
+                onClick = { showCreateDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.height(48.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("New", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+
+            if (onResetPrompts != null) {
+                IconButton(
+                    onClick = onResetPrompts,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reset Defaults", tint = AntigravityColors.TextMuted)
                 }
-            },
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AntigravityColors.ElectricCyan,
-                unfocusedBorderColor = AntigravityColors.CardBorder,
-                focusedContainerColor = AntigravityColors.SurfaceElevated,
-                unfocusedContainerColor = AntigravityColors.SurfaceElevated,
-                focusedTextColor = AntigravityColors.TextPrimary,
-                unfocusedTextColor = AntigravityColors.TextPrimary
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Horizontal Category Filter Chips
         Row(
@@ -419,7 +637,7 @@ private fun PromptsTabContent(
             FilterChip(
                 selected = selectedCategory == null,
                 onClick = { selectedCategory = null },
-                label = { Text("All Templates (${PromptLibrary.allPrompts.size})", fontSize = 11.sp) },
+                label = { Text("All Templates (${promptsList.size})", fontSize = 11.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.2f),
                     selectedLabelColor = AntigravityColors.ElectricCyan
@@ -458,7 +676,8 @@ private fun PromptsTabContent(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
@@ -476,26 +695,81 @@ private fun PromptsTabContent(
                                     text = template.title,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = AntigravityColors.TextPrimary
+                                    color = AntigravityColors.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
-                            Button(
-                                onClick = { onSelectPrompt(template.content) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AntigravityColors.ElectricCyan,
-                                    contentColor = Color.Black
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(28.dp)
+                            // Card Actions: Edit, Clone, Delete, Use in Chat
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                // Edit button
+                                IconButton(
+                                    onClick = { editingPrompt = template },
+                                    modifier = Modifier.size(28.dp)
                                 ) {
-                                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(12.dp))
-                                    Text("Use in Chat", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit Prompt",
+                                        tint = AntigravityColors.TextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                // Clone / Duplicate button
+                                IconButton(
+                                    onClick = {
+                                        val clone = template.copy(
+                                            id = "prompt-${UUID.randomUUID().toString().take(8)}",
+                                            title = "${template.title} (Copy)"
+                                        )
+                                        onAddPrompt?.invoke(clone)
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ContentCopy,
+                                        contentDescription = "Duplicate Prompt",
+                                        tint = AntigravityColors.TextSecondary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+
+                                // Delete button
+                                IconButton(
+                                    onClick = { deletingPrompt = template },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = "Delete Prompt",
+                                        tint = AntigravityColors.DiffRed,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                Button(
+                                    onClick = { onSelectPrompt(template.content) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AntigravityColors.ElectricCyan,
+                                        contentColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Text("Use", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -528,5 +802,58 @@ private fun PromptsTabContent(
                 }
             }
         }
+    }
+
+    // Create Custom Prompt Dialog
+    if (showCreateDialog) {
+        PromptEditorDialog(
+            initialPrompt = null,
+            onSave = { newPrompt ->
+                onAddPrompt?.invoke(newPrompt)
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false }
+        )
+    }
+
+    // Edit Prompt Dialog
+    if (editingPrompt != null) {
+        PromptEditorDialog(
+            initialPrompt = editingPrompt,
+            onSave = { updated ->
+                onUpdatePrompt?.invoke(updated)
+                editingPrompt = null
+            },
+            onDismiss = { editingPrompt = null }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (deletingPrompt != null) {
+        val target = deletingPrompt!!
+        AlertDialog(
+            onDismissRequest = { deletingPrompt = null },
+            title = { Text("Delete Prompt Template?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Are you sure you want to delete '${target.title}'? This template will be permanently removed.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeletePrompt?.invoke(target.id)
+                        deletingPrompt = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = AntigravityColors.DiffRed)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingPrompt = null }) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = AntigravityColors.SurfaceElevated
+        )
     }
 }

@@ -186,6 +186,7 @@ data class McpServerItem(
 @Serializable
 enum class ModelGateway(val displayName: String, val defaultBaseUrl: String) {
     GEMINI("Google Gemini", "https://generativelanguage.googleapis.com/v1beta"),
+    OPENAI("OpenAI", "https://api.openai.com/v1"),
     KILOCODE("KiloCode", "https://api.kilo.ai/v1"),
     OPENCODE("OpenCode", "https://api.opencode.ai/v1"),
     OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1"),
@@ -208,11 +209,13 @@ data class ModelInfo(
 
 @Serializable
 data class AppSettings(
-    val apiKey: String = "",
+    val apiKey: String = "", // Google Gemini API Key
+    val openAiApiKey: String = "", // OpenAI API Key
     val openRouterApiKey: String = "",
     val groqApiKey: String = "",
     val kiloCodeApiKey: String = "",
     val openCodeApiKey: String = "",
+    val huggingFaceApiKey: String = "",
     val customGatewayUrl: String = "http://localhost:11434/v1",
     val customGatewayApiKey: String = "",
     val activeModel: String = "Gemini 2.5 Flash",

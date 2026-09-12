@@ -87,18 +87,31 @@ Antigravity Mobile preserves the complete 3-surface workflow of the desktop appl
 
 ---
 
-### 3. Open Model Gateways & Free Models Catalog
+### 3. Open Model Gateways & Comprehensive API Key Provisioning
 
 ![Select Model Gateway & Search](docs/images/antigravity_models_catalog.jpg)
 
-Antigravity Mobile includes a universal gateway engine supporting direct connections to Google Gemini and OpenAI-compatible providers:
+Antigravity Mobile includes a universal gateway engine supporting direct connections to Google Gemini and OpenAI-compatible providers, complete with dedicated API key provisioning for every service:
 
+- **🔑 Complete Provider API Key Provisioning**:
+  - Dedicated configuration inputs in **Settings & Gateways** dialog and 1-tap **API Keys** button directly inside the **Model Selection Dialog**.
+  - Supported provider credentials:
+    - **Google Gemini API Key** (`AIzaSy...`)
+    - **OpenAI API Key** (`sk-proj-...` for GPT-4o, GPT-4o Mini, o3-mini, o1-mini)
+    - **KiloCode API Key** (`kilo_live_...` for free developer models)
+    - **OpenCode API Key** (`opencode_live_...` for free coding models)
+    - **OpenRouter API Key** (`sk-or-v1-...` for free & open models)
+    - **Groq API Key** (`gsk_...` for ultra-fast LPU inference)
+    - **Hugging Face API Token** (`hf_...` for serverless inference models)
+    - **Ollama / Local Gateway URL & Token** (`http://10.0.2.2:11434/v1` for private offline models)
 - **KiloCode Gateway (`api.kilo.ai`)**:
   - Direct integration with KiloCode's open model infrastructure with free API tiers.
   - Featured free models: `DeepSeek R1 Distill Qwen 32B (Free)`, `Qwen 2.5 Coder 32B (Free)`, `Llama 3.3 70B Instruct (Free)`, `Microsoft Phi-4 (Free)`.
 - **OpenCode Gateway (`api.opencode.ai`)**:
   - Dedicated developer model gateway offering free coding & logic models.
   - Featured free models: `DeepSeek Coder V2 Lite (Free)`, `Qwen 2.5 Coder 7B (Free)`, `GLM-4 Flash (Free)`, `StarCoder2 15B (Free)`.
+- **OpenAI Flagship Models**:
+  - Direct integration with `GPT-4o (Omni)`, `GPT-4o Mini`, `OpenAI o3-mini`, and `OpenAI o1-mini`.
 - **OpenRouter Gateway**:
   - Connects to top open-weights models.
   - Includes popular free models: `Llama 3.3 70B Instruct (Free)`, `DeepSeek R1 (Free)`, `Gemini 2.0 Flash Exp (Free)`, `Qwen 2.5 Coder 32B (Free)`, `Mistral 7B (Free)`, `Phi-3 Mini (Free)`.
@@ -111,10 +124,11 @@ Antigravity Mobile includes a universal gateway engine supporting direct connect
 - **Hugging Face Serverless Inference**:
   - Connects to Hugging Face Inference API for models such as `Llama 3.2 3B` and `Qwen 2.5 7B`.
 - **Google Gemini API**:
-  - Native direct integration with `Gemini 2.5 Flash`, `Gemini 2.5 Pro`, and `Gemini Ultra`.
+  - Native direct integration with `Gemini 2.5 Flash`, `Gemini 2.5 Flash-Lite`, and `Gemini 2.5 Pro`.
 - **Searchable Model Selection Dialog**:
   - Real-time instant search filter matching model names, IDs, and tags.
-  - Category filter chips: `All Models`, `★ Free Models`, `KiloCode Free`, `OpenCode Free`, `OpenRouter`, `Groq`, `Google Gemini`, `Ollama Local`, `Hugging Face`.
+  - Category filter chips: `All Models`, `★ Free Models`, `KiloCode Free`, `OpenCode Free`, `OpenRouter`, `Groq`, `Google Gemini`, `OpenAI`, `Ollama Local`, `Hugging Face`.
+  - Header shortcut to configure API keys on the fly.
   - Rich cards indicating provider, context window capacity, and bright `FREE` badges.
 
 ---
@@ -185,6 +199,13 @@ Antigravity Mobile provides a mobile-native cockpit spanning the entire **Softwa
 
 Antigravity Mobile equips the autonomous engine to tackle almost any software engineering, architecture, operations, and product task with high-caliber specialization:
 
+- **🛠 Full CRUD Capabilities for Personas & Prompts**:
+  - **Create**: Design custom personas with tailored directives, role titles, categories, recommended skills, and tags using the interactive `PersonaEditorDialog`. Create custom prompt templates with `{VARIABLE}` placeholders using `PromptEditorDialog`.
+  - **Read**: Live dynamic search, category filtering, tag badges, and monospace prompt previews across both chat modal pickers and the dedicated studio screen.
+  - **Update**: Edit any existing persona or prompt in-place and save changes instantly with live reactive StateFlow propagation across the entire app.
+  - **Clone / Duplicate**: 1-tap duplicate any persona or prompt to quickly create tailored variations without rewriting directives.
+  - **Delete**: Safe deletion with confirmation dialogs to remove obsolete personas and prompt templates.
+  - **Reset to Defaults**: 1-tap restore to default catalog configurations anytime.
 - **🎭 10 Battle-Tested Expert Personas**:
   - **Full-Stack Senior Engineer**: Clean architecture, domain-driven design, and multi-layer full-stack execution.
   - **Android & Mobile Architect**: Jetpack Compose, state optimization, coroutines, and edge-to-edge Material 3.
