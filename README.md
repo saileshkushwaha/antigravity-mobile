@@ -72,11 +72,12 @@ The application's navigation and presentation layer strictly implements **SOLID 
 |                                                                                                   |
 |   1. StudioTopBar           : Universal header with active studio badge, branch indicator,        |
 |                               drawer launcher, and 1-tap studio matrix quick-switcher.            |
-|   2. Categorized BottomBar  : 5 balanced primary touch points + dynamic "Studios" matrix          |
-|                               launcher reflecting whichever secondary studio is active.           |
-|   3. EnterpriseStudioMatrix : Dedicated modal dialog displaying all 10 studios with live status,  |
+|   2. Comprehensive Sidebar  : Unified platform drawer housing all 10 Studios, Model Selector,     |
+|                               CSV Key Importer/Exporter, Studio Matrix, and Preferences.          |
+|   3. Full-Height Workspaces : Removed bottom tab bar to maximize vertical space for all studios   |
+|                               (IDE, Analytics, Swarm DAG, Research); CHAT hosts ChatInputBar.    |
+|   4. EnterpriseStudioMatrix : Dedicated modal dialog displaying all 10 studios with live status,  |
 |                               instant search filtering, and workspace telemetry footer.           |
-|   4. SidebarDrawerContent   : Categorized drawer menu with real-time active glowing indicators.   |
 |   5. LandingScreen          : 10 interactive studio cards organized into 2 distinct categories.   |
 +---------------------------------------------------------------------------------------------------+
 ```
@@ -85,10 +86,11 @@ The application's navigation and presentation layer strictly implements **SOLID 
 - **`StudioScreenRegistry.kt`**: Exclusively responsible for cataloging all 10 studio screens, metadata descriptors, color tokens, and category partitions.
 - **`EnterpriseStudioMatrixDialog.kt`**: Exclusively responsible for presenting the categorized 10-studio grid modal, search/filtering, and direct 1-tap navigation.
 - **`StudioTopBar.kt`**: Exclusively responsible for rendering uniform studio headers, active studio badges, and global drawer/matrix triggers.
-- **`AntigravityMainScreen.kt`**: Relieved of monolithic dialog markup and hardcoded navigation lists; now focuses cleanly on scaffolding and state orchestration.
+- **`SidebarDrawerContent.kt`**: Exclusively responsible for unified drawer navigation, categorizing all 10 studios, workspace contexts, and platform tool actions in a smooth, non-clipping `LazyColumn`.
+- **`AntigravityMainScreen.kt`**: Relieved of monolithic dialog markup and hardcoded navigation lists; now focuses cleanly on scaffolding, chat bar docking, and state orchestration.
 
 ### 2. Open/Closed Principle (OCP)
-- Platform studios are registered via `StudioScreenDescriptor`. Adding an 11th studio requires only registering a new descriptor in `StudioScreenRegistry.allStudios`. The bottom navigation bar, drawer menu, matrix dialog, and top bar all consume `StudioScreenRegistry` dynamically without needing structural code modifications.
+- Platform studios are registered via `StudioScreenDescriptor`. Adding an 11th studio requires only registering a new descriptor in `StudioScreenRegistry.allStudios`. The sidebar navigation drawer, matrix dialog, landing screen, and top bar all consume `StudioScreenRegistry` dynamically without needing structural code modifications.
 
 ### 3. Liskov Substitution Principle (LSP)
 - All studio descriptors adhere to the unified `StudioScreenDescriptor` contract (`screen`, `title`, `shortLabel`, `icon`, `category`, `badge`, `accentColor`, `subtitle`, `description`, `isPrimaryBottomNav`). Any studio can be rendered interchangeably in any navigation container.
@@ -107,16 +109,16 @@ The application's navigation and presentation layer strictly implements **SOLID 
 
 | Studio / Hub | Category | Badge | Core Capabilities | 1-Tap Access |
 | :--- | :--- | :---: | :--- | :---: |
-| **1. Agent Chat Studio** | Core Engineering | `AGENT` | Multi-turn streaming, prompt optimizer, slash commands & interactive plan approvals. | Bottom Nav / Landing / Drawer / Matrix |
-| **2. Code Studio IDE** | Core Engineering | `CORE IDE` | Collapsible file tree overlay, syntax editor, LCS visual Git diffs & `@codebase` AST indexer. | Bottom Nav / Landing / Drawer / Matrix |
-| **3. Product Design Studio** | Core Engineering | `LIVE PREVIEW` | Hardware-accelerated WebView live JS sandbox, tokens & Compose/Flutter code export. | Bottom Nav / Landing / Drawer / Matrix |
-| **4. Scientific Research Hub** | Core Engineering | `RESEARCH` | Live arXiv Atom XML queries, NCBI PubMed medical citations & live web docs crawler. | Bottom Nav / Landing / Drawer / Matrix |
-| **5. Data Analytics Studio** | Core Engineering | `SQL ENGINE` | Real local SQLite engine (`.db`), workspace file indexing, SQL runner & CSV export. | Bottom Nav / Landing / Drawer / Matrix |
-| **6. DevOps & Swarm DAG** | Platform Governance | `SWARM ORCH` | 9 live market connectors (GitHub, AWS, GCP, Slack), 4-agent DAG & 1-tap state rollback. | Bottom Nav / Landing / Drawer / Matrix |
-| **7. Autonomous SDLC Center** | Platform Governance | `ENTERPRISE` | Dynamic GitHub repo selector, automated PR generator, issues & CI/CD workflow telemetry. | Bottom Nav / Landing / Drawer / Matrix |
-| **8. Agent Personas & Prompts** | Platform Governance | `CUSTOMIZABLE` | Specialized agents (AI Lead, Security Auditor, Architect) & custom engineering prompt library. | Bottom Nav / Landing / Drawer / Matrix |
-| **9. Skills & MCP Tools Hub** | Platform Governance | `MCP STANDARD` | Model Context Protocol (MCP) server integration & 30+ extensible engineering skill modules. | Bottom Nav / Landing / Drawer / Matrix |
-| **10. Console & Inspector** | Platform Governance | `DIAGNOSTICS` | Live terminal drawer, background tasks supervisor, active subagents monitoring & logs. | Bottom Nav / Landing / Drawer / Matrix |
+| **1. Agent Chat Studio** | Core Engineering | `AGENT` | Multi-turn streaming, prompt optimizer, slash commands & interactive plan approvals. | Sidebar / Landing / Studio Matrix |
+| **2. Code Studio IDE** | Core Engineering | `CORE IDE` | Collapsible file tree overlay, syntax editor, LCS visual Git diffs & `@codebase` AST indexer. | Sidebar / Landing / Studio Matrix |
+| **3. Product Design Studio** | Core Engineering | `LIVE PREVIEW` | Hardware-accelerated WebView live JS sandbox, tokens & Compose/Flutter code export. | Sidebar / Landing / Studio Matrix |
+| **4. Scientific Research Hub** | Core Engineering | `RESEARCH` | Live arXiv Atom XML queries, NCBI PubMed medical citations & live web docs crawler. | Sidebar / Landing / Studio Matrix |
+| **5. Data Analytics Studio** | Core Engineering | `SQL ENGINE` | Real local SQLite engine (`.db`), workspace file indexing, SQL runner & CSV export. | Sidebar / Landing / Studio Matrix |
+| **6. DevOps & Swarm DAG** | Platform Governance | `SWARM ORCH` | 9 live market connectors (GitHub, AWS, GCP, Slack), 4-agent DAG & 1-tap state rollback. | Sidebar / Landing / Studio Matrix |
+| **7. Autonomous SDLC Center** | Platform Governance | `ENTERPRISE` | Dynamic GitHub repo selector, automated PR generator, issues & CI/CD workflow telemetry. | Sidebar / Landing / Studio Matrix |
+| **8. Agent Personas & Prompts** | Platform Governance | `CUSTOMIZABLE` | Specialized agents (AI Lead, Security Auditor, Architect) & custom engineering prompt library. | Sidebar / Landing / Studio Matrix |
+| **9. Skills & MCP Tools Hub** | Platform Governance | `MCP STANDARD` | Model Context Protocol (MCP) server integration & 30+ extensible engineering skill modules. | Sidebar / Landing / Studio Matrix |
+| **10. Console & Inspector** | Platform Governance | `DIAGNOSTICS` | Live terminal drawer, background tasks supervisor, active subagents monitoring & logs. | Sidebar / Landing / Studio Matrix |
 
 ---
 

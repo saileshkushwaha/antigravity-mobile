@@ -60,6 +60,9 @@ fun SidebarDrawerContent(
     onLockStudio: () -> Unit = {},
     currentScreen: AntigravityAppScreen = AntigravityAppScreen.CHAT,
     onOpenChatStudio: () -> Unit = {},
+    onOpenModelSelection: () -> Unit = {},
+    onOpenApiKeyCsv: () -> Unit = {},
+    onOpenStudioMatrix: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -68,23 +71,23 @@ fun SidebarDrawerContent(
     var newWsPath by remember { mutableStateOf("") }
     var newWsBranch by remember { mutableStateOf("main") }
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxHeight()
-            .width(220.dp)
+            .width(270.dp)
             .background(AntigravityColors.SurfaceDark)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column {
-            // App Header with Antigravity Logo
+        // 1. App Header with Antigravity Logo
+        item {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onOpenAbout)
-                    .padding(bottom = 12.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -130,9 +133,11 @@ fun SidebarDrawerContent(
                     )
                 }
             }
+        }
 
-            // Workspace Switcher Card
-            Box(modifier = Modifier.padding(bottom = 12.dp)) {
+        // 2. Workspace Switcher Card
+        item {
+            Box(modifier = Modifier.padding(bottom = 2.dp)) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = AntigravityColors.SurfaceElevated,
@@ -287,16 +292,14 @@ fun SidebarDrawerContent(
                     )
                 }
             }
+        }
 
-            // New Conversation Action Button
+        // 3. New Conversation Action Button
+        item {
             Button(
                 onClick = onNewConversation,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AntigravityColors.ElectricCyan
-                ),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(
@@ -313,70 +316,298 @@ fun SidebarDrawerContent(
                     fontSize = 13.sp
                 )
             }
+        }
 
-            // Recent Conversations Header
+        // 4. Section: CORE ENGINEERING STUDIOS (6 items)
+        item {
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
             Text(
-                text = "RECENT CONVERSATIONS",
-                fontSize = 11.sp,
+                text = "CORE ENGINEERING STUDIOS",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00E5FF),
+                modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.ChatBubbleOutline,
+                        label = "Agent Chat",
+                        tint = AntigravityColors.ElectricCyan,
+                        isActive = currentScreen == AntigravityAppScreen.CHAT,
+                        onClick = onOpenChatStudio,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.Code,
+                        label = "Code IDE",
+                        tint = AntigravityColors.ElectricCyan,
+                        isActive = currentScreen == AntigravityAppScreen.CODE,
+                        onClick = onOpenCodeStudio,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Palette,
+                        label = "Design Studio",
+                        tint = Color(0xFFFF4081),
+                        isActive = currentScreen == AntigravityAppScreen.DESIGN,
+                        onClick = onOpenDesignStudio,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.AutoMirrored.Filled.MenuBook,
+                        label = "Research Hub",
+                        tint = Color(0xFF7C4DFF),
+                        isActive = currentScreen == AntigravityAppScreen.RESEARCH,
+                        onClick = onOpenResearchHub,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Analytics,
+                        label = "Analytics SQL",
+                        tint = Color(0xFF10B981),
+                        isActive = currentScreen == AntigravityAppScreen.ANALYTICS,
+                        onClick = onOpenAnalyticsStudio,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.Explore,
+                        label = "Overview",
+                        tint = AntigravityColors.TextSecondary,
+                        isActive = false,
+                        onClick = onOpenLandingScreen,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // 5. Section: GOVERNANCE & DEVOPS HUBS (6 items)
+        item {
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
+            Text(
+                text = "PLATFORM GOVERNANCE & DEVOPS",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF7C4DFF),
+                modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Hub,
+                        label = "DevOps & Swarm",
+                        tint = Color(0xFFFF9100),
+                        isActive = currentScreen == AntigravityAppScreen.CONNECTORS,
+                        onClick = onOpenConnectorsAndSwarm,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.RocketLaunch,
+                        label = "SDLC Command",
+                        tint = Color(0xFF00E5FF),
+                        isActive = currentScreen == AntigravityAppScreen.SDLC,
+                        onClick = onOpenSdlcHub,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Psychology,
+                        label = "Personas",
+                        tint = Color(0xFFFF9100),
+                        isActive = currentScreen == AntigravityAppScreen.PERSONAS,
+                        onClick = onOpenPersonas,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.AutoAwesome,
+                        label = "Prompt Library",
+                        tint = Color(0xFF7C4DFF),
+                        isActive = false,
+                        onClick = onOpenPrompts,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Extension,
+                        label = "Skills & MCP",
+                        tint = Color(0xFF10B981),
+                        isActive = currentScreen == AntigravityAppScreen.SKILLS,
+                        onClick = onOpenSkillsMcp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.Terminal,
+                        label = "Task Console",
+                        tint = Color(0xFFFF5252),
+                        isActive = currentScreen == AntigravityAppScreen.INSPECTOR,
+                        onClick = onOpenInspector,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // 6. Section: MODELS & CREDENTIALS (3 items)
+        item {
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
+            Text(
+                text = "MODELS & CREDENTIALS",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFD54F),
+                modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Dns,
+                        label = "Models & Gateways",
+                        tint = Color(0xFFFFD54F),
+                        onClick = onOpenModelSelection,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.FileDownload,
+                        label = "API Keys (CSV)",
+                        tint = Color(0xFFFFD54F),
+                        onClick = onOpenApiKeyCsv,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                SidebarIconTile(
+                    icon = Icons.Default.Apps,
+                    label = "All Studios Matrix",
+                    tint = AntigravityColors.ElectricCyan,
+                    onClick = onOpenStudioMatrix,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // 7. Section: PREFERENCES & UTILITIES (4 items)
+        item {
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
+            Text(
+                text = "PREFERENCES & UTILITIES",
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 color = AntigravityColors.TextMuted,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
             )
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Schedule,
+                        label = "Scheduled Tasks",
+                        tint = AntigravityColors.ElectricCyan,
+                        onClick = onOpenScheduledTasks,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.VerifiedUser,
+                        label = "System Health",
+                        tint = AntigravityColors.StatusSuccess,
+                        onClick = onOpenDiagnostics,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SidebarIconTile(
+                        icon = Icons.Default.Settings,
+                        label = "Settings",
+                        tint = AntigravityColors.TextSecondary,
+                        onClick = onOpenSettings,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidebarIconTile(
+                        icon = Icons.Default.Lock,
+                        label = "Lock Studio",
+                        tint = AntigravityColors.StatusError,
+                        onClick = onLockStudio,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
 
-            // Conversations List
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                items(conversations, key = { it.id }) { conv ->
-                    val isSelected = conv.id == activeConversationId
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSelected) AntigravityColors.SurfaceElevated else Color.Transparent,
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)) else null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onSelectConversation(conv.id) }
+        // 8. Section: RECENT CONVERSATIONS
+        if (conversations.isNotEmpty()) {
+            item {
+                HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "RECENT CONVERSATIONS",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AntigravityColors.TextMuted,
+                        modifier = Modifier.padding(start = 2.dp)
+                    )
+                    Text(
+                        text = "${conversations.size}",
+                        fontSize = 9.sp,
+                        color = AntigravityColors.TextSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            items(conversations, key = { it.id }) { conv ->
+                val isSelected = conv.id == activeConversationId
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) AntigravityColors.SurfaceElevated else Color.Transparent,
+                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)) else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSelectConversation(conv.id) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.weight(1f)
+                            Icon(
+                                Icons.Default.ChatBubbleOutline,
+                                contentDescription = null,
+                                tint = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = conv.title,
+                                fontSize = 12.sp,
+                                color = if (isSelected) AntigravityColors.TextPrimary else AntigravityColors.TextSecondary,
+                                maxLines = 1
+                            )
+                        }
+
+                        if (conversations.size > 1) {
+                            IconButton(
+                                onClick = { onDeleteConversation(conv.id) },
+                                modifier = Modifier.size(20.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.ChatBubbleOutline,
-                                    contentDescription = null,
-                                    tint = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
-                                    modifier = Modifier.size(16.dp)
+                                    Icons.Default.Close,
+                                    contentDescription = "Delete",
+                                    tint = AntigravityColors.TextMuted,
+                                    modifier = Modifier.size(12.dp)
                                 )
-                                Text(
-                                    text = conv.title,
-                                    fontSize = 13.sp,
-                                    color = if (isSelected) AntigravityColors.TextPrimary else AntigravityColors.TextSecondary,
-                                    maxLines = 1
-                                )
-                            }
-
-                            if (conversations.size > 1) {
-                                IconButton(
-                                    onClick = { onDeleteConversation(conv.id) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Delete",
-                                        tint = AntigravityColors.TextMuted,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
                             }
                         }
                     }
@@ -384,185 +615,8 @@ fun SidebarDrawerContent(
             }
         }
 
-        // Compact Categorized Studio Menu
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 2.dp))
-
-            // Section 1: CORE ENGINEERING STUDIOS
-            Text(
-                text = "CORE ENGINEERING",
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF00E5FF),
-                modifier = Modifier.padding(start = 2.dp, bottom = 1.dp)
-            )
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.ChatBubbleOutline,
-                    label = "Agent",
-                    tint = AntigravityColors.ElectricCyan,
-                    isActive = currentScreen == AntigravityAppScreen.CHAT,
-                    onClick = onOpenChatStudio,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.Code,
-                    label = "Code IDE",
-                    tint = AntigravityColors.ElectricCyan,
-                    isActive = currentScreen == AntigravityAppScreen.CODE,
-                    onClick = onOpenCodeStudio,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Palette,
-                    label = "Design",
-                    tint = Color(0xFFFF4081),
-                    isActive = currentScreen == AntigravityAppScreen.DESIGN,
-                    onClick = onOpenDesignStudio,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.AutoMirrored.Filled.MenuBook,
-                    label = "Research",
-                    tint = Color(0xFF7C4DFF),
-                    isActive = currentScreen == AntigravityAppScreen.RESEARCH,
-                    onClick = onOpenResearchHub,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Analytics,
-                    label = "Analytics",
-                    tint = Color(0xFF10B981),
-                    isActive = currentScreen == AntigravityAppScreen.ANALYTICS,
-                    onClick = onOpenAnalyticsStudio,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.Explore,
-                    label = "Overview",
-                    tint = AntigravityColors.TextSecondary,
-                    isActive = false,
-                    onClick = onOpenLandingScreen,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            // Section 2: GOVERNANCE & DEVOPS HUBS
-            Text(
-                text = "GOVERNANCE & DEVOPS",
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF7C4DFF),
-                modifier = Modifier.padding(start = 2.dp, bottom = 1.dp)
-            )
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Hub,
-                    label = "DevOps",
-                    tint = Color(0xFFFF9100),
-                    isActive = currentScreen == AntigravityAppScreen.CONNECTORS,
-                    onClick = onOpenConnectorsAndSwarm,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.RocketLaunch,
-                    label = "SDLC Hub",
-                    tint = Color(0xFF00E5FF),
-                    isActive = currentScreen == AntigravityAppScreen.SDLC,
-                    onClick = onOpenSdlcHub,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Psychology,
-                    label = "Personas",
-                    tint = Color(0xFFFF9100),
-                    isActive = currentScreen == AntigravityAppScreen.PERSONAS,
-                    onClick = onOpenPersonas,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.AutoAwesome,
-                    label = "Prompts",
-                    tint = Color(0xFF7C4DFF),
-                    isActive = false,
-                    onClick = onOpenPrompts,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Extension,
-                    label = "Skills",
-                    tint = Color(0xFF10B981),
-                    isActive = currentScreen == AntigravityAppScreen.SKILLS,
-                    onClick = onOpenSkillsMcp,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.Terminal,
-                    label = "Console",
-                    tint = Color(0xFFFF5252),
-                    isActive = currentScreen == AntigravityAppScreen.INSPECTOR,
-                    onClick = onOpenInspector,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            // Section 3: PREFERENCES & UTILITIES
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Schedule,
-                    label = "Tasks",
-                    tint = AntigravityColors.ElectricCyan,
-                    onClick = onOpenScheduledTasks,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.VerifiedUser,
-                    label = "Health",
-                    tint = AntigravityColors.StatusSuccess,
-                    onClick = onOpenDiagnostics,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
-                    icon = Icons.Default.Settings,
-                    label = "Settings",
-                    tint = AntigravityColors.TextSecondary,
-                    onClick = onOpenSettings,
-                    modifier = Modifier.weight(1f)
-                )
-                SidebarIconTile(
-                    icon = Icons.Default.Lock,
-                    label = "Lock",
-                    tint = AntigravityColors.StatusError,
-                    onClick = onLockStudio,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 

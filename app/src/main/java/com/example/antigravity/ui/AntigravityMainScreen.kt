@@ -353,6 +353,18 @@ fun AntigravityMainScreen(
                     onOpenChatStudio = {
                         currentScreen = AntigravityAppScreen.CHAT
                         coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenModelSelection = {
+                        showModelSelectionDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenApiKeyCsv = {
+                        showApiKeyCsvDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenStudioMatrix = {
+                        showAllStudiosModal = true
+                        coroutineScope.launch { drawerState.close() }
                     }
                 )
             }
@@ -360,92 +372,30 @@ fun AntigravityMainScreen(
     ) {
         Scaffold(
             bottomBar = {
-                Column {
-                    if (currentScreen == AntigravityAppScreen.CHAT) {
-                        ChatInputBar(
-                            inputText = inputText,
-                            onInputChange = { inputText = it },
-                            onSend = { prompt ->
-                                agentEngine.sendPrompt(prompt)
-                                inputText = ""
-                            },
-                            onStop = { agentEngine.cancelTask() },
-                            isBusy = isBusy,
-                            slashCommands = agentEngine.slashCommands,
-                            mentionItems = agentEngine.mentionItems,
-                            activePersonaName = activePersona.name,
-                            workspaceName = null,
-                            onOpenPersonaSelection = {
-                                showChatPersonaDialog = true
-                            },
-                            onOpenPromptLibrary = {
-                                showChatPromptDialog = true
-                            },
-                            onOpenWorkspaceManager = {
-                                showAddWorkspaceDialog = true
-                            }
-                        )
-                    }
-
-                    val bottomNavScreens = StudioScreenRegistry.primaryBottomNav()
-
-                    NavigationBar(
-                        containerColor = AntigravityColors.SurfaceDark,
-                        tonalElevation = 8.dp
-                    ) {
-                        bottomNavScreens.forEach { descriptor ->
-                            val isSelected = currentScreen == descriptor.screen
-                            NavigationBarItem(
-                                selected = isSelected,
-                                onClick = { currentScreen = descriptor.screen },
-                                icon = {
-                                    Icon(descriptor.icon, contentDescription = descriptor.title)
-                                },
-                                label = {
-                                    Text(
-                                        text = descriptor.shortLabel,
-                                        fontSize = 9.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = AntigravityColors.ElectricCyan,
-                                    selectedTextColor = AntigravityColors.ElectricCyan,
-                                    indicatorColor = AntigravityColors.ElectricCyan.copy(alpha = 0.15f),
-                                    unselectedIconColor = AntigravityColors.TextMuted,
-                                    unselectedTextColor = AntigravityColors.TextMuted
-                                )
-                            )
+                if (currentScreen == AntigravityAppScreen.CHAT) {
+                    ChatInputBar(
+                        inputText = inputText,
+                        onInputChange = { inputText = it },
+                        onSend = { prompt ->
+                            agentEngine.sendPrompt(prompt)
+                            inputText = ""
+                        },
+                        onStop = { agentEngine.cancelTask() },
+                        isBusy = isBusy,
+                        slashCommands = agentEngine.slashCommands,
+                        mentionItems = agentEngine.mentionItems,
+                        activePersonaName = activePersona.name,
+                        workspaceName = null,
+                        onOpenPersonaSelection = {
+                            showChatPersonaDialog = true
+                        },
+                        onOpenPromptLibrary = {
+                            showChatPromptDialog = true
+                        },
+                        onOpenWorkspaceManager = {
+                            showAddWorkspaceDialog = true
                         }
-
-                        val isSecondaryScreenActive = currentScreen in StudioScreenRegistry.secondaryStudios().map { it.screen }
-                        val activeDescriptor = StudioScreenRegistry.get(currentScreen)
-
-                        NavigationBarItem(
-                            selected = isSecondaryScreenActive || showAllStudiosModal,
-                            onClick = { showAllStudiosModal = true },
-                            icon = {
-                                Icon(
-                                    if (isSecondaryScreenActive) activeDescriptor.icon else Icons.Default.Apps,
-                                    contentDescription = "All Studios & Hubs"
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = if (isSecondaryScreenActive) activeDescriptor.shortLabel else "Studios",
-                                    fontSize = 9.sp,
-                                    fontWeight = if (isSecondaryScreenActive || showAllStudiosModal) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isSecondaryScreenActive) activeDescriptor.accentColor else AntigravityColors.ElectricCyan,
-                                selectedTextColor = if (isSecondaryScreenActive) activeDescriptor.accentColor else AntigravityColors.ElectricCyan,
-                                indicatorColor = (if (isSecondaryScreenActive) activeDescriptor.accentColor else AntigravityColors.ElectricCyan).copy(alpha = 0.15f),
-                                unselectedIconColor = AntigravityColors.TextMuted,
-                                unselectedTextColor = AntigravityColors.TextMuted
-                            )
-                        )
-                    }
+                    )
                 }
             },
             containerColor = AntigravityColors.BackgroundDark,
