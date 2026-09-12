@@ -1,6 +1,8 @@
 package com.example.antigravity
 
-import com.example.antigravity.ui.AntigravityAppScreen
+import com.example.antigravity.ui.navigation.AntigravityAppScreen
+import com.example.antigravity.ui.navigation.StudioCategory
+import com.example.antigravity.ui.navigation.StudioScreenRegistry
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -33,6 +35,32 @@ class AppScreenNavigationTest {
         AntigravityAppScreen.values().forEach { screen ->
             assertNotNull("Icon for ${screen.name} must not be null", screen.icon)
             assertTrue("Screen title must not be empty", screen.title.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun testStudioScreenRegistryCategorizationAndLookup() {
+        val allStudios = StudioScreenRegistry.allStudios
+        assertEquals("Registry must hold all 10 studios", 10, allStudios.size)
+
+        val engineering = StudioScreenRegistry.byCategory(StudioCategory.CORE_ENGINEERING)
+        assertEquals("5 core engineering studios expected", 5, engineering.size)
+
+        val governance = StudioScreenRegistry.byCategory(StudioCategory.PLATFORM_GOVERNANCE)
+        assertEquals("5 platform governance hubs expected", 5, governance.size)
+
+        val primaryNav = StudioScreenRegistry.primaryBottomNav()
+        assertEquals("Primary bottom nav must have 5 balanced touch points", 5, primaryNav.size)
+
+        val secondary = StudioScreenRegistry.secondaryStudios()
+        assertEquals("Secondary hubs must have 5 studios", 5, secondary.size)
+
+        // Test descriptor lookups
+        AntigravityAppScreen.values().forEach { screen ->
+            val descriptor = StudioScreenRegistry.get(screen)
+            assertEquals("Descriptor screen must match", screen, descriptor.screen)
+            assertTrue("Descriptor badge must not be blank", descriptor.badge.isNotBlank())
+            assertTrue("Descriptor subtitle must not be blank", descriptor.subtitle.isNotBlank())
         }
     }
 }

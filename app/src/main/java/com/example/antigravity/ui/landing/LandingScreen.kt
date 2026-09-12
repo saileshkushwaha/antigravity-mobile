@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,6 +61,13 @@ fun LandingScreen(
     onOpenPersonas: () -> Unit,
     onOpenSkills: () -> Unit,
     onOpenSdlc: () -> Unit,
+    onOpenCodeStudio: () -> Unit = onLaunchStudio,
+    onOpenDesignStudio: () -> Unit = onLaunchStudio,
+    onOpenResearchHub: () -> Unit = onLaunchStudio,
+    onOpenAnalyticsStudio: () -> Unit = onLaunchStudio,
+    onOpenConnectorsAndSwarm: () -> Unit = onLaunchStudio,
+    onOpenInspector: () -> Unit = onLaunchStudio,
+    onOpenChatStudio: () -> Unit = onLaunchStudio,
     onStartMissionPrompt: (String) -> Unit,
     onLockStudio: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -95,42 +104,99 @@ fun LandingScreen(
         label = "OrbitRotation"
     )
 
-    val capabilities = listOf(
+    val engineeringCapabilities = listOf(
         CapabilityFeature(
-            title = "Autonomous SDLC & DevOps",
+            title = "Agent Chat Studio",
+            subtitle = "Frontier Multi-Turn LLMs",
+            icon = Icons.Default.ChatBubbleOutline,
+            badge = "AGENT",
+            accentColor = Color(0xFF00E5FF),
+            description = "Interact with frontier multi-turn models, slash commands, live streaming, and interactive plan approval.",
+            onClick = onOpenChatStudio
+        ),
+        CapabilityFeature(
+            title = "Code Studio & Git Diffs",
+            subtitle = "Native IDE & Semantic AST",
+            icon = Icons.Default.Code,
+            badge = "CORE IDE",
+            accentColor = Color(0xFF00E5FF),
+            description = "Integrated file explorer, terminal runner, LCS visual Git diffs, atomic saves, and @codebase AST search.",
+            onClick = onOpenCodeStudio
+        ),
+        CapabilityFeature(
+            title = "Product Design & Web Sandbox",
+            subtitle = "Live UI Prototyping",
+            icon = Icons.Default.Palette,
+            badge = "LIVE PREVIEW",
+            accentColor = Color(0xFFFF4081),
+            description = "Dynamic Material 3 tokens, Compose & Flutter export, and hardware-accelerated WebView JS sandbox with console capture.",
+            onClick = onOpenDesignStudio
+        ),
+        CapabilityFeature(
+            title = "Scientific Research Hub",
+            subtitle = "Literature & Live Web Crawler",
+            icon = Icons.AutoMirrored.Filled.MenuBook,
+            badge = "RESEARCH",
+            accentColor = Color(0xFF7C4DFF),
+            description = "Live arXiv XML search, NCBI PubMed medical citations, and real OkHttp web documentation crawling into clean Markdown.",
+            onClick = onOpenResearchHub
+        ),
+        CapabilityFeature(
+            title = "Data Analytics & SQL Studio",
+            subtitle = "Native SQLite Database Engine",
+            icon = Icons.Default.Analytics,
+            badge = "SQL ENGINE",
+            accentColor = Color(0xFF10B981),
+            description = "Real SQLite database engine, automatic workspace file inventory indexing, telemetry queries, and CSV data export.",
+            onClick = onOpenAnalyticsStudio
+        )
+    )
+
+    val governanceCapabilities = listOf(
+        CapabilityFeature(
+            title = "DevOps & Swarm DAG",
+            subtitle = "Multi-Agent Orchestration",
+            icon = Icons.Default.Hub,
+            badge = "SWARM ORCH",
+            accentColor = Color(0xFFFF9100),
+            description = "9 live market connectors (GitHub, Linear, AWS, GCP, Slack), 4-agent DAG pipeline, and workspace state snapshotting with 1-tap rollback.",
+            onClick = onOpenConnectorsAndSwarm
+        ),
+        CapabilityFeature(
+            title = "Autonomous SDLC Command Center",
             subtitle = "End-to-End Engineering",
             icon = Icons.Default.RocketLaunch,
             badge = "ENTERPRISE",
-            accentColor = AntigravityColors.ElectricCyan,
+            accentColor = Color(0xFF00E5FF),
             description = "AI workflow orchestration with dynamic GitHub repo selection, automated PR generation, and CI/CD diagnostics.",
             onClick = onOpenSdlc
         ),
         CapabilityFeature(
-            title = "100+ Live Model Gateways",
-            subtitle = "Frontier & Open Source",
-            icon = Icons.Default.Dns,
-            badge = "MULTI-GATEWAY",
-            accentColor = AntigravityColors.NeonViolet,
-            description = "Direct integration with Gemini 2.5, DeepSeek R1, Qwen 2.5 Coder, KiloCode & OpenCode free tiers, Ollama local, and private vLLM.",
-            onClick = onConfigureGateways
-        ),
-        CapabilityFeature(
-            title = "MCP Tools & Sandboxed Shell",
-            subtitle = "Secure Environment",
-            icon = Icons.Default.Terminal,
-            badge = "SANDBOXED",
-            accentColor = Color(0xFF10B981),
-            description = "Model Context Protocol (MCP) server integration, safe isolated terminal execution, file diff inspectors, and AST refactoring.",
-            onClick = onOpenSkills
-        ),
-        CapabilityFeature(
-            title = "Agent Personas & Domain Skills",
+            title = "Agent Personas & Custom Prompts",
             subtitle = "Task-Specialized AI",
             icon = Icons.Default.Psychology,
             badge = "CUSTOMIZABLE",
             accentColor = Color(0xFFFF9100),
             description = "Specialized agents for Architecture, Bug Hunting, and DevOps, backed by 30+ engineering skills with full CRUD capabilities.",
             onClick = onOpenPersonas
+        ),
+        CapabilityFeature(
+            title = "Skills & MCP Tools Hub",
+            subtitle = "Model Context Protocol",
+            icon = Icons.Default.Extension,
+            badge = "MCP STANDARD",
+            accentColor = Color(0xFF10B981),
+            description = "Model Context Protocol (MCP) server integration, safe isolated terminal execution, file diff inspectors, and AST refactoring.",
+            onClick = onOpenSkills
+        ),
+        CapabilityFeature(
+            title = "Console & Task Inspector",
+            subtitle = "Real-Time Telemetry",
+            icon = Icons.Default.Terminal,
+            badge = "DIAGNOSTICS",
+            accentColor = Color(0xFFFF5252),
+            description = "Live terminal logs, background tasks supervisor, active subagents monitoring, and file diff changelog.",
+            onClick = onOpenInspector
         )
     )
 
@@ -408,99 +474,234 @@ fun LandingScreen(
 
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 2.dp))
 
-            // Capabilities Showcase Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Category 1: Core Engineering Studios
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "CORE ENGINEERING STUDIOS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color(0xFF00E5FF)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFF00E5FF).copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "5 STUDIOS",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00E5FF),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
                 Text(
-                    text = "PLATFORM CAPABILITIES",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    color = AntigravityColors.TextSecondary
-                )
-                Text(
-                    text = "Tap to explore",
+                    text = "Native IDE, Web Sandbox, Scientific Research, SQLite Engine & Agent Chat",
                     fontSize = 10.sp,
                     color = AntigravityColors.TextMuted
                 )
+
+                // Capability Cards (2x2 Grid using Rows)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    engineeringCapabilities.chunked(2).forEach { rowFeatures ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            rowFeatures.forEach { feature ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = AntigravityColors.CardBackground,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        feature.accentColor.copy(alpha = 0.35f)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable(onClick = feature.onClick)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = feature.accentColor.copy(alpha = 0.15f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = feature.icon,
+                                                    contentDescription = null,
+                                                    tint = feature.accentColor,
+                                                    modifier = Modifier
+                                                        .padding(6.dp)
+                                                        .size(18.dp)
+                                                )
+                                            }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = feature.accentColor.copy(alpha = 0.12f)
+                                            ) {
+                                                Text(
+                                                    text = feature.badge,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = feature.accentColor,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = feature.title,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AntigravityColors.TextPrimary,
+                                            lineHeight = 16.sp
+                                        )
+
+                                        Text(
+                                            text = feature.description,
+                                            fontSize = 10.sp,
+                                            color = AntigravityColors.TextSecondary,
+                                            lineHeight = 13.sp,
+                                            maxLines = 3
+                                        )
+                                    }
+                                }
+                            }
+                            if (rowFeatures.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
             }
 
-            // Capability Cards (2x2 Grid using Rows)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                capabilities.chunked(2).forEach { rowFeatures ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Category 2: Platform Governance & DevOps Hubs
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PLATFORM GOVERNANCE & DEVOPS HUBS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color(0xFF7C4DFF)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFF7C4DFF).copy(alpha = 0.15f)
                     ) {
-                        rowFeatures.forEach { feature ->
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = AntigravityColors.CardBackground,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    feature.accentColor.copy(alpha = 0.35f)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable(onClick = feature.onClick)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        Text(
+                            text = "5 HUBS",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7C4DFF),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "Swarm DAG, Autonomous SDLC, Skills & MCP, Personas & Diagnostics",
+                    fontSize = 10.sp,
+                    color = AntigravityColors.TextMuted
+                )
+
+                // Capability Cards (2x2 Grid using Rows)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    governanceCapabilities.chunked(2).forEach { rowFeatures ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            rowFeatures.forEach { feature ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = AntigravityColors.CardBackground,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        feature.accentColor.copy(alpha = 0.35f)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable(onClick = feature.onClick)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.Top
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = feature.accentColor.copy(alpha = 0.15f)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Top
                                         ) {
-                                            Icon(
-                                                imageVector = feature.icon,
-                                                contentDescription = null,
-                                                tint = feature.accentColor,
-                                                modifier = Modifier
-                                                    .padding(6.dp)
-                                                    .size(18.dp)
-                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = feature.accentColor.copy(alpha = 0.15f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = feature.icon,
+                                                    contentDescription = null,
+                                                    tint = feature.accentColor,
+                                                    modifier = Modifier
+                                                        .padding(6.dp)
+                                                        .size(18.dp)
+                                                )
+                                            }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = feature.accentColor.copy(alpha = 0.12f)
+                                            ) {
+                                                Text(
+                                                    text = feature.badge,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = feature.accentColor,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
                                         }
 
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = feature.accentColor.copy(alpha = 0.12f)
-                                        ) {
-                                            Text(
-                                                text = feature.badge,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = feature.accentColor,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                            )
-                                        }
+                                        Text(
+                                            text = feature.title,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AntigravityColors.TextPrimary,
+                                            lineHeight = 16.sp
+                                        )
+
+                                        Text(
+                                            text = feature.description,
+                                            fontSize = 10.sp,
+                                            color = AntigravityColors.TextSecondary,
+                                            lineHeight = 13.sp,
+                                            maxLines = 3
+                                        )
                                     }
-
-                                    Text(
-                                        text = feature.title,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AntigravityColors.TextPrimary,
-                                        lineHeight = 16.sp
-                                    )
-
-                                    Text(
-                                        text = feature.description,
-                                        fontSize = 10.sp,
-                                        color = AntigravityColors.TextSecondary,
-                                        lineHeight = 13.sp,
-                                        maxLines = 3
-                                    )
                                 }
+                            }
+                            if (rowFeatures.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     }
@@ -567,7 +768,7 @@ fun LandingScreen(
                                     )
                                 }
                                 Icon(
-                                    Icons.Default.ArrowForward,
+                                    Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = null,
                                     tint = AntigravityColors.ElectricCyan,
                                     modifier = Modifier.size(14.dp)

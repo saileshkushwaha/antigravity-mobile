@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -36,25 +38,12 @@ import com.example.antigravity.studio.code.CodeStudioScreen
 import com.example.antigravity.studio.connectors.ConnectorsAndSwarmScreen
 import com.example.antigravity.studio.design.ProductDesignScreen
 import com.example.antigravity.studio.research.ResearchHubScreen
+import com.example.antigravity.ui.navigation.AntigravityAppScreen
+import com.example.antigravity.ui.navigation.EnterpriseStudioMatrixDialog
+import com.example.antigravity.ui.navigation.StudioScreenRegistry
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
 import java.io.File
-
-enum class AntigravityAppScreen(
-    val title: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    CHAT("Agent", Icons.Default.ChatBubbleOutline),
-    CODE("Code", Icons.Default.Code),
-    DESIGN("Design", Icons.Default.Palette),
-    RESEARCH("Research", Icons.Default.MenuBook),
-    ANALYTICS("Analytics", Icons.Default.Analytics),
-    CONNECTORS("DevOps", Icons.Default.Hub),
-    SDLC("SDLC", Icons.Default.RocketLaunch),
-    PERSONAS("Personas", Icons.Default.Psychology),
-    SKILLS("Skills", Icons.Default.Extension),
-    INSPECTOR("Console", Icons.Default.Terminal)
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +64,7 @@ fun AntigravityMainScreen(
     // Current primary destination screen
     var currentScreen by remember { mutableStateOf(AntigravityAppScreen.CHAT) }
     var showLandingScreen by remember { mutableStateOf(repository.settings.value.showLandingOnStartup) }
+    var showAllStudiosModal by remember { mutableStateOf(false) }
 
     // State flows
     val workspaces by repository.workspaces.collectAsState()
@@ -205,6 +195,30 @@ fun AntigravityMainScreen(
                 showLandingScreen = false
                 currentScreen = AntigravityAppScreen.SDLC
             },
+            onOpenCodeStudio = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.CODE
+            },
+            onOpenDesignStudio = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.DESIGN
+            },
+            onOpenResearchHub = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.RESEARCH
+            },
+            onOpenAnalyticsStudio = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.ANALYTICS
+            },
+            onOpenConnectorsAndSwarm = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.CONNECTORS
+            },
+            onOpenInspector = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.INSPECTOR
+            },
             onOpenPersonas = {
                 showLandingScreen = false
                 currentScreen = AntigravityAppScreen.PERSONAS
@@ -216,6 +230,10 @@ fun AntigravityMainScreen(
             onOpenSdlc = {
                 showLandingScreen = false
                 currentScreen = AntigravityAppScreen.SDLC
+            },
+            onOpenChatStudio = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.CHAT
             },
             onStartMissionPrompt = { prompt ->
                 showLandingScreen = false
@@ -329,6 +347,11 @@ fun AntigravityMainScreen(
                     onLockStudio = {
                         onLockStudio()
                         coroutineScope.launch { drawerState.close() }
+                    },
+                    currentScreen = currentScreen,
+                    onOpenChatStudio = {
+                        currentScreen = AntigravityAppScreen.CHAT
+                        coroutineScope.launch { drawerState.close() }
                     }
                 )
             }
@@ -363,30 +386,25 @@ fun AntigravityMainScreen(
                         )
                     }
 
-                    val bottomNavScreens = listOf(
-                        AntigravityAppScreen.CHAT,
-                        AntigravityAppScreen.CODE,
-                        AntigravityAppScreen.DESIGN,
-                        AntigravityAppScreen.RESEARCH,
-                        AntigravityAppScreen.CONNECTORS
-                    )
+                    val bottomNavScreens = StudioScreenRegistry.primaryBottomNav()
 
                     NavigationBar(
                         containerColor = AntigravityColors.SurfaceDark,
                         tonalElevation = 8.dp
                     ) {
-                        bottomNavScreens.forEach { screen ->
+                        bottomNavScreens.forEach { descriptor ->
+                            val isSelected = currentScreen == descriptor.screen
                             NavigationBarItem(
-                                selected = currentScreen == screen,
-                                onClick = { currentScreen = screen },
+                                selected = isSelected,
+                                onClick = { currentScreen = descriptor.screen },
                                 icon = {
-                                    Icon(screen.icon, contentDescription = screen.title)
+                                    Icon(descriptor.icon, contentDescription = descriptor.title)
                                 },
                                 label = {
                                     Text(
-                                        text = screen.title,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (currentScreen == screen) FontWeight.Bold else FontWeight.Normal
+                                        text = descriptor.shortLabel,
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
@@ -398,6 +416,34 @@ fun AntigravityMainScreen(
                                 )
                             )
                         }
+
+                        val isSecondaryScreenActive = currentScreen in StudioScreenRegistry.secondaryStudios().map { it.screen }
+                        val activeDescriptor = StudioScreenRegistry.get(currentScreen)
+
+                        NavigationBarItem(
+                            selected = isSecondaryScreenActive || showAllStudiosModal,
+                            onClick = { showAllStudiosModal = true },
+                            icon = {
+                                Icon(
+                                    if (isSecondaryScreenActive) activeDescriptor.icon else Icons.Default.Apps,
+                                    contentDescription = "All Studios & Hubs"
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = if (isSecondaryScreenActive) activeDescriptor.shortLabel else "Studios",
+                                    fontSize = 9.sp,
+                                    fontWeight = if (isSecondaryScreenActive || showAllStudiosModal) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = if (isSecondaryScreenActive) activeDescriptor.accentColor else AntigravityColors.ElectricCyan,
+                                selectedTextColor = if (isSecondaryScreenActive) activeDescriptor.accentColor else AntigravityColors.ElectricCyan,
+                                indicatorColor = (if (isSecondaryScreenActive) activeDescriptor.accentColor else AntigravityColors.ElectricCyan).copy(alpha = 0.15f),
+                                unselectedIconColor = AntigravityColors.TextMuted,
+                                unselectedTextColor = AntigravityColors.TextMuted
+                            )
+                        )
                     }
                 }
             },
@@ -560,8 +606,24 @@ fun AntigravityMainScreen(
     }
     }
 
+    // All Enterprise Studios & Hubs Dialog (1-Tap Direct Switcher)
+    if (showAllStudiosModal) {
+        EnterpriseStudioMatrixDialog(
+            currentScreen = currentScreen,
+            onSelectStudio = { selectedScreen ->
+                currentScreen = selectedScreen
+            },
+            onDismiss = { showAllStudiosModal = false },
+            activeModel = settings.activeModel,
+            activeWorkspaceName = activeWorkspace.name,
+            activeBranch = activeWorkspace.branch,
+            skillsCount = skills.count { it.isEnabled },
+            mcpCount = mcpServers.count { it.isEnabled },
+            subagentsCount = subagents.count { it.state == com.example.antigravity.model.SubagentState.RUNNING }
+        )
+    }
+
     // Model Selection Dialog (with Search & Free Filters)
-    // Model Selection Dialog (with Search, Free, Gateway & Capability Filters)
     if (showModelSelectionDialog) {
         ModelSelectionDialog(
             models = models,

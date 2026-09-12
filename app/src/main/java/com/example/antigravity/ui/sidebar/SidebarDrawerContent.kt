@@ -7,8 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +27,7 @@ import com.example.antigravity.R
 import com.example.antigravity.model.Conversation
 import com.example.antigravity.model.ProjectWorkspace
 import com.example.antigravity.theme.AntigravityColors
+import com.example.antigravity.ui.navigation.AntigravityAppScreen
 
 @Composable
 fun SidebarDrawerContent(
@@ -55,6 +58,8 @@ fun SidebarDrawerContent(
     onDeleteWorkspace: (String) -> Unit = {},
     onOpenAddProjectOrFolder: () -> Unit = {},
     onLockStudio: () -> Unit = {},
+    currentScreen: AntigravityAppScreen = AntigravityAppScreen.CHAT,
+    onOpenChatStudio: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -379,78 +384,152 @@ fun SidebarDrawerContent(
             }
         }
 
-        // Compact Icon-Driven Menu Section (Tools, Management, Extensions)
+        // Compact Categorized Studio Menu
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 4.dp))
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 2.dp))
 
+            // Section 1: CORE ENGINEERING STUDIOS
             Text(
-                text = "STUDIO TOOLS",
-                fontSize = 10.sp,
+                text = "CORE ENGINEERING",
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
-                color = AntigravityColors.ElectricCyan,
-                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                color = Color(0xFF00E5FF),
+                modifier = Modifier.padding(start = 2.dp, bottom = 1.dp)
             )
 
-            // Row 1: Analytics & SDLC Hub
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.ChatBubbleOutline,
+                    label = "Agent",
+                    tint = AntigravityColors.ElectricCyan,
+                    isActive = currentScreen == AntigravityAppScreen.CHAT,
+                    onClick = onOpenChatStudio,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.Code,
+                    label = "Code IDE",
+                    tint = AntigravityColors.ElectricCyan,
+                    isActive = currentScreen == AntigravityAppScreen.CODE,
+                    onClick = onOpenCodeStudio,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Palette,
+                    label = "Design",
+                    tint = Color(0xFFFF4081),
+                    isActive = currentScreen == AntigravityAppScreen.DESIGN,
+                    onClick = onOpenDesignStudio,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    label = "Research",
+                    tint = Color(0xFF7C4DFF),
+                    isActive = currentScreen == AntigravityAppScreen.RESEARCH,
+                    onClick = onOpenResearchHub,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SidebarIconTile(
                     icon = Icons.Default.Analytics,
                     label = "Analytics",
-                    tint = AntigravityColors.ElectricCyan,
+                    tint = Color(0xFF10B981),
+                    isActive = currentScreen == AntigravityAppScreen.ANALYTICS,
                     onClick = onOpenAnalyticsStudio,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.Explore,
+                    label = "Overview",
+                    tint = AntigravityColors.TextSecondary,
+                    isActive = false,
+                    onClick = onOpenLandingScreen,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Section 2: GOVERNANCE & DEVOPS HUBS
+            Text(
+                text = "GOVERNANCE & DEVOPS",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF7C4DFF),
+                modifier = Modifier.padding(start = 2.dp, bottom = 1.dp)
+            )
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Hub,
+                    label = "DevOps",
+                    tint = Color(0xFFFF9100),
+                    isActive = currentScreen == AntigravityAppScreen.CONNECTORS,
+                    onClick = onOpenConnectorsAndSwarm,
                     modifier = Modifier.weight(1f)
                 )
                 SidebarIconTile(
                     icon = Icons.Default.RocketLaunch,
                     label = "SDLC Hub",
-                    tint = AntigravityColors.NeonViolet,
+                    tint = Color(0xFF00E5FF),
+                    isActive = currentScreen == AntigravityAppScreen.SDLC,
                     onClick = onOpenSdlcHub,
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            // Row 2: Personas & Prompts
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SidebarIconTile(
                     icon = Icons.Default.Psychology,
                     label = "Personas",
-                    tint = AntigravityColors.ElectricCyan,
+                    tint = Color(0xFFFF9100),
+                    isActive = currentScreen == AntigravityAppScreen.PERSONAS,
                     onClick = onOpenPersonas,
                     modifier = Modifier.weight(1f)
                 )
                 SidebarIconTile(
                     icon = Icons.Default.AutoAwesome,
                     label = "Prompts",
-                    tint = AntigravityColors.NeonViolet,
+                    tint = Color(0xFF7C4DFF),
+                    isActive = false,
                     onClick = onOpenPrompts,
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            // Row 3: Skills & MCP + Console/Inspector
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SidebarIconTile(
                     icon = Icons.Default.Extension,
                     label = "Skills",
-                    tint = AntigravityColors.StatusSuccess,
+                    tint = Color(0xFF10B981),
+                    isActive = currentScreen == AntigravityAppScreen.SKILLS,
                     onClick = onOpenSkillsMcp,
                     modifier = Modifier.weight(1f)
                 )
                 SidebarIconTile(
                     icon = Icons.Default.Terminal,
                     label = "Console",
-                    tint = AntigravityColors.StatusWarning,
+                    tint = Color(0xFFFF5252),
+                    isActive = currentScreen == AntigravityAppScreen.INSPECTOR,
                     onClick = onOpenInspector,
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            // Row 4: Scheduled Tasks + Health/Diagnostics
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Section 3: PREFERENCES & UTILITIES
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SidebarIconTile(
                     icon = Icons.Default.Schedule,
@@ -468,7 +547,6 @@ fun SidebarDrawerContent(
                 )
             }
 
-            // Row 5: Settings & Overview Landing
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SidebarIconTile(
                     icon = Icons.Default.Settings,
@@ -478,19 +556,8 @@ fun SidebarDrawerContent(
                     modifier = Modifier.weight(1f)
                 )
                 SidebarIconTile(
-                    icon = Icons.Default.Explore,
-                    label = "Overview",
-                    tint = AntigravityColors.TextSecondary,
-                    onClick = onOpenLandingScreen,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Row 6: Security Lock Studio
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SidebarIconTile(
                     icon = Icons.Default.Lock,
-                    label = "Lock Studio",
+                    label = "Lock",
                     tint = AntigravityColors.StatusError,
                     onClick = onLockStudio,
                     modifier = Modifier.weight(1f)
@@ -629,13 +696,17 @@ fun SidebarIconTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     tint: Color = AntigravityColors.ElectricCyan,
+    isActive: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = AntigravityColors.SurfaceElevated,
-        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+        color = if (isActive) AntigravityColors.ElectricCyan.copy(alpha = 0.15f) else AntigravityColors.SurfaceElevated,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isActive) AntigravityColors.ElectricCyan else AntigravityColors.CardBorder
+        ),
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
@@ -643,23 +714,32 @@ fun SidebarIconTile(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
+                .padding(horizontal = 6.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = tint,
-                modifier = Modifier.size(16.dp)
+                tint = if (isActive) AntigravityColors.ElectricCyan else tint,
+                modifier = Modifier.size(15.dp)
             )
             Text(
                 text = label,
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = AntigravityColors.TextPrimary,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                color = if (isActive) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary,
                 maxLines = 1
             )
+            if (isActive) {
+                Spacer(modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(AntigravityColors.ElectricCyan)
+                )
+            }
         }
     }
 }
