@@ -39,9 +39,10 @@ fun ResearchHubScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val researchService = remember { ResearchService() }
+    val crawlerService = remember { WebCrawlerService() }
 
     var searchQuery by remember { mutableStateOf("Autonomous LLM Agents") }
-    var selectedSourceIndex by remember { mutableStateOf(0) } // 0: All, 1: arXiv, 2: PubMed
+    var selectedSourceIndex by remember { mutableStateOf(0) } // 0: All, 1: arXiv, 2: PubMed, 3: Web Crawler
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var papers by remember { mutableStateOf<List<ResearchPaper>>(emptyList()) }
@@ -50,7 +51,7 @@ fun ResearchHubScreen(
     var expandedPaperId by remember { mutableStateOf<String?>(null) }
 
     val quickChips = listOf(
-        "Agentic AI", "Chain of Thought", "Transformer Attention", "CRISPR Cas9", "RAG Embeddings"
+        "Agentic AI", "Chain of Thought", "https://developer.android.com", "CRISPR Cas9", "RAG Embeddings"
     )
 
     fun performSearch(queryText: String) {
@@ -62,13 +63,39 @@ fun ResearchHubScreen(
             var anySuccess = false
             var failureMsg: String? = null
 
+            val isUrl = queryText.startsWith("http://", ignoreCase = true) ||
+                    queryText.startsWith("https://", ignoreCase = true) ||
+                    queryText.endsWith(".com", ignoreCase = true) ||
+                    queryText.endsWith(".org", ignoreCase = true) ||
+                    queryText.endsWith(".dev", ignoreCase = true)
+
+            if (selectedSourceIndex == 3 || (selectedSourceIndex == 0 && isUrl)) {
+                val crawlRes = crawlerService.crawlUrl(queryText)
+                crawlRes.onSuccess { doc ->
+                    combinedList.add(
+                        ResearchPaper(
+                            id = doc.domain + "-" + System.currentTimeMillis(),
+                            title = doc.title,
+                            authors = listOf("Source: ${doc.domain}"),
+                            abstractText = doc.markdownContent,
+                            publishedDate = "Live Crawl (${doc.latencyMs}ms)",
+                            source = "Web Crawler",
+                            url = doc.url
+                        )
+                    )
+                    anySuccess = true
+                }.onFailure {
+                    failureMsg = it.message
+                }
+            }
+
             if (selectedSourceIndex == 0 || selectedSourceIndex == 1) {
                 val arxivRes = researchService.searchArxiv(queryText)
                 arxivRes.onSuccess {
                     combinedList.addAll(it)
                     anySuccess = true
                 }.onFailure {
-                    failureMsg = it.message
+                    if (failureMsg == null) failureMsg = it.message
                 }
             }
 
@@ -86,7 +113,7 @@ fun ResearchHubScreen(
             if (anySuccess) {
                 papers = combinedList.sortedByDescending { it.publishedDate }
             } else {
-                errorMessage = failureMsg ?: "No papers found"
+                errorMessage = failureMsg ?: "No papers or documents found"
             }
         }
     }
@@ -195,7 +222,7 @@ fun ResearchHubScreen(
                 contentColor = Color(0xFF38BDF8),
                 modifier = Modifier.clip(RoundedCornerShape(8.dp))
             ) {
-                listOf("All Sources", "arXiv Preprints", "NCBI PubMed").forEachIndexed { index, title ->
+                listOf("All Sources", "arXiv", "PubMed", "Web & Docs Crawler").forEachIndexed { index, title ->
                     Tab(
                         selected = selectedSourceIndex == index,
                         onClick = {
@@ -325,20 +352,23 @@ fun ResearchHubScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    val (badgeBg, badgeBorder, badgeText) = when (paper.source) {
+                                        "arXiv" -> Triple(Color(0xFFB91C1C).copy(alpha = 0.2f), Color(0xFFEF4444), Color(0xFFFCA5A5))
+                                        "PubMed" -> Triple(Color(0xFF0284C7).copy(alpha = 0.2f), Color(0xFF38BDF8), Color(0xFF7DD3FC))
+                                        else -> Triple(Color(0xFF064E3B).copy(alpha = 0.2f), Color(0xFF10B981), Color(0xFF6EE7B7))
+                                    }
+
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = if (paper.source == "arXiv") Color(0xFFB91C1C).copy(alpha = 0.2f) else Color(0xFF0284C7).copy(alpha = 0.2f),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            if (paper.source == "arXiv") Color(0xFFEF4444) else Color(0xFF38BDF8)
-                                        )
+                                        color = badgeBg,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, badgeBorder)
                                     ) {
                                         Text(
                                             paper.source.uppercase(),
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (paper.source == "arXiv") Color(0xFFFCA5A5) else Color(0xFF7DD3FC)
+                                            color = badgeText
                                         )
                                     }
 

@@ -48,6 +48,7 @@ fun ConnectorsAndSwarmScreen(
     var isPingingAll by remember { mutableStateOf(false) }
     var isSwarmRunning by remember { mutableStateOf(false) }
     var swarmStageText by remember { mutableStateOf<String?>(null) }
+    var checkpoints by remember(activeWorkspaceDir) { mutableStateOf(SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)) }
 
     fun pingAll() {
         isPingingAll = true
@@ -285,6 +286,14 @@ fun ConnectorsAndSwarmScreen(
                                     coroutineScope.launch {
                                         val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 
+                                        // Pre-run snapshot checkpoint
+                                        SwarmCheckpointManager.createCheckpoint(
+                                            workspaceDir = activeWorkspaceDir,
+                                            triggerAgent = "Architect-Agent",
+                                            description = "Pre-run workspace snapshot"
+                                        )
+                                        checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
+
                                         // Stage 1: Architect
                                         swarmStageText = "Architect-Agent synthesizing system topology..."
                                         agents = agents.map { if (it.id == "arch-01") it.copy(state = "Executing", tokensUsed = it.tokensUsed + 420) else it }
@@ -327,10 +336,18 @@ fun ConnectorsAndSwarmScreen(
                                         delay(900)
                                         sqlEngine.executeQuery("INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('DevOps-Runner', 'Docker containerized build verification', 'SUCCESS', 1140, '$now')")
 
+                                        // Post-run snapshot checkpoint
+                                        SwarmCheckpointManager.createCheckpoint(
+                                            workspaceDir = activeWorkspaceDir,
+                                            triggerAgent = "DevOps-Runner",
+                                            description = "Post-run verified swarm build"
+                                        )
+                                        checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
+
                                         agents = agents.map { it.copy(state = "Active") }
                                         swarmStageText = null
                                         isSwarmRunning = false
-                                        Toast.makeText(context, "Swarm execution complete! Logged to SQLite.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Swarm execution complete! Checkpoint saved.", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -467,6 +484,136 @@ fun ConnectorsAndSwarmScreen(
                                         tint = Color(0xFF475569),
                                         modifier = Modifier.size(18.dp)
                                     )
+                                }
+                            }
+                        }
+
+                        // Section 2: Workspace Checkpoints & Snapshot Rollback (Phase 2)
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Restore,
+                                        contentDescription = null,
+                                        tint = Color(0xFF38BDF8),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        "Workspace Checkpoints",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                TextButton(
+                                    onClick = {
+                                        SwarmCheckpointManager.createCheckpoint(
+                                            workspaceDir = activeWorkspaceDir,
+                                            triggerAgent = "Manual-Dev",
+                                            description = "Developer manual snapshot"
+                                        )
+                                        checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
+                                        Toast.makeText(context, "Checkpoint snapshot created!", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Snapshot", color = Color(0xFF38BDF8), fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        if (checkpoints.isEmpty()) {
+                            item {
+                                Card(
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "No checkpoints captured yet. Run the swarm or tap 'Snapshot' to capture workspace state.",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(14.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(checkpoints) { cp ->
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.3f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = Color(0xFF0284C7).copy(alpha = 0.2f)
+                                                ) {
+                                                    Text(
+                                                        cp.triggerAgent,
+                                                        color = Color(0xFF38BDF8),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    cp.timestamp,
+                                                    color = Color(0xFF94A3B8),
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                cp.description,
+                                                color = Color.White,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                "${cp.fileCount} workspace files preserved",
+                                                color = Color(0xFF64748B),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        OutlinedButton(
+                                            onClick = {
+                                                val ok = SwarmCheckpointManager.rollbackToCheckpoint(cp, activeWorkspaceDir)
+                                                if (ok) {
+                                                    Toast.makeText(context, "Rolled back to ${cp.id}!", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    Toast.makeText(context, "Rollback failed", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE11D48)),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFB7185)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Rollback", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
                             }
                         }

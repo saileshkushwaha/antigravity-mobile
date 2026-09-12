@@ -40,6 +40,7 @@ fun ProductDesignScreen(
     var showExportDialog by remember { mutableStateOf(false) }
     var exportTab by remember { mutableStateOf(0) } // 0: Compose, 1: Flutter
     var saveStatus by remember { mutableStateOf<String?>(null) }
+    var activeStudioTab by remember { mutableStateOf(0) } // 0: Compose Native, 1: Web Sandbox
 
     // Preset themes
     val presets = listOf(
@@ -51,72 +52,112 @@ fun ProductDesignScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Palette,
-                            contentDescription = "Design Studio",
-                            tint = tokens.getPrimaryColor(),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                "Product Design Studio",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+            Column {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = "Design Studio",
+                                tint = tokens.getPrimaryColor(),
+                                modifier = Modifier.size(24.dp)
                             )
-                            Text(
-                                "Live Token Engine & Code Exporter",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.LightGray
-                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "Product Design Studio",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    "Live Token Engine & Web Sandbox",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.LightGray
+                                )
+                            }
                         }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showExportDialog = true }) {
-                        Icon(Icons.Default.Code, contentDescription = "Export Code", tint = tokens.getPrimaryColor())
-                    }
-                    IconButton(onClick = {
-                        val composeCode = DesignTokens.generateComposeCode(tokens)
-                        val targetFile = File(activeWorkspaceDir, "AppDesignTokens.kt")
-                        val ok = CodeStudioManager.saveFileContent(targetFile, composeCode)
-                        saveStatus = if (ok) "Saved to ${targetFile.name}!" else "Failed to save"
-                        Toast.makeText(context, saveStatus, Toast.LENGTH_SHORT).show()
-                    }) {
-                        Icon(Icons.Default.Save, contentDescription = "Save to Workspace", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showExportDialog = true }) {
+                            Icon(Icons.Default.Code, contentDescription = "Export Code", tint = tokens.getPrimaryColor())
+                        }
+                        IconButton(onClick = {
+                            val composeCode = DesignTokens.generateComposeCode(tokens)
+                            val targetFile = File(activeWorkspaceDir, "AppDesignTokens.kt")
+                            val ok = CodeStudioManager.saveFileContent(targetFile, composeCode)
+                            saveStatus = if (ok) "Saved to ${targetFile.name}!" else "Failed to save"
+                            Toast.makeText(context, saveStatus, Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Save, contentDescription = "Save to Workspace", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFF0F172A)
+                    )
                 )
-            )
+
+                // Sub-tabs: Compose Native vs Web Sandbox
+                TabRow(
+                    selectedTabIndex = activeStudioTab,
+                    containerColor = Color(0xFF0F172A),
+                    contentColor = tokens.getPrimaryColor(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Tab(
+                        selected = activeStudioTab == 0,
+                        onClick = { activeStudioTab = 0 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Widgets, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Compose Native", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    )
+                    Tab(
+                        selected = activeStudioTab == 1,
+                        onClick = { activeStudioTab = 1 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Web Sandbox (Live JS)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    )
+                }
+            }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFF0B0F19))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Preset Buttons
-            Text(
-                "Theme Presets",
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold
+        if (activeStudioTab == 1) {
+            WebSandboxView(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .background(Color(0xFF0B0F19))
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Preset Buttons
+                Text(
+                    "Theme Presets",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -378,6 +419,7 @@ fun ProductDesignScreen(
             }
         }
     }
+}
 
     // Export Code Dialog
     if (showExportDialog) {

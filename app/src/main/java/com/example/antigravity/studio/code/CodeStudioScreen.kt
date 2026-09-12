@@ -47,8 +47,11 @@ fun CodeStudioScreen(
     var expandedPaths by remember { mutableStateOf(setOf<String>()) }
     var selectedFile by remember { mutableStateOf<File?>(null) }
     var fileContent by remember { mutableStateOf("") }
+    var originalDiskContent by remember { mutableStateOf("") }
     var isDirty by remember { mutableStateOf(false) }
     var showSavedToast by remember { mutableStateOf(false) }
+    var showDiffDialog by remember { mutableStateOf(false) }
+    var showSearchDialog by remember { mutableStateOf(false) }
     var showNewFileDialog by remember { mutableStateOf(false) }
     var newFileName by remember { mutableStateOf("") }
     var showTerminalDrawer by remember { mutableStateOf(false) }
@@ -62,6 +65,7 @@ fun CodeStudioScreen(
             if (firstFile != null) {
                 selectedFile = firstFile
                 fileContent = CodeStudioManager.readFileContent(firstFile)
+                originalDiskContent = fileContent
                 isDirty = false
             }
         }
@@ -156,6 +160,33 @@ fun CodeStudioScreen(
                         Icon(Icons.Default.Add, contentDescription = "New File", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(18.dp))
                     }
 
+                    // Search Codebase (@codebase Semantic Search)
+                    IconButton(
+                        onClick = { showSearchDialog = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search Codebase",
+                            tint = AntigravityColors.NeonViolet,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Review Git Diff Button
+                    IconButton(
+                        onClick = { showDiffDialog = true },
+                        enabled = selectedFile != null,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Difference,
+                            contentDescription = "Review Git Diff",
+                            tint = if (isDirty) Color(0xFF00E5FF) else AntigravityColors.TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
                     // Save Button
                     Button(
                         onClick = {
@@ -234,6 +265,7 @@ fun CodeStudioScreen(
                                     onSelectFile = { file ->
                                         selectedFile = file
                                         fileContent = CodeStudioManager.readFileContent(file)
+                                        originalDiskContent = fileContent
                                         isDirty = false
                                     }
                                 )
@@ -432,6 +464,45 @@ fun CodeStudioScreen(
                     Text("Cancel", color = AntigravityColors.TextSecondary)
                 }
             }
+        )
+    }
+
+    if (showDiffDialog && selectedFile != null) {
+        val diffResult = remember(selectedFile, fileContent, originalDiskContent) {
+            GitDiffManager.computeDiff(
+                fileName = selectedFile!!.name,
+                originalText = originalDiskContent,
+                modifiedText = fileContent
+            )
+        }
+        GitDiffViewerDialog(
+            diffResult = diffResult,
+            onApplyDiff = {
+                selectedFile?.let { file ->
+                    val success = CodeStudioManager.saveFileContent(file, fileContent)
+                    if (success) {
+                        originalDiskContent = fileContent
+                        isDirty = false
+                        showSavedToast = true
+                    }
+                }
+                showDiffDialog = false
+            },
+            onDismiss = { showDiffDialog = false }
+        )
+    }
+
+    if (showSearchDialog) {
+        CodebaseSearchDialog(
+            workspaceDir = workspaceDir,
+            onSelectResult = { file, lineNumber ->
+                selectedFile = file
+                fileContent = CodeStudioManager.readFileContent(file)
+                originalDiskContent = fileContent
+                isDirty = false
+                showSearchDialog = false
+            },
+            onDismiss = { showSearchDialog = false }
         )
     }
 }

@@ -18,10 +18,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.model.MentionItem
 import com.example.antigravity.model.SlashCommand
+import com.example.antigravity.studio.voice.VoiceProgrammingManager
+import com.example.antigravity.studio.voice.VoiceState
 import com.example.antigravity.theme.AntigravityColors
 
 @Composable
@@ -43,6 +46,23 @@ fun ChatInputBar(
     var showMentionMenu by remember { mutableStateOf(false) }
     var showOptimizerDialog by remember { mutableStateOf(false) }
     var attachedFile by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val voiceManager = remember { VoiceProgrammingManager(context) }
+    var isListening by remember { mutableStateOf(false) }
+
+    DisposableEffect(voiceManager) {
+        voiceManager.onStateChanged = { state ->
+            isListening = (state == VoiceState.LISTENING)
+        }
+        voiceManager.onSpeechRecognized = { res ->
+            val updated = if (inputText.isBlank()) res.parsedAction else "$inputText ${res.parsedAction}"
+            onInputChange(updated)
+        }
+        onDispose {
+            voiceManager.release()
+        }
+    }
 
     // Auto-detect triggers in text
     LaunchedEffect(inputText) {
@@ -357,6 +377,30 @@ fun ChatInputBar(
                 ),
                 maxLines = 4
             )
+
+            // Voice Dictation / Programming Button (Phase 3)
+            IconButton(
+                onClick = {
+                    if (isListening) {
+                        voiceManager.stopListening()
+                    } else {
+                        voiceManager.startListening()
+                    }
+                },
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        if (isListening) Color(0xFFEF4444).copy(alpha = 0.25f) else Color.Transparent,
+                        CircleShape
+                    )
+            ) {
+                Icon(
+                    imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                    contentDescription = if (isListening) "Stop Listening" else "Voice Dictation",
+                    tint = if (isListening) Color(0xFFEF4444) else AntigravityColors.TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
 
             // Send or Stop Button
             if (isBusy) {
