@@ -50,8 +50,10 @@ fun SidebarDrawerContent(
     onOpenSdlcHub: () -> Unit = {},
     onOpenPersonas: () -> Unit = {},
     onOpenPrompts: () -> Unit = {},
+    onOpenInspector: () -> Unit = {},
     onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
     onDeleteWorkspace: (String) -> Unit = {},
+    onOpenAddProjectOrFolder: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -63,23 +65,23 @@ fun SidebarDrawerContent(
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .width(300.dp)
+            .width(220.dp)
             .background(AntigravityColors.SurfaceDark)
-            .padding(16.dp),
+            .padding(12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
             // App Header with Antigravity Logo
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onOpenAbout)
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 12.dp)
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = AntigravityColors.SurfaceElevated,
                     border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f))
                 ) {
@@ -88,7 +90,7 @@ fun SidebarDrawerContent(
                         contentDescription = "Antigravity Logo",
                         modifier = Modifier
                             .padding(4.dp)
-                            .size(36.dp)
+                            .size(30.dp)
                     )
                 }
                 Column {
@@ -98,7 +100,7 @@ fun SidebarDrawerContent(
                     ) {
                         Text(
                             text = "Antigravity",
-                            fontSize = 17.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = AntigravityColors.TextPrimary
                         )
@@ -108,23 +110,23 @@ fun SidebarDrawerContent(
                         ) {
                             Text(
                                 text = "PRO",
-                                fontSize = 9.sp,
+                                fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = AntigravityColors.ElectricCyan,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
                             )
                         }
                     }
                     Text(
-                        text = "Enterprise Mobile Studio v2.4",
-                        fontSize = 11.sp,
+                        text = "Mobile Studio v2.4",
+                        fontSize = 10.sp,
                         color = AntigravityColors.TextSecondary
                     )
                 }
             }
 
             // Workspace Switcher Card
-            Box(modifier = Modifier.padding(bottom = 16.dp)) {
+            Box(modifier = Modifier.padding(bottom = 12.dp)) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = AntigravityColors.SurfaceElevated,
@@ -134,26 +136,28 @@ fun SidebarDrawerContent(
                         .clickable { showWorkspaceMenu = true }
                 ) {
                     Row(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
                             Icon(
                                 Icons.Default.Folder,
                                 contentDescription = null,
                                 tint = AntigravityColors.ElectricCyan,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Column {
                                 Text(
                                     text = activeWorkspace.name,
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = AntigravityColors.TextPrimary
+                                    color = AntigravityColors.TextPrimary,
+                                    maxLines = 1
                                 )
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -174,11 +178,30 @@ fun SidebarDrawerContent(
                                 }
                             }
                         }
-                        Icon(
-                            Icons.Default.UnfoldMore,
-                            contentDescription = "Switch workspace",
-                            tint = AntigravityColors.TextSecondary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    newWsName = ""
+                                    newWsPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath("my-project")
+                                    newWsBranch = "main"
+                                    showAddWorkspaceDialog = true
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "Add Project / Workspace",
+                                    tint = AntigravityColors.ElectricCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Icon(
+                                Icons.Default.UnfoldMore,
+                                contentDescription = "Switch workspace",
+                                tint = AntigravityColors.TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
 
@@ -245,7 +268,7 @@ fun SidebarDrawerContent(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
-                                Text("Add Custom Workspace...", color = AntigravityColors.ElectricCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Add Project Workspace...", color = AntigravityColors.ElectricCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         },
                         onClick = {
@@ -355,117 +378,112 @@ fun SidebarDrawerContent(
             }
         }
 
-        // Bottom Navigation Items (Scheduled Tasks, Skills, Diagnostics, Settings)
+        // Compact Icon-Driven Menu Section (Tools, Management, Extensions)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+                .padding(top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 6.dp))
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 4.dp))
 
-            // Welcome & Capabilities Landing
-            SidebarActionItem(
-                icon = Icons.Default.Explore,
-                title = "Welcome & Overview",
-                onClick = onOpenLandingScreen
-            )
-
-            // Studio Pillars Section
             Text(
-                text = "ENTERPRISE STUDIOS",
+                text = "STUDIO TOOLS",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = AntigravityColors.ElectricCyan,
-                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp, start = 8.dp)
+                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
             )
 
-            SidebarActionItem(
-                icon = Icons.Default.Code,
-                title = "Mobile Code IDE & Runner",
-                onClick = onOpenCodeStudio
-            )
+            // Row 1: Analytics & SDLC Hub
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Analytics,
+                    label = "Analytics",
+                    tint = AntigravityColors.ElectricCyan,
+                    onClick = onOpenAnalyticsStudio,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.RocketLaunch,
+                    label = "SDLC Hub",
+                    tint = AntigravityColors.NeonViolet,
+                    onClick = onOpenSdlcHub,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-            SidebarActionItem(
-                icon = Icons.Default.Palette,
-                title = "Product Design Studio",
-                onClick = onOpenDesignStudio
-            )
+            // Row 2: Personas & Prompts
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Psychology,
+                    label = "Personas",
+                    tint = AntigravityColors.ElectricCyan,
+                    onClick = onOpenPersonas,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.AutoAwesome,
+                    label = "Prompts",
+                    tint = AntigravityColors.NeonViolet,
+                    onClick = onOpenPrompts,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-            SidebarActionItem(
-                icon = Icons.Default.MenuBook,
-                title = "Deep Research Hub",
-                onClick = onOpenResearchHub
-            )
+            // Row 3: Skills & MCP + Console/Inspector
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Extension,
+                    label = "Skills",
+                    tint = AntigravityColors.StatusSuccess,
+                    onClick = onOpenSkillsMcp,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.Terminal,
+                    label = "Console",
+                    tint = AntigravityColors.StatusWarning,
+                    onClick = onOpenInspector,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-            SidebarActionItem(
-                icon = Icons.Default.Analytics,
-                title = "Data Analytics & SQL",
-                onClick = onOpenAnalyticsStudio
-            )
+            // Row 4: Scheduled Tasks + Health/Diagnostics
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Schedule,
+                    label = "Tasks",
+                    tint = AntigravityColors.ElectricCyan,
+                    onClick = onOpenScheduledTasks,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.VerifiedUser,
+                    label = "Health",
+                    tint = AntigravityColors.StatusSuccess,
+                    onClick = onOpenDiagnostics,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-            SidebarActionItem(
-                icon = Icons.Default.Hub,
-                title = "DevOps & Swarm DAG",
-                onClick = onOpenConnectorsAndSwarm
-            )
-
-            Text(
-                text = "WORKFLOW & EXTENSIONS",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = AntigravityColors.TextMuted,
-                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp, start = 8.dp)
-            )
-
-            // SDLC & DevOps Center
-            SidebarActionItem(
-                icon = Icons.Default.RocketLaunch,
-                title = "SDLC & GitHub Center",
-                onClick = onOpenSdlcHub
-            )
-
-            // Expert Personas
-            SidebarActionItem(
-                icon = Icons.Default.Person,
-                title = "Expert Personas",
-                onClick = onOpenPersonas
-            )
-
-            // Curated Prompt Templates
-            SidebarActionItem(
-                icon = Icons.Default.AutoAwesome,
-                title = "Prompt Templates",
-                onClick = onOpenPrompts
-            )
-
-            // Scheduled Tasks
-            SidebarActionItem(
-                icon = Icons.Default.Schedule,
-                title = "Scheduled Tasks",
-                onClick = onOpenScheduledTasks
-            )
-
-            // Skills & MCP
-            SidebarActionItem(
-                icon = Icons.Default.Extension,
-                title = "Skills & MCP Tools",
-                onClick = onOpenSkillsMcp
-            )
-
-            // Enterprise Diagnostics & System Health
-            SidebarActionItem(
-                icon = Icons.Default.VerifiedUser,
-                title = "Enterprise Diagnostics",
-                onClick = onOpenDiagnostics
-            )
-
-            // Settings & Permissions
-            SidebarActionItem(
-                icon = Icons.Default.Settings,
-                title = "Settings & Gateways",
-                onClick = onOpenSettings
-            )
+            // Row 5: Settings & Overview Landing
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Settings,
+                    label = "Settings",
+                    tint = AntigravityColors.TextSecondary,
+                    onClick = onOpenSettings,
+                    modifier = Modifier.weight(1f)
+                )
+                SidebarIconTile(
+                    icon = Icons.Default.Explore,
+                    label = "Overview",
+                    tint = AntigravityColors.TextSecondary,
+                    onClick = onOpenLandingScreen,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 
@@ -593,3 +611,44 @@ fun SidebarActionItem(
         )
     }
 }
+
+@Composable
+fun SidebarIconTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color = AntigravityColors.ElectricCyan,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = AntigravityColors.SurfaceElevated,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = AntigravityColors.TextPrimary,
+                maxLines = 1
+            )
+        }
+    }
+}
+

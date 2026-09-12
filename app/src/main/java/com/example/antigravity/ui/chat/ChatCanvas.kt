@@ -34,9 +34,11 @@ fun ChatCanvas(
     agentState: AgentRunState,
     activeModel: String,
     activePersona: AgentPersona? = null,
+    activeWorkspace: ProjectWorkspace? = null,
     onOpenModelPicker: () -> Unit,
     onOpenPersonaPicker: (() -> Unit)? = null,
     onOpenPromptLibrary: (() -> Unit)? = null,
+    onOpenWorkspaceManager: () -> Unit = {},
     onOpenDrawer: () -> Unit,
     onToggleAuxiliary: () -> Unit,
     auxiliaryActiveCount: Int,
@@ -59,7 +61,7 @@ fun ChatCanvas(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         // Model Selector Chip (Click to open searchable model catalog)
                         Surface(
@@ -69,29 +71,59 @@ fun ChatCanvas(
                             modifier = Modifier.clickable { onOpenModelPicker() }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Dns,
                                     contentDescription = null,
                                     tint = AntigravityColors.ElectricCyan,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
                                 Text(
                                     text = activeModel,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = AntigravityColors.ElectricCyan,
                                     maxLines = 1
                                 )
-                                Icon(
-                                    Icons.Default.ArrowDropDown,
-                                    contentDescription = "Select Model",
-                                    tint = AntigravityColors.TextSecondary,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            }
+                        }
+
+                        // Active Project / Folder Chip
+                        if (activeWorkspace != null) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AntigravityColors.SurfaceElevated,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.clickable { onOpenWorkspaceManager() }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = AntigravityColors.ElectricCyan,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Text(
+                                        text = activeWorkspace.name,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = AntigravityColors.TextPrimary,
+                                        maxLines = 1
+                                    )
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Add Project/Folder",
+                                        tint = AntigravityColors.ElectricCyan,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -109,6 +141,16 @@ fun ChatCanvas(
                     }
                 },
                 actions = {
+                    // Add Project or Folder Button
+                    IconButton(onClick = onOpenWorkspaceManager) {
+                        Icon(
+                            Icons.Default.CreateNewFolder,
+                            contentDescription = "Add Project or Folder",
+                            tint = AntigravityColors.ElectricCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     // Auxiliary Pane Toggle Button with Badge
                     IconButton(onClick = onToggleAuxiliary) {
                         BadgedBox(

@@ -1,11 +1,15 @@
 package com.example.antigravity.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -118,6 +122,12 @@ fun AntigravityMainScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showChatPersonaDialog by remember { mutableStateOf(false) }
     var showChatPromptDialog by remember { mutableStateOf(false) }
+    var showAddWorkspaceDialog by remember { mutableStateOf(false) }
+    var newWorkspaceName by remember { mutableStateOf("") }
+    var newWorkspacePath by remember { mutableStateOf("") }
+    var newWorkspaceBranch by remember { mutableStateOf("main") }
+    var newFolderInput by remember { mutableStateOf("") }
+    var isAddingFolderMode by remember { mutableStateOf(false) }
 
     // Chat input
     var inputText by remember { mutableStateOf("") }
@@ -291,6 +301,14 @@ fun AntigravityMainScreen(
                     onOpenPrompts = {
                         currentScreen = AntigravityAppScreen.PERSONAS
                         coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenInspector = {
+                        currentScreen = AntigravityAppScreen.INSPECTOR
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenAddProjectOrFolder = {
+                        showAddWorkspaceDialog = true
+                        coroutineScope.launch { drawerState.close() }
                     }
                 )
             }
@@ -318,6 +336,9 @@ fun AntigravityMainScreen(
                             },
                             onOpenPromptLibrary = {
                                 showChatPromptDialog = true
+                            },
+                            onOpenWorkspaceManager = {
+                                showAddWorkspaceDialog = true
                             }
                         )
                     }
@@ -327,7 +348,6 @@ fun AntigravityMainScreen(
                         AntigravityAppScreen.CODE,
                         AntigravityAppScreen.DESIGN,
                         AntigravityAppScreen.RESEARCH,
-                        AntigravityAppScreen.ANALYTICS,
                         AntigravityAppScreen.CONNECTORS
                     )
 
@@ -376,6 +396,7 @@ fun AntigravityMainScreen(
                             agentState = agentState,
                             activeModel = settings.activeModel,
                             activePersona = activePersona,
+                            activeWorkspace = activeWorkspace,
                             onOpenModelPicker = {
                                 showModelSelectionDialog = true
                             },
@@ -384,6 +405,9 @@ fun AntigravityMainScreen(
                             },
                             onOpenPromptLibrary = {
                                 showChatPromptDialog = true
+                            },
+                            onOpenWorkspaceManager = {
+                                showAddWorkspaceDialog = true
                             },
                             onOpenDrawer = {
                                 coroutineScope.launch { drawerState.open() }
@@ -404,6 +428,9 @@ fun AntigravityMainScreen(
                     AntigravityAppScreen.CODE -> {
                         CodeStudioScreen(
                             activeWorkspace = activeWorkspace,
+                            workspaces = workspaces,
+                            onSelectWorkspace = { repository.switchWorkspace(it) },
+                            onAddWorkspace = { name, path, branch -> repository.addWorkspace(name, path, branch) },
                             onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
                             onExecuteCommand = { repository.executeTerminalCommand(it) },
                             terminalLogs = terminalLogs,
@@ -605,6 +632,193 @@ fun AntigravityMainScreen(
                 showChatPromptDialog = false
             },
             onDismiss = { showChatPromptDialog = false }
+        )
+    }
+
+    // Unified Add Project or Folder Dialog
+    if (showAddWorkspaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddWorkspaceDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(
+                        if (isAddingFolderMode) Icons.Default.CreateNewFolder else Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = AntigravityColors.ElectricCyan
+                    )
+                    Text(
+                        if (isAddingFolderMode) "Create New Folder" else "Add Project / Workspace",
+                        color = AntigravityColors.TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Mode Toggle Buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(AntigravityColors.SurfaceElevated, RoundedCornerShape(8.dp))
+                            .padding(2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (!isAddingFolderMode) AntigravityColors.ElectricCyan else Color.Transparent,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { isAddingFolderMode = false }
+                                .padding(vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = "Project Workspace",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (!isAddingFolderMode) Color(0xFF00363D) else AntigravityColors.TextSecondary,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isAddingFolderMode) AntigravityColors.ElectricCyan else Color.Transparent,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { isAddingFolderMode = true }
+                                .padding(vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = "New Folder",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isAddingFolderMode) Color(0xFF00363D) else AntigravityColors.TextSecondary,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+
+                    if (isAddingFolderMode) {
+                        Text(
+                            text = "Create a directory inside active project: ${activeWorkspace.name}",
+                            fontSize = 11.sp,
+                            color = AntigravityColors.TextSecondary
+                        )
+                        OutlinedTextField(
+                            value = newFolderInput,
+                            onValueChange = { newFolderInput = it },
+                            placeholder = { Text("e.g. components, utils/api, docs", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    } else {
+                        Text(
+                            text = "Configure a local or virtual project workspace for Antigravity agents.",
+                            fontSize = 11.sp,
+                            color = AntigravityColors.TextSecondary
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Workspace Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                            OutlinedTextField(
+                                value = newWorkspaceName,
+                                onValueChange = {
+                                    newWorkspaceName = it
+                                    if (newWorkspacePath.isBlank() || newWorkspacePath.endsWith("my-project")) {
+                                        newWorkspacePath = com.example.antigravity.data.AppRepository.resolveWorkspacePath(it.trim().lowercase().replace("\\s+".toRegex(), "-"))
+                                    }
+                                },
+                                placeholder = { Text("e.g. fullstack-app", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = AntigravityColors.TextPrimary,
+                                    unfocusedTextColor = AntigravityColors.TextPrimary,
+                                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                                    unfocusedBorderColor = AntigravityColors.CardBorder
+                                )
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Workspace Path", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
+                            OutlinedTextField(
+                                value = newWorkspacePath,
+                                onValueChange = { newWorkspacePath = it },
+                                placeholder = { Text(com.example.antigravity.data.AppRepository.resolveBaseWorkspaceDir(), fontSize = 11.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = AntigravityColors.TextPrimary,
+                                    unfocusedTextColor = AntigravityColors.TextPrimary,
+                                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                                    unfocusedBorderColor = AntigravityColors.CardBorder
+                                )
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Default Git Branch", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                            OutlinedTextField(
+                                value = newWorkspaceBranch,
+                                onValueChange = { newWorkspaceBranch = it },
+                                placeholder = { Text("main", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = AntigravityColors.TextPrimary,
+                                    unfocusedTextColor = AntigravityColors.TextPrimary,
+                                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                                    unfocusedBorderColor = AntigravityColors.CardBorder
+                                )
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isAddingFolderMode) {
+                            if (newFolderInput.isNotBlank()) {
+                                val target = File(activeWorkspaceDir, newFolderInput.trim())
+                                target.mkdirs()
+                                newFolderInput = ""
+                                showAddWorkspaceDialog = false
+                            }
+                        } else {
+                            val finalName = newWorkspaceName.trim().ifBlank { "workspace-${workspaces.size + 1}" }
+                            val finalPath = newWorkspacePath.trim().ifBlank {
+                                com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
+                            }
+                            repository.addWorkspace(finalName, finalPath, newWorkspaceBranch.trim().ifBlank { "main" })
+                            newWorkspaceName = ""
+                            newWorkspacePath = ""
+                            showAddWorkspaceDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
+                ) {
+                    Text(
+                        if (isAddingFolderMode) "Create Folder" else "Add Project",
+                        color = Color(0xFF00363D),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddWorkspaceDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
         )
     }
 }

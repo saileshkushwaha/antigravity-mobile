@@ -31,6 +31,9 @@ import java.io.File
 @Composable
 fun CodeStudioScreen(
     activeWorkspace: ProjectWorkspace,
+    workspaces: List<ProjectWorkspace> = emptyList(),
+    onSelectWorkspace: (ProjectWorkspace) -> Unit = {},
+    onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
     onOpenDrawer: () -> Unit = {},
     onExecuteCommand: (String) -> Unit = {},
     terminalLogs: List<String> = emptyList(),
@@ -54,6 +57,13 @@ fun CodeStudioScreen(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showNewFileDialog by remember { mutableStateOf(false) }
     var newFileName by remember { mutableStateOf("") }
+    var showNewFolderDialog by remember { mutableStateOf(false) }
+    var newFolderName by remember { mutableStateOf("") }
+    var showWorkspaceDialog by remember { mutableStateOf(false) }
+    var showAddWorkspaceDialog by remember { mutableStateOf(false) }
+    var newWsName by remember { mutableStateOf("") }
+    var newWsPath by remember { mutableStateOf("") }
+    var newWsBranch by remember { mutableStateOf("main") }
     var showTerminalDrawer by remember { mutableStateOf(false) }
     var terminalInput by remember { mutableStateOf("") }
     var showFileTreePane by remember { mutableStateOf(true) }
@@ -106,7 +116,7 @@ fun CodeStudioScreen(
                             modifier = Modifier.padding(6.dp).size(18.dp)
                         )
                     }
-                    Column {
+                    Column(modifier = Modifier.clickable { showWorkspaceDialog = true }) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = "Code Studio",
@@ -138,38 +148,54 @@ fun CodeStudioScreen(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     // Toggle File Tree
                     IconButton(
                         onClick = { showFileTreePane = !showFileTreePane },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             if (showFileTreePane) Icons.Default.FolderOpen else Icons.Default.Folder,
                             contentDescription = "Toggle Files",
                             tint = if (showFileTreePane) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
+                    }
+
+                    // New Folder Button
+                    IconButton(
+                        onClick = { showNewFolderDialog = true },
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(17.dp))
                     }
 
                     // New File Button
                     IconButton(
                         onClick = { showNewFileDialog = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "New File", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Add, contentDescription = "New File", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(17.dp))
+                    }
+
+                    // Switch / Add Project Workspace
+                    IconButton(
+                        onClick = { showWorkspaceDialog = true },
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(Icons.Default.DriveFolderUpload, contentDescription = "Project Workspace", tint = AntigravityColors.NeonViolet, modifier = Modifier.size(17.dp))
                     }
 
                     // Search Codebase (@codebase Semantic Search)
                     IconButton(
                         onClick = { showSearchDialog = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             Icons.Default.Search,
                             contentDescription = "Search Codebase",
                             tint = AntigravityColors.NeonViolet,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                     }
 
@@ -177,13 +203,13 @@ fun CodeStudioScreen(
                     IconButton(
                         onClick = { showDiffDialog = true },
                         enabled = selectedFile != null,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             Icons.Default.Difference,
                             contentDescription = "Review Git Diff",
                             tint = if (isDirty) Color(0xFF00E5FF) else AntigravityColors.TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                     }
 
@@ -238,13 +264,33 @@ fun CodeStudioScreen(
                                 color = AntigravityColors.TextMuted,
                                 fontFamily = FontFamily.Monospace
                             )
-                            IconButton(
-                                onClick = {
-                                    fileTree = CodeStudioManager.buildFileTree(workspaceDir)
-                                },
-                                modifier = Modifier.size(20.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(13.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(
+                                    onClick = { showNewFileDialog = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "New File", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
+                                }
+                                IconButton(
+                                    onClick = { showNewFolderDialog = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
+                                }
+                                IconButton(
+                                    onClick = { showWorkspaceDialog = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.DriveFolderUpload, contentDescription = "Switch/Add Project", tint = AntigravityColors.NeonViolet, modifier = Modifier.size(13.dp))
+                                }
+                                IconButton(
+                                    onClick = {
+                                        fileTree = CodeStudioManager.buildFileTree(workspaceDir)
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(13.dp))
+                                }
                             }
                         }
 
@@ -461,6 +507,249 @@ fun CodeStudioScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showNewFileDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
+    }
+
+    // New Folder Modal Dialog
+    if (showNewFolderDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewFolderDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.CreateNewFolder, contentDescription = null, tint = AntigravityColors.ElectricCyan)
+                    Text("Create Folder", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter folder name or relative path (e.g. components, utils/network):", fontSize = 12.sp, color = AntigravityColors.TextSecondary)
+                    OutlinedTextField(
+                        value = newFolderName,
+                        onValueChange = { newFolderName = it },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AntigravityColors.ElectricCyan,
+                            unfocusedBorderColor = AntigravityColors.CardBorder,
+                            focusedTextColor = AntigravityColors.TextPrimary,
+                            unfocusedTextColor = AntigravityColors.TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newFolderName.isNotBlank()) {
+                            val newDir = File(workspaceDir, newFolderName.trim())
+                            newDir.mkdirs()
+                            fileTree = CodeStudioManager.buildFileTree(workspaceDir)
+                            showNewFolderDialog = false
+                            newFolderName = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
+                ) {
+                    Text("Create", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewFolderDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Switch or Add Project Workspace Dialog
+    if (showWorkspaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showWorkspaceDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.FolderSpecial, contentDescription = null, tint = AntigravityColors.NeonViolet)
+                    Text("Projects & Workspaces", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Active: ${activeWorkspace.name} (${activeWorkspace.branch})", fontSize = 12.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.SemiBold)
+                    
+                    Text("SWITCH PROJECT:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
+                    
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 160.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(workspaces) { ws ->
+                            val isSelected = ws.id == activeWorkspace.id
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSelected) AntigravityColors.SurfaceElevated else Color.Transparent,
+                                border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)) else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelectWorkspace(ws)
+                                        showWorkspaceDialog = false
+                                    }
+                                    .padding(vertical = 2.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            ws.name,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary
+                                        )
+                                        Text(ws.path, fontSize = 10.sp, color = AntigravityColors.TextMuted, maxLines = 1)
+                                    }
+                                    if (isSelected) {
+                                        Text("Active", fontSize = 10.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                    Button(
+                        onClick = {
+                            showWorkspaceDialog = false
+                            newWsName = ""
+                            newWsPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath("my-project")
+                            newWsBranch = "main"
+                            showAddWorkspaceDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.SurfaceElevated),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Add New Project Workspace...", color = AntigravityColors.ElectricCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showWorkspaceDialog = false }) {
+                    Text("Close", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Add Workspace Dialog
+    if (showAddWorkspaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddWorkspaceDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Folder, contentDescription = null, tint = AntigravityColors.ElectricCyan)
+                    Text("Add Project Workspace", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Configure a new project workspace for Antigravity code studio.", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Workspace Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                        OutlinedTextField(
+                            value = newWsName,
+                            onValueChange = {
+                                newWsName = it
+                                if (newWsPath.isBlank() || newWsPath.endsWith("my-project")) {
+                                    newWsPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath(it.trim().lowercase().replace("\\s+".toRegex(), "-"))
+                                }
+                            },
+                            placeholder = { Text("e.g. backend-api", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Workspace Directory Path", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
+                        OutlinedTextField(
+                            value = newWsPath,
+                            onValueChange = { newWsPath = it },
+                            placeholder = { Text(com.example.antigravity.data.AppRepository.resolveBaseWorkspaceDir(), fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Default Git Branch", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                        OutlinedTextField(
+                            value = newWsBranch,
+                            onValueChange = { newWsBranch = it },
+                            placeholder = { Text("main", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val finalName = newWsName.trim().ifBlank { "workspace-${workspaces.size + 1}" }
+                        val finalPath = newWsPath.trim().ifBlank {
+                            com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
+                        }
+                        onAddWorkspace(finalName, finalPath, newWsBranch.trim().ifBlank { "main" })
+                        showAddWorkspaceDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
+                ) {
+                    Text("Add Workspace", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddWorkspaceDialog = false }) {
                     Text("Cancel", color = AntigravityColors.TextSecondary)
                 }
             }
