@@ -677,4 +677,54 @@ class AntigravityAppTest {
             tempDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun testCloudSandboxServiceConfigAndLocalExecution() = kotlinx.coroutines.runBlocking {
+        val initial = com.example.antigravity.studio.code.CloudSandboxService.config.value
+        assertEquals(com.example.antigravity.studio.code.SandboxRunnerType.LOCAL_FALLBACK, initial.runnerType)
+
+        val updated = com.example.antigravity.studio.code.SandboxConfig(
+            runnerType = com.example.antigravity.studio.code.SandboxRunnerType.DOCKER_CONTAINER,
+            endpointUrl = "https://sandbox.local/exec",
+            authToken = "test-token-123",
+            containerImage = "gradle:8.5-jdk17"
+        )
+        com.example.antigravity.studio.code.CloudSandboxService.updateConfig(updated)
+        assertEquals("https://sandbox.local/exec", com.example.antigravity.studio.code.CloudSandboxService.config.value.endpointUrl)
+
+        // Reset to local fallback for test execution
+        com.example.antigravity.studio.code.CloudSandboxService.updateConfig(initial)
+
+        val outputLines = mutableListOf<String>()
+        val result = com.example.antigravity.studio.code.CloudSandboxService.executeCommand("echo 'Antigravity Sandbox Ready'") {
+            outputLines.add(it)
+        }
+
+        assertTrue("Execution should succeed", result.isSuccess)
+        val execResult = result.getOrThrow()
+        assertEquals(com.example.antigravity.studio.code.SandboxRunnerType.LOCAL_FALLBACK, execResult.runnerType)
+        assertTrue("Stdout should contain output or confirmation", execResult.stdout.isNotBlank())
+    }
+
+    @Test
+    fun testMarketConnectorsCustomSwarmNodeRegistrationAndStage() {
+        val manager = com.example.antigravity.studio.connectors.MarketConnectorsManager()
+        val initialSwarm = manager.getInitialSwarmAgents()
+        assertTrue(initialSwarm.isNotEmpty())
+        assertTrue("System agents should have stages 1..4", initialSwarm.all { it.stage in 1..4 })
+
+        val updatedList = manager.registerCustomAgent(
+            existingAgents = initialSwarm,
+            name = "Security SAST Agent",
+            role = "Vulnerability Scanner",
+            stage = 2
+        )
+
+        assertEquals(initialSwarm.size + 1, updatedList.size)
+        val customAgent = updatedList.last()
+        assertTrue(customAgent.id.startsWith("custom-"))
+        assertEquals("Security SAST Agent", customAgent.name)
+        assertEquals(2, customAgent.stage)
+        assertTrue(customAgent.isEnabled)
+    }
 }

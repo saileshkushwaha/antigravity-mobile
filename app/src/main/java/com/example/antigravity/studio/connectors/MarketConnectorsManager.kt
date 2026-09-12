@@ -30,7 +30,9 @@ data class SwarmAgent(
     val role: String,
     var state: String, // "Active", "Executing", "Idle", "Complete"
     val model: String,
-    var tokensUsed: Int = 0
+    var tokensUsed: Int = 0,
+    val stage: Int = 2,
+    val isEnabled: Boolean = true
 )
 
 class MarketConnectorsManager {
@@ -90,11 +92,31 @@ class MarketConnectorsManager {
 
     fun getInitialSwarmAgents(): List<SwarmAgent> {
         return listOf(
-            SwarmAgent("arch-01", "Architect-Agent", "System Design & DAG Decomposition", "Active", "gemini-2.0-flash", 3400),
-            SwarmAgent("code-02", "Code-Generator", "Full-Stack Jetpack Compose & Kotlin", "Active", "gemini-2.0-flash", 7800),
-            SwarmAgent("test-03", "Test-Architect", "Unit & Integration Test Suite Verification", "Active", "gemini-2.0-flash", 4200),
-            SwarmAgent("rev-04", "Reviewer-Bot", "Static Analysis, A11y & AST Audit", "Idle", "gemini-2.0-flash", 1950),
-            SwarmAgent("ops-05", "DevOps-Runner", "Docker, Gradle & Git Sync Orchestrator", "Idle", "gemini-2.0-flash", 2120)
+            SwarmAgent("arch-01", "Architect-Agent", "System Design & DAG Decomposition", "Active", "gemini-2.0-flash", 3400, stage = 1),
+            SwarmAgent("code-02", "Code-Generator", "Full-Stack Jetpack Compose & Kotlin", "Active", "gemini-2.0-flash", 7800, stage = 2),
+            SwarmAgent("test-03", "Test-Architect", "Unit & Integration Test Suite Verification", "Active", "gemini-2.0-flash", 4200, stage = 2),
+            SwarmAgent("rev-04", "Reviewer-Bot", "Static Analysis, A11y & AST Audit", "Idle", "gemini-2.0-flash", 1950, stage = 3),
+            SwarmAgent("ops-05", "DevOps-Runner", "Docker, Gradle & Git Sync Orchestrator", "Idle", "gemini-2.0-flash", 2120, stage = 4)
         )
+    }
+
+    fun registerCustomAgent(
+        existingAgents: List<SwarmAgent>,
+        name: String,
+        role: String,
+        stage: Int = 2,
+        model: String = "gemini-2.0-flash"
+    ): List<SwarmAgent> {
+        val newAgent = SwarmAgent(
+            id = "custom-${System.currentTimeMillis() % 10000}",
+            name = name.ifBlank { "Custom-Agent" },
+            role = role.ifBlank { "Specialized Execution" },
+            state = "Active",
+            model = model,
+            tokensUsed = 0,
+            stage = stage.coerceIn(1, 4),
+            isEnabled = true
+        )
+        return existingAgents + newAgent
     }
 }

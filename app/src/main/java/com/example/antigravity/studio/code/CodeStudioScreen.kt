@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.model.ProjectWorkspace
 import com.example.antigravity.theme.AntigravityColors
+import kotlinx.coroutines.launch
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +70,23 @@ fun CodeStudioScreen(
     var showFileTreePane by remember { mutableStateOf(true) }
     var activeStudioView by remember { mutableStateOf(0) } // 0: Editor, 1: Test Explorer
     var showDiagnosticsDrawer by remember { mutableStateOf(false) }
+
+    // Interactive Breakpoints & Debug Session Simulator
+    val coroutineScope = rememberCoroutineScope()
+    var breakpoints by remember { mutableStateOf(setOf<Int>()) } // 1-based line numbers
+    var isDebugging by remember { mutableStateOf(false) }
+    var activeDebugLine by remember { mutableStateOf<Int?>(null) }
+    var showDebugVariablesDrawer by remember { mutableStateOf(false) }
+
+    // Cloud Sandbox & Remote Execution Bridge
+    val sandboxConfig by CloudSandboxService.config.collectAsState()
+    var showCloudSandboxDialog by remember { mutableStateOf(false) }
+    var isExecutingSandboxCommand by remember { mutableStateOf(false) }
+    var sandboxRunnerTypeSelection by remember { mutableStateOf(sandboxConfig.runnerType) }
+    var sandboxEndpointInput by remember { mutableStateOf(sandboxConfig.endpointUrl) }
+    var sandboxTokenInput by remember { mutableStateOf(sandboxConfig.authToken) }
+    var sandboxImageInput by remember { mutableStateOf(sandboxConfig.containerImage) }
+    var localTerminalLogs by remember { mutableStateOf(listOf<String>()) }
 
     val fileExtension = selectedFile?.extension?.lowercase() ?: ""
     val syntaxTransformation = remember(fileExtension) {
@@ -242,6 +260,42 @@ fun CodeStudioScreen(
                         )
                     }
 
+                    // Interactive Debugger Button
+                    IconButton(
+                        onClick = {
+                            if (isDebugging) {
+                                isDebugging = false
+                                activeDebugLine = null
+                                showDebugVariablesDrawer = false
+                            } else {
+                                isDebugging = true
+                                activeDebugLine = breakpoints.minOrNull() ?: 1
+                                showDebugVariablesDrawer = true
+                            }
+                        },
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.BugReport,
+                            contentDescription = "Toggle Debugger",
+                            tint = if (isDebugging) Color(0xFFEF4444) else Color(0xFFFFB703),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+
+                    // Cloud Sandbox Runner Config
+                    IconButton(
+                        onClick = { showCloudSandboxDialog = true },
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CloudQueue,
+                            contentDescription = "Cloud Sandbox Runner",
+                            tint = if (sandboxConfig.runnerType != SandboxRunnerType.LOCAL_FALLBACK) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+
                     // Save Button
                     Button(
                         onClick = {
@@ -344,23 +398,151 @@ fun CodeStudioScreen(
                         )
                     }
 
+                    // Floating Debug Controller Toolbar
+                    AnimatedVisibility(visible = isDebugging) {
+                        Surface(
+                            color = Color(0xFF131C2E),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFEF4444))
+                                    )
+                                    Text(
+                                        text = "DEBUG: Line ${activeDebugLine ?: 1}",
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFEF4444)
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    // Resume
+                                    IconButton(
+                                        onClick = {
+                                            val lineCount = fileContent.lines().size.coerceAtLeast(1)
+                                            val nextBp = breakpoints.filter { it > (activeDebugLine ?: 1) }.minOrNull()
+                                            activeDebugLine = nextBp ?: lineCount
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = "Resume", tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
+                                    }
+                                    // Step Over
+                                    IconButton(
+                                        onClick = {
+                                            val lineCount = fileContent.lines().size.coerceAtLeast(1)
+                                            val curr = activeDebugLine ?: 1
+                                            activeDebugLine = (curr + 1).coerceAtMost(lineCount)
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Redo, contentDescription = "Step Over", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                    }
+                                    // Step Into
+                                    IconButton(
+                                        onClick = {
+                                            val lineCount = fileContent.lines().size.coerceAtLeast(1)
+                                            val curr = activeDebugLine ?: 1
+                                            activeDebugLine = (curr + 1).coerceAtMost(lineCount)
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.South, contentDescription = "Step Into", tint = AntigravityColors.NeonViolet, modifier = Modifier.size(16.dp))
+                                    }
+                                    // Toggle Variables Watch Drawer
+                                    IconButton(
+                                        onClick = { showDebugVariablesDrawer = !showDebugVariablesDrawer },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.DataObject, contentDescription = "Variables Watch", tint = if (showDebugVariablesDrawer) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
+                                    }
+                                    // Stop Debugger
+                                    IconButton(
+                                        onClick = {
+                                            isDebugging = false
+                                            activeDebugLine = null
+                                            showDebugVariablesDrawer = false
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Stop, contentDescription = "Stop", tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Code Editor with Line Numbers Gutter
                     Row(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        val lineCount = fileContent.lines().size.coerceAtLeast(1)
-                        val lineNumbers = (1..lineCount).joinToString("\n")
-                        Text(
-                            text = lineNumbers,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            color = AntigravityColors.TextMuted.copy(alpha = 0.6f),
-                            lineHeight = 18.sp,
+                        val linesList = fileContent.lines().ifEmpty { listOf("") }
+                        val lineCount = linesList.size
+
+                        Column(
                             modifier = Modifier
-                                .padding(start = 6.dp, end = 4.dp, top = 8.dp)
-                        )
+                                .width(46.dp)
+                                .fillMaxHeight()
+                                .padding(top = 8.dp)
+                        ) {
+                            for (lineIdx in 1..lineCount) {
+                                val hasBp = breakpoints.contains(lineIdx)
+                                val isCurLine = isDebugging && activeDebugLine == lineIdx
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(18.dp)
+                                        .clickable {
+                                            breakpoints = if (breakpoints.contains(lineIdx)) {
+                                                breakpoints - lineIdx
+                                            } else {
+                                                breakpoints + lineIdx
+                                            }
+                                        },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    if (isCurLine) {
+                                        Text(
+                                            text = "▶",
+                                            fontSize = 9.sp,
+                                            color = Color(0xFF10B981),
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(end = 2.dp)
+                                        )
+                                    } else if (hasBp) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFEF4444))
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                    }
+                                    Text(
+                                        text = "$lineIdx",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        color = if (isCurLine) Color(0xFF10B981) else if (hasBp) Color(0xFFEF4444) else AntigravityColors.TextMuted.copy(alpha = 0.6f),
+                                        fontWeight = if (isCurLine || hasBp) FontWeight.Bold else FontWeight.Normal,
+                                        modifier = Modifier.padding(end = 6.dp)
+                                    )
+                                }
+                            }
+                        }
                         Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(AntigravityColors.DividerColor))
                         Box(
                             modifier = Modifier
@@ -471,7 +653,93 @@ fun CodeStudioScreen(
                         }
                     }
 
-                    // Bottom Terminal Runner Strip
+                    // Debug Session & Variables Watch Drawer
+                    if (showDebugVariablesDrawer && isDebugging) {
+                        val currentLines = fileContent.lines().take(activeDebugLine ?: 1)
+                        val parsedVariables = remember(currentLines, activeDebugLine) {
+                            val vars = mutableListOf<Pair<String, String>>()
+                            val varRegex = Regex("""(?:val|var)\s+([a-zA-Z0-9_]+)\s*(?::\s*([a-zA-Z0-9_<>?]+))?\s*=\s*(.+)""")
+                            for (l in currentLines) {
+                                val match = varRegex.find(l.trim())
+                                if (match != null) {
+                                    val name = match.groupValues[1]
+                                    val value = match.groupValues[3].take(35)
+                                    vars.add(name to value)
+                                }
+                            }
+                            if (vars.isEmpty()) {
+                                listOf(
+                                    "this" to "CodeStudioScope",
+                                    "activeFile" to (selectedFile?.name ?: "Unknown"),
+                                    "activeLine" to "${activeDebugLine ?: 1}",
+                                    "status" to "SUSPENDED_AT_BREAKPOINT"
+                                )
+                            } else {
+                                vars
+                            }
+                        }
+
+                        Surface(
+                            color = AntigravityColors.SurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth().height(125.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Icon(Icons.Default.DataObject, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
+                                        Text("VARIABLES WATCH & STACK (Line ${activeDebugLine ?: 1})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                    }
+                                    IconButton(onClick = { showDebugVariablesDrawer = false }, modifier = Modifier.size(16.dp)) {
+                                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                                Text(
+                                    text = "Thread: main@coroutine#1 • Frame: ${selectedFile?.name ?: "Editor"}:${activeDebugLine ?: 1}",
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AntigravityColors.TextMuted,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                                LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    items(parsedVariables) { (k, v) ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = k,
+                                                fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AntigravityColors.ElectricCyan
+                                            )
+                                            Text(
+                                                text = "=",
+                                                fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = AntigravityColors.TextMuted
+                                            )
+                                            Text(
+                                                text = v,
+                                                fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = Color(0xFFFFB703),
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Bottom Terminal Runner Strip with Cloud Sandbox Bridge
                 Surface(
                     color = AntigravityColors.SurfaceElevated,
                     border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
@@ -495,6 +763,40 @@ fun CodeStudioScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = AntigravityColors.ElectricCyan
                                 )
+                                // Active Runner Badge
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = when (sandboxConfig.runnerType) {
+                                        SandboxRunnerType.DOCKER_CONTAINER -> Color(0xFF0080FF).copy(alpha = 0.2f)
+                                        SandboxRunnerType.GITHUB_CODESPACES -> Color(0xFF8B5CF6).copy(alpha = 0.2f)
+                                        SandboxRunnerType.SSH_REMOTE_RUNNER -> Color(0xFF10B981).copy(alpha = 0.2f)
+                                        SandboxRunnerType.LOCAL_FALLBACK -> AntigravityColors.SurfaceElevated
+                                    },
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        when (sandboxConfig.runnerType) {
+                                            SandboxRunnerType.DOCKER_CONTAINER -> Color(0xFF0080FF)
+                                            SandboxRunnerType.GITHUB_CODESPACES -> Color(0xFF8B5CF6)
+                                            SandboxRunnerType.SSH_REMOTE_RUNNER -> Color(0xFF10B981)
+                                            SandboxRunnerType.LOCAL_FALLBACK -> AntigravityColors.CardBorder
+                                        }
+                                    ),
+                                    modifier = Modifier.clickable { showCloudSandboxDialog = true }
+                                ) {
+                                    Text(
+                                        text = sandboxConfig.runnerType.name.replace("_", " "),
+                                        fontSize = 8.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when (sandboxConfig.runnerType) {
+                                            SandboxRunnerType.DOCKER_CONTAINER -> Color(0xFF0080FF)
+                                            SandboxRunnerType.GITHUB_CODESPACES -> Color(0xFF8B5CF6)
+                                            SandboxRunnerType.SSH_REMOTE_RUNNER -> Color(0xFF10B981)
+                                            SandboxRunnerType.LOCAL_FALLBACK -> AntigravityColors.TextMuted
+                                        },
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
                             }
                             Icon(
                                 if (showTerminalDrawer) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
@@ -506,8 +808,9 @@ fun CodeStudioScreen(
 
                         if (showTerminalDrawer) {
                             Column(modifier = Modifier.fillMaxWidth().height(130.dp).background(AntigravityColors.SurfaceDark).padding(8.dp)) {
+                                val combinedLogs = (terminalLogs + localTerminalLogs).takeLast(15)
                                 LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                                    items(terminalLogs.takeLast(10)) { log ->
+                                    items(combinedLogs) { log ->
                                         Text(log, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = AntigravityColors.TextSecondary)
                                     }
                                 }
@@ -530,14 +833,34 @@ fun CodeStudioScreen(
                                     )
                                     IconButton(
                                         onClick = {
-                                            if (terminalInput.isNotBlank()) {
-                                                onExecuteCommand(terminalInput)
+                                            if (terminalInput.isNotBlank() && !isExecutingSandboxCommand) {
+                                                val cmd = terminalInput.trim()
                                                 terminalInput = ""
+                                                isExecutingSandboxCommand = true
+                                                localTerminalLogs = localTerminalLogs + "> $cmd"
+                                                coroutineScope.launch {
+                                                    CloudSandboxService.executeCommand(
+                                                        command = cmd,
+                                                        onOutputLine = { outLine ->
+                                                            localTerminalLogs = localTerminalLogs + outLine
+                                                        }
+                                                    )
+                                                    onExecuteCommand(cmd)
+                                                    isExecutingSandboxCommand = false
+                                                }
                                             }
                                         },
                                         modifier = Modifier.size(34.dp).background(AntigravityColors.ElectricCyan, CircleShape)
                                     ) {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
+                                        if (isExecutingSandboxCommand) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                color = Color(0xFF00363D),
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
+                                        }
                                     }
                                 }
                             }
@@ -952,6 +1275,122 @@ fun CodeStudioScreen(
                 showSearchDialog = false
             },
             onDismiss = { showSearchDialog = false }
+        )
+    }
+
+    // Cloud Sandbox & Remote Execution Bridge Configuration Dialog
+    if (showCloudSandboxDialog) {
+        AlertDialog(
+            onDismissRequest = { showCloudSandboxDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.CloudQueue, contentDescription = null, tint = AntigravityColors.ElectricCyan)
+                    Text("Cloud Sandbox Runner", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Select execution bridge for compilation and test workloads:", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+
+                    SandboxRunnerType.values().forEach { type ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (sandboxRunnerTypeSelection == type) AntigravityColors.ElectricCyan.copy(alpha = 0.15f) else AntigravityColors.SurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (sandboxRunnerTypeSelection == type) AntigravityColors.ElectricCyan else Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { sandboxRunnerTypeSelection = type }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                RadioButton(
+                                    selected = sandboxRunnerTypeSelection == type,
+                                    onClick = { sandboxRunnerTypeSelection = type },
+                                    colors = RadioButtonDefaults.colors(selectedColor = AntigravityColors.ElectricCyan)
+                                )
+                                Column {
+                                    Text(
+                                        text = type.name.replace("_", " "),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (sandboxRunnerTypeSelection == type) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary
+                                    )
+                                    Text(
+                                        text = when (type) {
+                                            SandboxRunnerType.DOCKER_CONTAINER -> "Remote Docker daemon container HTTP bridge"
+                                            SandboxRunnerType.GITHUB_CODESPACES -> "GitHub Codespaces CLI execution bridge"
+                                            SandboxRunnerType.SSH_REMOTE_RUNNER -> "SSH agent remote execution cluster"
+                                            SandboxRunnerType.LOCAL_FALLBACK -> "Direct on-device terminal runner"
+                                        },
+                                        fontSize = 9.sp,
+                                        color = AntigravityColors.TextMuted
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (sandboxRunnerTypeSelection != SandboxRunnerType.LOCAL_FALLBACK) {
+                        OutlinedTextField(
+                            value = sandboxEndpointInput,
+                            onValueChange = { sandboxEndpointInput = it },
+                            label = { Text("Runner Endpoint URL", fontSize = 10.sp) },
+                            placeholder = { Text("https://sandbox.internal/exec", fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        )
+                        OutlinedTextField(
+                            value = sandboxImageInput,
+                            onValueChange = { sandboxImageInput = it },
+                            label = { Text("Container Image / Toolchain", fontSize = 10.sp) },
+                            placeholder = { Text("gradle:8.5-jdk17", fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        )
+                        OutlinedTextField(
+                            value = sandboxTokenInput,
+                            onValueChange = { sandboxTokenInput = it },
+                            label = { Text("Auth Token / Bearer Secret", fontSize = 10.sp) },
+                            placeholder = { Text("Optional authorization token", fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        CloudSandboxService.updateConfig(
+                            SandboxConfig(
+                                runnerType = sandboxRunnerTypeSelection,
+                                endpointUrl = sandboxEndpointInput.trim(),
+                                authToken = sandboxTokenInput.trim(),
+                                containerImage = sandboxImageInput.trim().ifEmpty { "gradle:8.5-jdk17" }
+                            )
+                        )
+                        showCloudSandboxDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
+                ) {
+                    Text("Apply Config", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCloudSandboxDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
         )
     }
 }
