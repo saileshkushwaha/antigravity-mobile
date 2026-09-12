@@ -55,7 +55,8 @@ data class GitHubIssueItem(
     val state: IssueState = IssueState.OPEN,
     val labels: List<String> = emptyList(),
     val commentsCount: Int = 0,
-    val assignee: String? = null
+    val assignee: String? = null,
+    val createdAt: String = "Recently"
 )
 
 @Serializable
@@ -116,6 +117,31 @@ enum class HealthStatus {
 }
 
 @Serializable
+data class DeploymentLogEntry(
+    val timestamp: String,
+    val level: String = "INFO", // "INFO", "SUCCESS", "WARN", "ERROR"
+    val message: String
+)
+
+@Serializable
+data class EnvironmentHealthDetails(
+    val httpStatus: Int = 200,
+    val latencyMs: Long = 0L,
+    val checkedAt: String = "Just now",
+    val isReachable: Boolean = true,
+    val errorMessage: String? = null
+)
+
+@Serializable
+data class GitHubCommitItem(
+    val sha: String,
+    val message: String,
+    val author: String,
+    val date: String,
+    val url: String = ""
+)
+
+@Serializable
 data class DeploymentRecord(
     val id: String,
     val environment: EnvironmentType,
@@ -126,7 +152,9 @@ data class DeploymentRecord(
     val status: DeploymentStatus = DeploymentStatus.DEPLOYED,
     val healthStatus: HealthStatus = HealthStatus.HEALTHY,
     val liveUrl: String = "",
-    val rollbackVersion: String? = null
+    val rollbackVersion: String? = null,
+    val healthDetails: EnvironmentHealthDetails? = null,
+    val logs: List<DeploymentLogEntry> = emptyList()
 )
 
 // --- Integration Tools Hub Models ---
@@ -197,6 +225,7 @@ data class PreFlightPolicy(
 data class ProjectSdlcConfig(
     val projectName: String = "antigravity-mobile",
     val repositoryOwner: String = "saileshkushwaha",
+    val githubToken: String = "",
     val branchProtections: BranchProtectionRules = BranchProtectionRules(),
     val releaseConfig: ReleaseConfig = ReleaseConfig(),
     val preFlightPolicy: PreFlightPolicy = PreFlightPolicy(),

@@ -223,7 +223,10 @@ data class AppSettings(
     val toolExecutionPolicy: String = "request-review", // "always-proceed", "request-review", "strict"
     val terminalSandbox: Boolean = true,
     val isOfflineDemoMode: Boolean = false,
-    val isDarkTheme: Boolean = true
+    val isDarkTheme: Boolean = true,
+    val githubToken: String = "",
+    val githubOwner: String = "saileshkushwaha",
+    val githubRepo: String = "antigravity-mobile"
 )
 
 data class SlashCommand(

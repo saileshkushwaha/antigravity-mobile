@@ -46,6 +46,9 @@ fun SettingsDialog(
     var executionPolicy by remember { mutableStateOf(settings.toolExecutionPolicy) }
     var sandboxEnabled by remember { mutableStateOf(settings.terminalSandbox) }
     var offlineDemoMode by remember { mutableStateOf(settings.isOfflineDemoMode) }
+    var githubToken by remember { mutableStateOf(settings.githubToken) }
+    var githubOwner by remember { mutableStateOf(settings.githubOwner) }
+    var githubRepo by remember { mutableStateOf(settings.githubRepo) }
     var showModelPicker by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -288,6 +291,65 @@ fun SettingsDialog(
                         }
                     }
 
+                    // GitHub Integration & SDLC Credentials
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("GitHub & DevOps Integration", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.ElectricCyan)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = if (githubToken.isNotBlank()) "AUTHENTICATED" else "READ-ONLY",
+                                    color = AntigravityColors.ElectricCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("GitHub Personal Access Token (PAT)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                            OutlinedTextField(
+                                value = githubToken,
+                                onValueChange = { githubToken = it },
+                                placeholder = { Text("ghp_... (Required for PR create/merge & CI dispatch)", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Repo Owner", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                OutlinedTextField(
+                                    value = githubOwner,
+                                    onValueChange = { githubOwner = it },
+                                    placeholder = { Text("saileshkushwaha", fontSize = 12.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Repository Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                OutlinedTextField(
+                                    value = githubRepo,
+                                    onValueChange = { githubRepo = it },
+                                    placeholder = { Text("antigravity-mobile", fontSize = 12.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+
                     // Terminal Sandboxing
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -309,23 +371,32 @@ fun SettingsDialog(
                 // Save Action Button
                 Button(
                     onClick = {
-                        onSave(
-                            settings.copy(
-                                apiKey = apiKey,
-                                openAiApiKey = openAiKey,
-                                openRouterApiKey = openRouterKey,
-                                groqApiKey = groqKey,
-                                kiloCodeApiKey = kiloCodeKey,
-                                openCodeApiKey = openCodeKey,
-                                huggingFaceApiKey = huggingFaceKey,
-                                customGatewayUrl = customGatewayUrl,
-                                activeModel = selectedModel,
-                                activeModelId = selectedModelId,
-                                toolExecutionPolicy = executionPolicy,
-                                terminalSandbox = sandboxEnabled,
-                                isOfflineDemoMode = offlineDemoMode
-                            )
+                        val updated = settings.copy(
+                            apiKey = apiKey,
+                            openAiApiKey = openAiKey,
+                            openRouterApiKey = openRouterKey,
+                            groqApiKey = groqKey,
+                            kiloCodeApiKey = kiloCodeKey,
+                            openCodeApiKey = openCodeKey,
+                            huggingFaceApiKey = huggingFaceKey,
+                            customGatewayUrl = customGatewayUrl,
+                            activeModel = selectedModel,
+                            activeModelId = selectedModelId,
+                            toolExecutionPolicy = executionPolicy,
+                            terminalSandbox = sandboxEnabled,
+                            isOfflineDemoMode = offlineDemoMode,
+                            githubToken = githubToken,
+                            githubOwner = githubOwner,
+                            githubRepo = githubRepo
                         )
+                        com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig { cfg ->
+                            cfg.copy(
+                                githubToken = githubToken,
+                                repositoryOwner = githubOwner,
+                                projectName = githubRepo
+                            )
+                        }
+                        onSave(updated)
                         onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
