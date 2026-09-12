@@ -95,6 +95,7 @@ fun SettingsDialog(
     var codeFontSize by remember { mutableStateOf(settings.codeFontSize.toFloat()) }
     var hapticFeedback by remember { mutableStateOf(settings.hapticFeedback) }
     var autoScrollChat by remember { mutableStateOf(settings.autoScrollChat) }
+    var showLandingOnStartup by remember { mutableStateOf(settings.showLandingOnStartup) }
 
     // Dialog state
     var showModelPicker by remember { mutableStateOf(false) }
@@ -1184,6 +1185,25 @@ fun SettingsDialog(
                                             colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
                                         )
                                     }
+
+                                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                    // Welcome Landing Screen Toggle
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text("Show Landing Screen on Startup", fontSize = 12.sp, color = AntigravityColors.TextPrimary)
+                                            Text("Display the interactive capabilities overview and get started guide when launching the app", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = showLandingOnStartup,
+                                            onCheckedChange = { showLandingOnStartup = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1316,6 +1336,7 @@ fun SettingsDialog(
                                 codeFontSize = codeFontSize.toInt(),
                                 hapticFeedback = hapticFeedback,
                                 autoScrollChat = autoScrollChat,
+                                showLandingOnStartup = showLandingOnStartup,
                                 customProviders = customProviders
                             )
                             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig { cfg ->

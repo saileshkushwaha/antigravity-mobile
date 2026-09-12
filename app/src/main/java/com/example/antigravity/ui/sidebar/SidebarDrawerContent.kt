@@ -41,6 +41,7 @@ fun SidebarDrawerContent(
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenLandingScreen: () -> Unit = {},
     onOpenSdlcHub: () -> Unit = {},
     onOpenPersonas: () -> Unit = {},
     onOpenPrompts: () -> Unit = {},
@@ -357,6 +358,13 @@ fun SidebarDrawerContent(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(bottom = 6.dp))
+
+            // Welcome & Capabilities Landing
+            SidebarActionItem(
+                icon = Icons.Default.Explore,
+                title = "Welcome & Overview",
+                onClick = onOpenLandingScreen
+            )
 
             // SDLC & DevOps Center
             SidebarActionItem(

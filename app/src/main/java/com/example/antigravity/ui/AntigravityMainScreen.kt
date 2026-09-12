@@ -1,5 +1,6 @@
 package com.example.antigravity.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,6 +21,7 @@ import com.example.antigravity.ui.auxiliary.AuxiliaryPane
 import com.example.antigravity.ui.chat.ChatCanvas
 import com.example.antigravity.ui.chat.ChatInputBar
 import com.example.antigravity.ui.dialogs.*
+import com.example.antigravity.ui.landing.LandingScreen
 import com.example.antigravity.ui.personas.PersonasAndPromptsContent
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
@@ -47,6 +49,7 @@ fun AntigravityMainScreen(
 
     // Current primary destination screen
     var currentScreen by remember { mutableStateOf(AntigravityAppScreen.CHAT) }
+    var showLandingScreen by remember { mutableStateOf(repository.settings.value.showLandingOnStartup) }
 
     // State flows
     val workspaces by repository.workspaces.collectAsState()
@@ -92,9 +95,54 @@ fun AntigravityMainScreen(
     val auxiliaryActiveCount = subagents.count { it.state == com.example.antigravity.model.SubagentState.RUNNING } +
             backgroundTasks.count { it.status == com.example.antigravity.model.TaskStatus.RUNNING }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
+    if (showLandingScreen) {
+        BackHandler {
+            showLandingScreen = false
+        }
+        LandingScreen(
+            activeWorkspace = activeWorkspace,
+            activeModel = settings.activeModel,
+            modelsCount = models.size,
+            skillsCount = skills.count { it.isEnabled },
+            mcpCount = mcpServers.count { it.isEnabled },
+            showOnStartup = settings.showLandingOnStartup,
+            onToggleShowOnStartup = { enabled ->
+                repository.updateSettings { it.copy(showLandingOnStartup = enabled) }
+            },
+            onLaunchStudio = {
+                showLandingScreen = false
+            },
+            onConfigureGateways = {
+                showLandingScreen = false
+                showModelSelectionDialog = true
+            },
+            onConnectGitHub = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.SDLC
+            },
+            onOpenPersonas = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.PERSONAS
+            },
+            onOpenSkills = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.SKILLS
+            },
+            onOpenSdlc = {
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.SDLC
+            },
+            onStartMissionPrompt = { prompt ->
+                showLandingScreen = false
+                currentScreen = AntigravityAppScreen.CHAT
+                inputText = prompt
+            },
+            modifier = modifier.fillMaxSize()
+        )
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = AntigravityColors.SurfaceDark
             ) {
@@ -145,6 +193,10 @@ fun AntigravityMainScreen(
                     },
                     onOpenAbout = {
                         showAboutDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenLandingScreen = {
+                        showLandingScreen = true
                         coroutineScope.launch { drawerState.close() }
                     },
                     onOpenSdlcHub = {
@@ -342,6 +394,7 @@ fun AntigravityMainScreen(
             }
         }
     }
+}
 
     // Model Selection Dialog (with Search & Free Filters)
     // Model Selection Dialog (with Search, Free, Gateway & Capability Filters)

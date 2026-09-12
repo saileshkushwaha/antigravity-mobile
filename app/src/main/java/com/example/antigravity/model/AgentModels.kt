@@ -257,7 +257,8 @@ data class AppSettings(
     val codeFontFamily: String = "JetBrains Mono",
     val codeFontSize: Int = 12,
     val hapticFeedback: Boolean = true,
-    val autoScrollChat: Boolean = true
+    val autoScrollChat: Boolean = true,
+    val showLandingOnStartup: Boolean = true
 )
 
 data class SlashCommand(
