@@ -64,6 +64,7 @@ fun ModelSelectionDialog(
     onRefresh: (() -> Unit)? = null,
     onSelectModel: (ModelInfo) -> Unit,
     onOpenApiKeys: (() -> Unit)? = null,
+    onOpenApiKeyCsv: (() -> Unit)? = null,
     onAddCustomProvider: ((CustomProviderConfig) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
@@ -233,6 +234,20 @@ fun ModelSelectionDialog(
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Provider", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        if (onOpenApiKeyCsv != null) {
+                            OutlinedButton(
+                                onClick = onOpenApiKeyCsv,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD54F)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F).copy(alpha = 0.6f)),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("CSV", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
 

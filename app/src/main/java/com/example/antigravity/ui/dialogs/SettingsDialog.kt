@@ -39,6 +39,7 @@ import com.example.antigravity.theme.AntigravityColors
 fun SettingsDialog(
     settings: AppSettings,
     models: List<ModelInfo> = ModelCatalog.allModels,
+    workspacePath: String = "",
     onSave: (AppSettings) -> Unit,
     onClearChatHistory: () -> Unit = {},
     onResetPersonas: () -> Unit = {},
@@ -52,6 +53,7 @@ fun SettingsDialog(
     val context = LocalContext.current
     val biometricStatus = remember { BiometricAuthManager.checkBiometricAvailability(context) }
     var selectedTab by remember { mutableStateOf(0) } // 0: Models & Gateways, 1: Autonomy, 2: DevOps, 3: Editor, 4: Data & Reset
+    var showApiKeyCsvDialog by remember { mutableStateOf(false) }
 
     // Gateways & Model Parameters
     var apiKey by remember { mutableStateOf(settings.apiKey) }
@@ -421,7 +423,24 @@ fun SettingsDialog(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("Model Gateways & API Credentials", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Model Gateways & API Credentials", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                        OutlinedButton(
+                                            onClick = { showApiKeyCsvDialog = true },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(26.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD54F)),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F).copy(alpha = 0.6f))
+                                        ) {
+                                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("CSV Export / Import", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
 
                                     // Google Gemini
                                     GatewayKeyField(
@@ -1327,6 +1346,37 @@ fun SettingsDialog(
 
                         4 -> {
                             // ==================== TAB 4: DATA & FACTORY RESET ====================
+                            // Credential Portability & CSV Backup
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Credential Portability & CSV Backup", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                            Text("Export all configured API keys to a CSV file or bulk import keys across gateways.", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Button(
+                                            onClick = { showApiKeyCsvDialog = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD54F)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color(0xFF332000), modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Manage CSV", color = Color(0xFF332000), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = AntigravityColors.CardBackground,
@@ -1501,10 +1551,59 @@ fun SettingsDialog(
                 selectedModelId = model.id
                 showModelPicker = false
             },
+            onOpenApiKeyCsv = { showApiKeyCsvDialog = true },
             onAddCustomProvider = { newProvider ->
                 customProviders = customProviders.filterNot { it.id == newProvider.id } + newProvider
             },
             onDismiss = { showModelPicker = false }
+        )
+    }
+
+    // API Key CSV Portability Modal
+    if (showApiKeyCsvDialog) {
+        ApiKeyExportImportDialog(
+            settings = AppSettings(
+                apiKey = apiKey.trim(),
+                openAiApiKey = openAiKey.trim(),
+                openRouterApiKey = openRouterKey.trim(),
+                groqApiKey = groqKey.trim(),
+                kiloCodeApiKey = kiloCodeKey.trim(),
+                openCodeApiKey = openCodeKey.trim(),
+                huggingFaceApiKey = huggingFaceKey.trim(),
+                customGatewayUrl = customGatewayUrl.trim(),
+                customGatewayApiKey = settings.customGatewayApiKey,
+                customProviders = customProviders,
+                githubToken = githubToken.trim()
+            ),
+            workspacePath = workspacePath,
+            onSaveSettings = { updated ->
+                apiKey = updated.apiKey
+                openAiKey = updated.openAiApiKey
+                openRouterKey = updated.openRouterApiKey
+                groqKey = updated.groqApiKey
+                kiloCodeKey = updated.kiloCodeApiKey
+                openCodeKey = updated.openCodeApiKey
+                huggingFaceKey = updated.huggingFaceApiKey
+                customGatewayUrl = updated.customGatewayUrl
+                customProviders = updated.customProviders
+                githubToken = updated.githubToken
+                onSave(
+                    settings.copy(
+                        apiKey = updated.apiKey,
+                        openAiApiKey = updated.openAiApiKey,
+                        openRouterApiKey = updated.openRouterApiKey,
+                        groqApiKey = updated.groqApiKey,
+                        kiloCodeApiKey = updated.kiloCodeApiKey,
+                        openCodeApiKey = updated.openCodeApiKey,
+                        huggingFaceApiKey = updated.huggingFaceApiKey,
+                        customGatewayUrl = updated.customGatewayUrl,
+                        customProviders = updated.customProviders,
+                        githubToken = updated.githubToken
+                    )
+                )
+                showApiKeyCsvDialog = false
+            },
+            onDismiss = { showApiKeyCsvDialog = false }
         )
     }
 

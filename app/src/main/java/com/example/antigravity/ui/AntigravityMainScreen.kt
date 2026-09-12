@@ -107,6 +107,7 @@ fun AntigravityMainScreen(
 
     // Modal Utility Dialog states (for non-screen modals only)
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showApiKeyCsvDialog by remember { mutableStateOf(false) }
     var showScheduledTasksDialog by remember { mutableStateOf(false) }
     var showModelSelectionDialog by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
@@ -642,6 +643,9 @@ fun AntigravityMainScreen(
                 showModelSelectionDialog = false
                 showSettingsDialog = true
             },
+            onOpenApiKeyCsv = {
+                showApiKeyCsvDialog = true
+            },
             onAddCustomProvider = { newProvider ->
                 repository.addCustomProvider(newProvider)
                 coroutineScope.launch {
@@ -657,6 +661,7 @@ fun AntigravityMainScreen(
         SettingsDialog(
             settings = settings,
             models = models,
+            workspacePath = activeWorkspace.path,
             onSave = { 
                 repository.updateSettings(it)
                 coroutineScope.launch {
@@ -670,6 +675,21 @@ fun AntigravityMainScreen(
             onResetMcp = { repository.resetMcpServersToDefault() },
             onFactoryResetAll = { repository.resetAllDataToDefaults() },
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    // API Key CSV Export & Import Dialog
+    if (showApiKeyCsvDialog) {
+        ApiKeyExportImportDialog(
+            settings = settings,
+            workspacePath = activeWorkspace.path,
+            onSaveSettings = { updatedSettings ->
+                repository.updateSettings(updatedSettings)
+                coroutineScope.launch {
+                    repository.refreshModelsFromGateways()
+                }
+            },
+            onDismiss = { showApiKeyCsvDialog = false }
         )
     }
 
