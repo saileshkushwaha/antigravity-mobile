@@ -136,8 +136,20 @@ fun AntigravityMainScreen(
     val auxiliaryActiveCount = subagents.count { it.state == com.example.antigravity.model.SubagentState.RUNNING } +
             backgroundTasks.count { it.status == com.example.antigravity.model.TaskStatus.RUNNING }
 
-    if (isBiometricLocked) {
-        val hardwareStatus = remember { BiometricAuthManager.checkBiometricAvailability(context) }
+    val topLevelState = when {
+        isBiometricLocked -> 0
+        showLandingScreen -> 1
+        else -> 2
+    }
+
+    androidx.compose.animation.Crossfade(
+        targetState = topLevelState,
+        label = "TopLevelTransition",
+        animationSpec = androidx.compose.animation.core.tween(500)
+    ) { state ->
+        when (state) {
+            0 -> {
+                val hardwareStatus = remember { BiometricAuthManager.checkBiometricAvailability(context) }
         BiometricLockScreen(
             hardwareStatus = hardwareStatus,
             errorMessage = biometricErrorMessage,
@@ -165,7 +177,8 @@ fun AntigravityMainScreen(
             onUnlock = onBiometricUnlock,
             modifier = modifier.fillMaxSize()
         )
-    } else if (showLandingScreen) {
+            }
+            1 -> {
         BackHandler {
             showLandingScreen = false
         }
@@ -210,7 +223,8 @@ fun AntigravityMainScreen(
             },
             modifier = modifier.fillMaxSize()
         )
-    } else {
+            }
+            else -> {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
@@ -384,12 +398,15 @@ fun AntigravityMainScreen(
             containerColor = AntigravityColors.BackgroundDark,
             modifier = modifier
         ) { scaffoldPadding ->
-            Box(
+            androidx.compose.animation.Crossfade(
+                targetState = currentScreen,
+                label = "ScreenTransition",
+                animationSpec = androidx.compose.animation.core.tween(400),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(scaffoldPadding)
-            ) {
-                when (currentScreen) {
+            ) { targetScreen ->
+                when (targetScreen) {
                     AntigravityAppScreen.CHAT -> {
                         ChatCanvas(
                             conversation = activeConversation,
@@ -532,7 +549,9 @@ fun AntigravityMainScreen(
             }
         }
     }
-}
+        }
+    }
+    }
 
     // Model Selection Dialog (with Search & Free Filters)
     // Model Selection Dialog (with Search, Free, Gateway & Capability Filters)

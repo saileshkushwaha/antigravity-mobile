@@ -23,6 +23,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        repository.init(applicationContext)
 
         if (repository.settings.value.biometricLockEnabled) {
             isAppLocked = true

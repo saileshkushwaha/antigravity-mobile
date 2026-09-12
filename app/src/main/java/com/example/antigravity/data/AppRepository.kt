@@ -33,6 +33,21 @@ class AppRepository {
     )
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
+    private var sharedPrefs: android.content.SharedPreferences? = null
+    
+    fun init(context: android.content.Context) {
+        sharedPrefs = context.getSharedPreferences("antigravity_prefs", android.content.Context.MODE_PRIVATE)
+        val savedJson = sharedPrefs?.getString("app_settings", null)
+        if (savedJson != null) {
+            try {
+                val parsed = kotlinx.serialization.json.Json.decodeFromString(AppSettings.serializer(), savedJson)
+                _settings.value = parsed
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     companion object {
         fun resolveBaseWorkspaceDir(): String {
             return try {
@@ -237,6 +252,12 @@ class AppRepository {
 
     fun updateSettings(newSettings: AppSettings) {
         _settings.value = newSettings
+        try {
+            val json = kotlinx.serialization.json.Json.encodeToString(AppSettings.serializer(), newSettings)
+            sharedPrefs?.edit()?.putString("app_settings", json)?.apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
             it.copy(
                 repositoryOwner = newSettings.githubOwner,
@@ -248,10 +269,11 @@ class AppRepository {
     }
 
     fun selectModel(model: ModelInfo) {
-        _settings.value = _settings.value.copy(
+        val newSettings = _settings.value.copy(
             activeModel = model.name,
             activeModelId = model.id
         )
+        updateSettings(newSettings)
         // Also update active conversation activeModel
         val currentConv = getActiveConversation()
         if (currentConv != null) {
@@ -771,7 +793,8 @@ class AppRepository {
     }
 
     fun updateSettings(transform: (AppSettings) -> AppSettings) {
-        _settings.update(transform)
+        val newSettings = transform(_settings.value)
+        updateSettings(newSettings)
     }
 
     // Custom Providers CRUD

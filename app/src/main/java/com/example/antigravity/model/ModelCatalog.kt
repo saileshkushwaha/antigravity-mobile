@@ -240,6 +240,15 @@ object ModelCatalog {
             description = "Specialized multi-file architectural refactoring model on OpenCode.",
             tags = listOf("free", "opencode", "devvinci", "architecture", "coding")
         ),
+        ModelInfo(
+            id = "opencode/zen-bigpickle",
+            name = "Zen BigPickle Internal (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Zen internal experimental foundation model with extremely advanced coding capabilities.",
+            tags = listOf("free", "opencode", "zen", "bigpickle", "experimental")
+        ),
 
         // --- OpenRouter Free Models ---
         ModelInfo(

@@ -259,7 +259,7 @@ data class AppSettings(
     val hapticFeedback: Boolean = true,
     val autoScrollChat: Boolean = true,
     val showLandingOnStartup: Boolean = true,
-    val biometricLockEnabled: Boolean = false,
+    val biometricLockEnabled: Boolean = true,
     val requireBiometricOnResume: Boolean = true
 )
 

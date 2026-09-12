@@ -1,5 +1,5 @@
 package com.example.antigravity.studio.code
-
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -241,91 +241,12 @@ fun CodeStudioScreen(
             }
         }
 
-        // Main Studio Body: File Tree (Collapsible) + Code Editor
-        Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (showFileTreePane) {
-                Surface(
-                    color = AntigravityColors.SurfaceDark,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                    modifier = Modifier
-                        .width(170.dp)
-                        .fillMaxHeight()
-                ) {
-                    Column(modifier = Modifier.padding(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "EXPLORER",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AntigravityColors.TextMuted,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(
-                                    onClick = { showNewFileDialog = true },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = "New File", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
-                                }
-                                IconButton(
-                                    onClick = { showNewFolderDialog = true },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
-                                }
-                                IconButton(
-                                    onClick = { showWorkspaceDialog = true },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(Icons.Default.DriveFolderUpload, contentDescription = "Switch/Add Project", tint = AntigravityColors.NeonViolet, modifier = Modifier.size(13.dp))
-                                }
-                                IconButton(
-                                    onClick = {
-                                        fileTree = CodeStudioManager.buildFileTree(workspaceDir)
-                                    },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(13.dp))
-                                }
-                            }
-                        }
-
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            items(fileTree) { node ->
-                                FileTreeNodeItem(
-                                    node = node,
-                                    level = 0,
-                                    selectedFile = selectedFile,
-                                    expandedPaths = expandedPaths,
-                                    onToggleExpand = { path ->
-                                        expandedPaths = if (expandedPaths.contains(path)) {
-                                            expandedPaths - path
-                                        } else {
-                                            expandedPaths + path
-                                        }
-                                    },
-                                    onSelectFile = { file ->
-                                        selectedFile = file
-                                        fileContent = CodeStudioManager.readFileContent(file)
-                                        originalDiskContent = fileContent
-                                        isDirty = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Code Editor Canvas
+        // Main Studio Body: File Tree (Collapsible Overlay Drawer) + Code Editor
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // Code Editor Canvas (Full Width)
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
+                    .fillMaxSize()
                     .background(AntigravityColors.BackgroundDark)
             ) {
                 // File Tab & Line Stats Bar
@@ -378,6 +299,46 @@ fun CodeStudioScreen(
                             unfocusedContainerColor = Color.Transparent
                         )
                     )
+                    
+                    // ✨ Cursor-style Inline AI Copilot Actions
+                    if (selectedFile != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = 16.dp, end = 16.dp)
+                        ) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFF131C2E).copy(alpha = 0.9f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.NeonViolet.copy(alpha = 0.5f)),
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = { /* TODO: Explain */ }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(onClick = { /* TODO: Optimize */ }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Bolt, contentDescription = "Optimize", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                }
+                                Button(
+                                    onClick = { /* TODO: Prompt / Refactor */ },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.NeonViolet),
+                                    shape = RoundedCornerShape(16.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Refactor (Ctrl+K)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+                        }
+                        }
+                    }
                 }
 
                 // Bottom Terminal Runner Strip
@@ -449,6 +410,74 @@ fun CodeStudioScreen(
                                         Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // File Tree Overlay Drawer
+            if (showFileTreePane) {
+                Surface(
+                    color = AntigravityColors.SurfaceDark,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                    modifier = Modifier
+                        .width(160.dp)
+                        .fillMaxHeight()
+                        .align(Alignment.CenterStart)
+                ) {
+                    Column(modifier = Modifier.padding(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "EXPLORER",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AntigravityColors.TextMuted,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(onClick = { showNewFileDialog = true }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Default.Add, contentDescription = "New File", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
+                                }
+                                IconButton(onClick = { showNewFolderDialog = true }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
+                                }
+                                IconButton(onClick = { showWorkspaceDialog = true }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Default.DriveFolderUpload, contentDescription = "Switch/Add Project", tint = AntigravityColors.NeonViolet, modifier = Modifier.size(13.dp))
+                                }
+                                IconButton(onClick = { fileTree = CodeStudioManager.buildFileTree(workspaceDir) }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(13.dp))
+                                }
+                            }
+                        }
+
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            items(fileTree) { node ->
+                                FileTreeNodeItem(
+                                    node = node,
+                                    level = 0,
+                                    selectedFile = selectedFile,
+                                    expandedPaths = expandedPaths,
+                                    onToggleExpand = { path ->
+                                        expandedPaths = if (expandedPaths.contains(path)) {
+                                            expandedPaths - path
+                                        } else {
+                                            expandedPaths + path
+                                        }
+                                    },
+                                    onSelectFile = { file ->
+                                        selectedFile = file
+                                        fileContent = CodeStudioManager.readFileContent(file)
+                                        originalDiskContent = fileContent
+                                        isDirty = false
+                                        // Optional: Auto-close drawer on small screens
+                                        // showFileTreePane = false 
+                                    }
+                                )
                             }
                         }
                     }
