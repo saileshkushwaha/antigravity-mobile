@@ -23,9 +23,47 @@ data class SqlQueryResult(
     val errorMessage: String? = null
 )
 
+data class CodebaseSymbol(
+    val id: Long = 0,
+    val workspacePath: String = "",
+    val filePath: String = "",
+    val symbolName: String = "",
+    val symbolKind: String = "", // Class, Function, Interface, Variable, Endpoint
+    val signature: String = "",
+    val lineStart: Int = 1,
+    val lineEnd: Int = 1,
+    val docSummary: String = ""
+)
+
+data class CodebaseChunk(
+    val id: Long = 0,
+    val workspacePath: String = "",
+    val filePath: String = "",
+    val chunkIndex: Int = 0,
+    val contentHash: String = "",
+    val contentText: String = "",
+    val tokenCount: Int = 0
+)
+
+data class ResearchDocRecord(
+    val id: String = "",
+    val title: String = "",
+    val authors: String = "",
+    val source: String = "", // arXiv, PubMed
+    val url: String = "",
+    val abstractText: String = "",
+    val fullText: String = "",
+    val extractedAt: String = ""
+)
+
 class AnalyticsSqlEngine(private val context: Context, private val activeWorkspaceDir: File) {
 
-    private val dbHelper = object : SQLiteOpenHelper(context, "antigravity_analytics.db", null, 2) {
+    private val dbHelper = object : SQLiteOpenHelper(context, "antigravity_analytics.db", null, 3) {
+        override fun onConfigure(db: SQLiteDatabase) {
+            super.onConfigure(db)
+            db.setForeignKeyConstraintsEnabled(true)
+        }
+
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """
@@ -123,6 +161,51 @@ class AnalyticsSqlEngine(private val context: Context, private val activeWorkspa
                 """.trimIndent()
             )
 
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS codebase_symbols (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_path TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    symbol_name TEXT NOT NULL,
+                    symbol_kind TEXT NOT NULL,
+                    signature TEXT,
+                    line_start INTEGER,
+                    line_end INTEGER,
+                    doc_summary TEXT
+                );
+                """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS codebase_chunks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_path TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    chunk_index INTEGER,
+                    content_hash TEXT,
+                    content_text TEXT,
+                    token_count INTEGER
+                );
+                """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS research_documents (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    authors TEXT,
+                    source TEXT,
+                    url TEXT,
+                    abstract_text TEXT,
+                    full_text TEXT,
+                    extracted_at TEXT
+                );
+                """.trimIndent()
+            )
+
             seedInitialData(db)
         }
 
@@ -177,6 +260,48 @@ class AnalyticsSqlEngine(private val context: Context, private val activeWorkspa
                     text TEXT NOT NULL,
                     timestamp INTEGER,
                     is_streaming INTEGER DEFAULT 0
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS codebase_symbols (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_path TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    symbol_name TEXT NOT NULL,
+                    symbol_kind TEXT NOT NULL,
+                    signature TEXT,
+                    line_start INTEGER,
+                    line_end INTEGER,
+                    doc_summary TEXT
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS codebase_chunks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_path TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    chunk_index INTEGER,
+                    content_hash TEXT,
+                    content_text TEXT,
+                    token_count INTEGER
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS research_documents (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    authors TEXT,
+                    source TEXT,
+                    url TEXT,
+                    abstract_text TEXT,
+                    full_text TEXT,
+                    extracted_at TEXT
                 );
                 """.trimIndent()
             )
@@ -434,6 +559,169 @@ class AnalyticsSqlEngine(private val context: Context, private val activeWorkspa
             db.insert("agent_audit_log", null, values)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    // --- On-Device Codebase AST Symbols CRUD ---
+    fun saveCodebaseSymbol(symbol: CodebaseSymbol) {
+        try {
+            val db = dbHelper.writableDatabase
+            val values = ContentValues().apply {
+                put("workspace_path", symbol.workspacePath)
+                put("file_path", symbol.filePath)
+                put("symbol_name", symbol.symbolName)
+                put("symbol_kind", symbol.symbolKind)
+                put("signature", symbol.signature)
+                put("line_start", symbol.lineStart)
+                put("line_end", symbol.lineEnd)
+                put("doc_summary", symbol.docSummary)
+            }
+            db.insert("codebase_symbols", null, values)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun clearCodebaseSymbolsForFile(filePath: String) {
+        try {
+            val db = dbHelper.writableDatabase
+            db.delete("codebase_symbols", "file_path = ?", arrayOf(filePath))
+            db.delete("codebase_chunks", "file_path = ?", arrayOf(filePath))
+        } catch (_: Exception) {}
+    }
+
+    fun searchCodebaseSymbols(query: String, limit: Int = 25): List<CodebaseSymbol> {
+        val results = mutableListOf<CodebaseSymbol>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cleanQuery = "%${query.trim()}%"
+            val cursor = db.rawQuery(
+                "SELECT id, workspace_path, file_path, symbol_name, symbol_kind, signature, line_start, line_end, doc_summary FROM codebase_symbols WHERE symbol_name LIKE ? OR signature LIKE ? OR file_path LIKE ? ORDER BY symbol_name ASC LIMIT ?",
+                arrayOf(cleanQuery, cleanQuery, cleanQuery, limit.toString())
+            )
+            while (cursor.moveToNext()) {
+                results.add(
+                    CodebaseSymbol(
+                        id = cursor.getLong(0),
+                        workspacePath = cursor.getString(1) ?: "",
+                        filePath = cursor.getString(2) ?: "",
+                        symbolName = cursor.getString(3) ?: "",
+                        symbolKind = cursor.getString(4) ?: "",
+                        signature = cursor.getString(5) ?: "",
+                        lineStart = cursor.getInt(6),
+                        lineEnd = cursor.getInt(7),
+                        docSummary = cursor.getString(8) ?: ""
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return results
+    }
+
+    fun saveCodebaseChunk(chunk: CodebaseChunk) {
+        try {
+            val db = dbHelper.writableDatabase
+            val values = ContentValues().apply {
+                put("workspace_path", chunk.workspacePath)
+                put("file_path", chunk.filePath)
+                put("chunk_index", chunk.chunkIndex)
+                put("content_hash", chunk.contentHash)
+                put("content_text", chunk.contentText)
+                put("token_count", chunk.tokenCount)
+            }
+            db.insert("codebase_chunks", null, values)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getCodebaseChunks(filePath: String): List<CodebaseChunk> {
+        val results = mutableListOf<CodebaseChunk>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT id, workspace_path, file_path, chunk_index, content_hash, content_text, token_count FROM codebase_chunks WHERE file_path = ? ORDER BY chunk_index ASC",
+                arrayOf(filePath)
+            )
+            while (cursor.moveToNext()) {
+                results.add(
+                    CodebaseChunk(
+                        id = cursor.getLong(0),
+                        workspacePath = cursor.getString(1) ?: "",
+                        filePath = cursor.getString(2) ?: "",
+                        chunkIndex = cursor.getInt(3),
+                        contentHash = cursor.getString(4) ?: "",
+                        contentText = cursor.getString(5) ?: "",
+                        tokenCount = cursor.getInt(6)
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return results
+    }
+
+    // --- Scientific Research Documents CRUD ---
+    fun saveResearchDocument(doc: ResearchDocRecord) {
+        try {
+            val db = dbHelper.writableDatabase
+            val values = ContentValues().apply {
+                put("id", doc.id)
+                put("title", doc.title)
+                put("authors", doc.authors)
+                put("source", doc.source)
+                put("url", doc.url)
+                put("abstract_text", doc.abstractText)
+                put("full_text", doc.fullText)
+                put("extracted_at", doc.extractedAt)
+            }
+            db.insertWithOnConflict("research_documents", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getResearchDocuments(): List<ResearchDocRecord> {
+        val results = mutableListOf<ResearchDocRecord>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT id, title, authors, source, url, abstract_text, full_text, extracted_at FROM research_documents ORDER BY extracted_at DESC",
+                null
+            )
+            while (cursor.moveToNext()) {
+                results.add(
+                    ResearchDocRecord(
+                        id = cursor.getString(0) ?: "",
+                        title = cursor.getString(1) ?: "",
+                        authors = cursor.getString(2) ?: "",
+                        source = cursor.getString(3) ?: "",
+                        url = cursor.getString(4) ?: "",
+                        abstractText = cursor.getString(5) ?: "",
+                        fullText = cursor.getString(6) ?: "",
+                        extractedAt = cursor.getString(7) ?: ""
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return results
+    }
+
+    // --- SQLite Database Hardening & Integrity Verification ---
+    fun checkDatabaseIntegrity(): String {
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("PRAGMA integrity_check;", null)
+            val output = StringBuilder()
+            while (cursor.moveToNext()) {
+                output.append(cursor.getString(0)).append("\n")
+            }
+            cursor.close()
+            output.toString().trim().ifBlank { "ok" }
+        } catch (e: Exception) {
+            "error: ${e.message}"
         }
     }
 }

@@ -95,9 +95,10 @@ class StudioPillarsTest {
 
         // Check Swarm Agents
         val agents = manager.getInitialSwarmAgents()
-        assertEquals("Initial swarm must have 4 autonomous agents", 4, agents.size)
+        assertEquals("Initial swarm must have 5 autonomous agents", 5, agents.size)
         assertTrue(agents.any { it.name == "Architect-Agent" })
         assertTrue(agents.any { it.name == "Code-Generator" })
+        assertTrue(agents.any { it.name == "Test-Architect" })
         assertTrue(agents.any { it.name == "Reviewer-Bot" })
         assertTrue(agents.any { it.name == "DevOps-Runner" })
     }

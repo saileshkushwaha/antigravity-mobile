@@ -50,8 +50,16 @@ fun DataAnalyticsScreen(
 
     val presetQueries = listOf(
         Pair(
+            "Codebase AST Symbols",
+            "SELECT symbol_name, symbol_kind, file_path, line_start, signature FROM codebase_symbols ORDER BY symbol_name ASC;"
+        ),
+        Pair(
+            "Research Full-Text Papers",
+            "SELECT id, title, source, LENGTH(full_text) AS text_len, extracted_at FROM research_documents ORDER BY extracted_at DESC;"
+        ),
+        Pair(
             "App Configurations",
-            "SELECT config_key, config_value, source, updated_at FROM app_configurations ORDER BY config_key ASC;"
+            "SELECT config_key, config_value, category, updated_at FROM app_configurations ORDER BY config_key ASC;"
         ),
         Pair(
             "Project Workspaces",

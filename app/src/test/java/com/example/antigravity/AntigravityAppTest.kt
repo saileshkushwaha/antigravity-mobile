@@ -10,6 +10,8 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.example.antigravity.studio.code.CodebaseAstIndexer
+import com.example.antigravity.studio.research.ResearchService
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -436,5 +438,123 @@ class AntigravityAppTest {
         assertNotNull(resolved)
         assertTrue("Model name should remain valid", resolved.activeModel.isNotBlank())
         assertTrue("Model ID should remain valid", resolved.activeModelId.isNotBlank())
+    }
+
+    @Test
+    fun testCodebaseAstSymbolParsingKotlinAndPython() {
+        val kotlinCode = listOf(
+            "package com.example.demo",
+            "",
+            "/** Dispatches quantum operations to hardware */",
+            "class QuantumProcessor : BaseProcessor() {",
+            "    val state: String = \"ACTIVE\"",
+            "",
+            "    @Composable",
+            "    fun QuantumMatrixView(modifier: Modifier = Modifier) {",
+            "        // Compose UI",
+            "    }",
+            "}",
+            "",
+            "interface StateObserver {",
+            "    fun onStateChanged()",
+            "}"
+        )
+
+        val ktSymbols = CodebaseAstIndexer.parseSymbols(
+            lines = kotlinCode,
+            workspacePath = "/test/ws",
+            filePath = "QuantumProcessor.kt",
+            extension = "kt"
+        )
+
+        assertTrue("Expected parsed Kotlin symbols", ktSymbols.isNotEmpty())
+        assertTrue("Expected QuantumProcessor class", ktSymbols.any { it.symbolName == "QuantumProcessor" && it.symbolKind == "Class" })
+        assertTrue("Expected QuantumMatrixView composable", ktSymbols.any { it.symbolName == "QuantumMatrixView" && it.symbolKind == "Composable" })
+        assertTrue("Expected StateObserver interface", ktSymbols.any { it.symbolName == "StateObserver" && it.symbolKind == "Interface" })
+        assertTrue("Expected doc summary extraction", ktSymbols.any { it.docSummary.contains("quantum operations") })
+
+        val pythonCode = listOf(
+            "# Neural synthesis engine",
+            "class NeuralSynthesizer:",
+            "    def __init__(self, model_name: str):",
+            "        self.model_name = model_name",
+            "",
+            "    def generate_embeddings(text: str) -> list:",
+            "        return [0.1, 0.2, 0.3]"
+        )
+
+        val pySymbols = CodebaseAstIndexer.parseSymbols(
+            lines = pythonCode,
+            workspacePath = "/test/ws",
+            filePath = "synthesizer.py",
+            extension = "py"
+        )
+
+        assertTrue("Expected parsed Python symbols", pySymbols.isNotEmpty())
+        assertTrue("Expected NeuralSynthesizer class", pySymbols.any { it.symbolName == "NeuralSynthesizer" && it.symbolKind == "Class" })
+        assertTrue("Expected generate_embeddings function", pySymbols.any { it.symbolName == "generate_embeddings" && it.symbolKind == "Function" })
+    }
+
+    @Test
+    fun testCodebaseMerkleChunkingAndSha256Hashing() {
+        val lines = (1..80).map { "val constant$it = $it * 42" }
+        val chunks = CodebaseAstIndexer.chunkFileContent(
+            workspacePath = "/test/ws",
+            filePath = "Constants.kt",
+            lines = lines,
+            chunkSize = 35
+        )
+
+        assertEquals("80 lines with chunk size 35 should produce 3 chunks", 3, chunks.size)
+        assertEquals(0, chunks[0].chunkIndex)
+        assertEquals(1, chunks[1].chunkIndex)
+        assertEquals(2, chunks[2].chunkIndex)
+
+        chunks.forEach { chunk ->
+            assertEquals(64, chunk.contentHash.length) // SHA-256 hex string length
+            assertTrue("Token count should be positive", chunk.tokenCount > 0)
+        }
+
+        // Test deterministic SHA-256
+        val helloHash = CodebaseAstIndexer.sha256("hello world")
+        assertEquals("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9", helloHash)
+    }
+
+    @Test
+    fun testAutonomousToolCallParsing() {
+        val aiResponse = """
+            I will inspect the workspace files and run the test suite to verify changes.
+            <tool_call name="view_file" absolutePath="app/src/main/java/Main.kt"/>
+            Next, let's query the codebase symbol table in SQLite:
+            <tool_call name="execute_sql" query="SELECT * FROM codebase_symbols WHERE symbolKind = 'Class'"/>
+            Proceeding with analysis.
+        """.trimIndent()
+
+        val parsedCalls = engine.parseToolCallsFromResponse(aiResponse)
+        assertEquals(2, parsedCalls.size)
+
+        assertEquals("view_file", parsedCalls[0].name)
+        assertEquals("app/src/main/java/Main.kt", parsedCalls[0].arguments["absolutepath"])
+
+        assertEquals("execute_sql", parsedCalls[1].name)
+        assertEquals("SELECT * FROM codebase_symbols WHERE symbolKind = 'Class'", parsedCalls[1].arguments["query"])
+    }
+
+    @Test
+    fun testPdfStreamTextParsing() {
+        val rawPdfPayload = """
+            %PDF-1.4
+            1 0 obj
+            << /Length 128 >>
+            stream
+            (Quantum Computing in 2026) Tj
+            [(Advances in Multimodal AI Agents)] TJ
+            endstream
+            endobj
+        """.trimIndent().toByteArray(Charsets.ISO_8859_1)
+
+        val extracted = ResearchService().parsePdfStreamText(rawPdfPayload)
+        assertTrue("Should extract text from Tj operator", extracted.contains("Quantum Computing in 2026"))
+        assertTrue("Should extract text from TJ operator", extracted.contains("Advances in Multimodal AI Agents"))
     }
 }

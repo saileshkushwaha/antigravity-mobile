@@ -67,6 +67,25 @@ class AntigravityAgentEngine(
             """.trimIndent()
         }
 
+        val codebaseContext = repository.getSqlEngine()?.let { sqlEngine ->
+            com.example.antigravity.studio.code.CodebaseAstIndexer.resolveCodebaseSemanticContext(
+                query = repo.ifBlank { wsName },
+                sqlEngine = sqlEngine
+            )
+        } ?: ""
+
+        val toolsDirective = """
+            Autonomous Tool Invocation:
+            When codebase inspection, search, or command execution is required, invoke tools using format:
+            <tool_call name="view_file" path="path/to/file" />
+            <tool_call name="list_dir" path="subfolder" />
+            <tool_call name="grep_search" query="searchTerm" />
+            <tool_call name="git_status" />
+            <tool_call name="execute_sql" query="SELECT ..." />
+            <tool_call name="run_command" command="command_name" />
+            The engine executes these tools directly on the workspace and returns observations in <tool_result>.
+        """.trimIndent()
+
         return """
             You are Antigravity, an enterprise-grade autonomous developer agent executing inside Antigravity Mobile Studio.
             Current Persona: ${persona.name} - ${persona.roleTitle}
@@ -74,8 +93,12 @@ class AntigravityAgentEngine(
             Active Repository & Workspace Context:
             $gitContext
             
+            $codebaseContext
+            
             Persona Directives:
             ${persona.systemPromptDirective}
+            
+            $toolsDirective
             
             Active Recommended Skills:
             ${persona.recommendedSkills.joinToString(", ")}
@@ -142,166 +165,45 @@ class AntigravityAgentEngine(
             try {
                 if (!settings.isOfflineDemoMode) {
                     val sysInstruction = buildSynthesizedSystemPrompt()
+                    val maxAutonomousTurns = 3
+                    var currentTurn = 0
+                    var currentPrompt = trimmed
+                    var currentHistory = previousMessages.toMutableList()
+                    var shouldContinue = true
+                    val accumulatedToolCalls = mutableListOf<ToolCallItem>()
 
-                    val configuredGateways = mutableListOf<String>()
-                    if (settings.apiKey.isNotBlank()) configuredGateways.add("Google Gemini")
-                    if (settings.openAiApiKey.isNotBlank()) configuredGateways.add("OpenAI")
-                    if (settings.groqApiKey.isNotBlank()) configuredGateways.add("Groq")
-                    if (settings.openRouterApiKey.isNotBlank()) configuredGateways.add("OpenRouter")
-                    if (settings.kiloCodeApiKey.isNotBlank()) configuredGateways.add("KiloCode")
-                    if (settings.openCodeApiKey.isNotBlank()) configuredGateways.add("OpenCode")
-                    if (settings.huggingFaceApiKey.isNotBlank()) configuredGateways.add("Hugging Face")
+                    while (shouldContinue && currentTurn < maxAutonomousTurns) {
+                        currentTurn++
+                        _agentState.value = if (currentTurn == 1) AgentRunState.THINKING else AgentRunState.EXECUTING_TOOL
 
-                    fun missingKeyMessage(gwName: String): String {
-                        return if (configuredGateways.isNotEmpty()) {
-                            "API key for $gwName is not configured.\n\n💡 **Note:** You have API key(s) configured for: **${configuredGateways.joinToString(", ")}**.\n• Switch your active model to one of these providers in the header/settings.\n• Or add your $gwName API key in **Settings -> Model Gateways & API Credentials**."
-                        } else {
-                            "$gwName API key is required. Please configure your key in **Settings -> Model Gateways & API Credentials**, or switch to a free open model (e.g. Groq or OpenRouter)."
-                        }
-                    }
+                        val result = executeModelCall(
+                            gateway = gateway,
+                            settings = settings,
+                            modelInfo = modelInfo,
+                            prompt = currentPrompt,
+                            sysInstruction = sysInstruction,
+                            previousMessages = currentHistory
+                        )
 
-                    val result: Result<String> = when (gateway) {
-                        ModelGateway.GEMINI -> {
-                            val key = when {
-                                settings.apiKey.isNotBlank() && !settings.apiKey.startsWith("sk-") && !settings.apiKey.startsWith("gsk_") -> settings.apiKey
-                                settings.apiKey.startsWith("AIza") -> settings.apiKey
-                                settings.openAiApiKey.startsWith("AIza") -> settings.openAiApiKey
-                                settings.customGatewayApiKey.startsWith("AIza") -> settings.customGatewayApiKey
-                                else -> settings.apiKey
-                            }
-                            if (key.isNotBlank()) {
-                                geminiService.generateContent(
-                                    apiKey = key,
-                                    modelName = modelInfo?.id ?: settings.activeModel,
-                                    prompt = trimmed,
-                                    systemInstruction = sysInstruction,
-                                    history = previousMessages
-                                )
-                            } else {
-                                Result.failure(Exception(missingKeyMessage("Google Gemini")))
-                            }
-                        }
-                        ModelGateway.KILOCODE -> {
-                            val key = settings.kiloCodeApiKey.ifBlank { settings.apiKey }
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = ModelGateway.KILOCODE.defaultBaseUrl,
-                                apiKey = key,
-                                modelId = modelInfo?.id ?: "kilo/qwen-2.5-coder-32b",
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
-                        }
-                        ModelGateway.OPENCODE -> {
-                            val key = settings.openCodeApiKey.ifBlank { settings.apiKey }
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = ModelGateway.OPENCODE.defaultBaseUrl,
-                                apiKey = key,
-                                modelId = modelInfo?.id ?: "opencode/deepseek-coder-v2-lite",
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
-                        }
-                        ModelGateway.OPENROUTER -> {
-                            val key = when {
-                                settings.openRouterApiKey.isNotBlank() -> settings.openRouterApiKey
-                                settings.apiKey.startsWith("sk-or-") -> settings.apiKey
-                                else -> settings.apiKey
-                            }
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = ModelGateway.OPENROUTER.defaultBaseUrl,
-                                apiKey = key,
-                                modelId = modelInfo?.id ?: "meta-llama/llama-3.3-70b-instruct:free",
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
-                        }
-                        ModelGateway.GROQ -> {
-                            val key = when {
-                                settings.groqApiKey.isNotBlank() -> settings.groqApiKey
-                                settings.apiKey.startsWith("gsk_") -> settings.apiKey
-                                else -> settings.apiKey
-                            }
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = ModelGateway.GROQ.defaultBaseUrl,
-                                apiKey = key,
-                                modelId = modelInfo?.id ?: "llama-3.3-70b-versatile",
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
-                        }
-                        ModelGateway.OPENAI -> {
-                            val key = when {
-                                settings.openAiApiKey.isNotBlank() -> settings.openAiApiKey
-                                settings.apiKey.startsWith("sk-") && !settings.apiKey.startsWith("sk-or-") -> settings.apiKey
-                                else -> settings.openAiApiKey
-                            }
-                            if (key.isNotBlank()) {
-                                openAiGatewayService.generateChatCompletion(
-                                    baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
-                                    apiKey = key,
-                                    modelId = modelInfo?.id ?: "gpt-4o",
-                                    prompt = trimmed,
-                                    systemInstruction = sysInstruction,
-                                    history = previousMessages
-                                )
-                            } else {
-                                Result.failure(Exception(missingKeyMessage("OpenAI")))
-                            }
-                        }
-                        ModelGateway.OLLAMA -> {
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = settings.customGatewayUrl.ifBlank { ModelGateway.OLLAMA.defaultBaseUrl },
-                                apiKey = settings.customGatewayApiKey,
-                                modelId = modelInfo?.id ?: "llama3.3:latest",
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
-                        }
-                        ModelGateway.HUGGINGFACE -> {
-                            val key = when {
-                                settings.huggingFaceApiKey.isNotBlank() -> settings.huggingFaceApiKey
-                                settings.apiKey.startsWith("hf_") -> settings.apiKey
-                                else -> settings.apiKey
-                            }
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
-                                apiKey = key,
-                                modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
-                        }
-                        ModelGateway.CUSTOM -> {
-                            val matchedCustomProvider = settings.customProviders.find { cp ->
-                                cp.isEnabled && (
-                                    modelInfo?.providerName.equals(cp.name, ignoreCase = true) ||
-                                    modelInfo?.tags?.contains(cp.id) == true ||
-                                    modelInfo?.tags?.contains(cp.name.lowercase().replace("\\s+".toRegex(), "-")) == true
+                        if (result.isFailure) {
+                            val err = result.exceptionOrNull()
+                            repository.updateMessage(agentMessageId) {
+                                it.copy(
+                                    text = (if (it.text.isNotBlank()) it.text + "\n\n" else "") +
+                                        "⚠️ Model Gateway Error (${gateway.displayName}):\n\n${err?.localizedMessage ?: "Unable to complete model request."}\n\n**Resolution Options:**\n• Add or verify your API key in **Settings -> API Keys & Gateways**.\n• Or switch to a free open model (e.g. OpenRouter `meta-llama/llama-3.3-70b-instruct:free` or Groq `llama-3.3-70b-versatile`).\n• If testing offline, enable **Autonomous Demo Engine** in Settings.",
+                                    isStreaming = false,
+                                    thinking = ThinkingBlock(
+                                        content = "Connection failed: ${err?.message ?: "Unknown error"}",
+                                        durationSeconds = 1,
+                                        isExpanded = false
+                                    )
                                 )
                             }
-                            val resolvedBaseUrl = matchedCustomProvider?.baseUrl?.ifBlank { settings.customGatewayUrl }
-                                ?: settings.customGatewayUrl
-                            val resolvedApiKey = matchedCustomProvider?.apiKey?.ifBlank { settings.customGatewayApiKey }
-                                ?: settings.customGatewayApiKey
-
-                            openAiGatewayService.generateChatCompletion(
-                                baseUrl = resolvedBaseUrl,
-                                apiKey = resolvedApiKey,
-                                modelId = modelInfo?.id ?: settings.activeModelId,
-                                prompt = trimmed,
-                                systemInstruction = sysInstruction,
-                                history = previousMessages
-                            )
+                            shouldContinue = false
+                            break
                         }
-                    }
 
-                    result.onSuccess { rawResponse ->
+                        val rawResponse = result.getOrThrow()
                         val thinkRegex = Regex("""<think>([\s\S]*?)</think>""", RegexOption.IGNORE_CASE)
                         val thinkMatch = thinkRegex.find(rawResponse)
                         val (thinkingContent, cleanText) = if (thinkMatch != null) {
@@ -309,52 +211,90 @@ class AntigravityAgentEngine(
                             val textWithoutThink = rawResponse.replace(thinkRegex, "").trim()
                             Pair(thinkText, textWithoutThink)
                         } else {
-                            Pair("Direct model response received from ${modelInfo?.name ?: settings.activeModel} (${gateway.displayName}).", rawResponse.trim())
+                            Pair("Autonomous ReAct Step $currentTurn (${gateway.displayName}).", rawResponse.trim())
                         }
 
-                        repository.updateMessage(agentMessageId) {
-                            it.copy(
-                                text = cleanText,
-                                isStreaming = false,
-                                thinking = ThinkingBlock(
-                                    content = thinkingContent,
-                                    durationSeconds = if (thinkMatch != null) 3 else 1,
-                                    isExpanded = false
-                                )
-                            )
-                        }
+                        // Parse tool calls in this turn
+                        val detectedTools = parseToolCallsFromResponse(cleanText)
 
-                        // Record runtime execution metrics to SQLite DB
-                        try {
-                            val latencyMs = System.currentTimeMillis() - requestStartTime
-                            val inTokens = (trimmed.length / 4).coerceAtLeast(1)
-                            val outTokens = (cleanText.length / 4).coerceAtLeast(1)
-                            val isFree = (modelInfo?.id ?: "").contains("free", ignoreCase = true)
-                            val isFlash = (modelInfo?.id ?: "").contains("flash", ignoreCase = true)
-                            val estCost = if (isFree) 0.0 else if (isFlash) {
-                                (inTokens * 0.000000075) + (outTokens * 0.0000003)
-                            } else {
-                                (inTokens * 0.00000125) + (outTokens * 0.000005)
+                        if (detectedTools.isNotEmpty()) {
+                            _agentState.value = AgentRunState.EXECUTING_TOOL
+                            val toolObservations = mutableListOf<String>()
+
+                            for (tool in detectedTools) {
+                                tool.status = ToolStatus.RUNNING
+                                accumulatedToolCalls.add(tool)
+
+                                repository.updateMessage(agentMessageId) {
+                                    it.copy(
+                                        text = cleanText,
+                                        isStreaming = true,
+                                        toolCalls = accumulatedToolCalls.toMutableList()
+                                    )
+                                }
+
+                                val toolExecResult = executeAutonomousTool(tool)
+                                tool.status = if (toolExecResult.isSuccess) ToolStatus.SUCCESS else ToolStatus.ERROR
+                                tool.output = toolExecResult.getOrDefault(toolExecResult.exceptionOrNull()?.message ?: "Executed")
+
+                                toolObservations.add("""
+                                    <tool_result name="${tool.name}" status="${if (toolExecResult.isSuccess) "success" else "error"}">
+                                    ${tool.output}
+                                    </tool_result>
+                                """.trimIndent())
                             }
-                            repository.getSqlEngine()?.recordLlmMetric(
-                                modelName = modelInfo?.name ?: settings.activeModel,
-                                promptTokens = inTokens,
-                                completionTokens = outTokens,
-                                latencyMs = latencyMs,
-                                costCents = estCost * 100.0
-                            )
-                        } catch (_: Exception) {}
-                    }.onFailure { err ->
-                        repository.updateMessage(agentMessageId) {
-                            it.copy(
-                                text = "⚠️ Model Gateway Error (${gateway.displayName}):\n\n${err.localizedMessage ?: "Unable to complete model request."}\n\n**Resolution Options:**\n• Add or verify your API key in **Settings -> API Keys & Gateways**.\n• Or switch to a free open model (e.g. OpenRouter `meta-llama/llama-3.3-70b-instruct:free` or Groq `llama-3.3-70b-versatile`).\n• If testing offline, enable **Autonomous Demo Engine** in Settings.",
-                                isStreaming = false,
-                                thinking = ThinkingBlock(
-                                    content = "Connection failed: ${err.message ?: "Unknown error"}",
-                                    durationSeconds = 1,
-                                    isExpanded = false
+
+                            repository.updateMessage(agentMessageId) {
+                                it.copy(
+                                    text = cleanText,
+                                    isStreaming = true,
+                                    toolCalls = accumulatedToolCalls.toMutableList(),
+                                    thinking = ThinkingBlock(
+                                        content = thinkingContent,
+                                        durationSeconds = 2,
+                                        isExpanded = false
+                                    )
                                 )
-                            )
+                            }
+
+                            currentHistory.add(ChatMessage(id = UUID.randomUUID().toString(), sender = MessageSender.AGENT, text = cleanText))
+                            currentPrompt = "Tool Observations:\n${toolObservations.joinToString("\n\n")}\n\nAnalyze these observations and continue. If complete, output your final response."
+                        } else {
+                            // Final response reached
+                            shouldContinue = false
+                            repository.updateMessage(agentMessageId) {
+                                it.copy(
+                                    text = cleanText,
+                                    isStreaming = false,
+                                    toolCalls = accumulatedToolCalls.toMutableList(),
+                                    thinking = ThinkingBlock(
+                                        content = thinkingContent,
+                                        durationSeconds = if (thinkMatch != null) 3 else 1,
+                                        isExpanded = false
+                                    )
+                                )
+                            }
+
+                            // Record telemetry to SQLite
+                            try {
+                                val latencyMs = System.currentTimeMillis() - requestStartTime
+                                val inTokens = (trimmed.length / 4).coerceAtLeast(1)
+                                val outTokens = (cleanText.length / 4).coerceAtLeast(1)
+                                val isFree = (modelInfo?.id ?: "").contains("free", ignoreCase = true)
+                                val isFlash = (modelInfo?.id ?: "").contains("flash", ignoreCase = true)
+                                val estCost = if (isFree) 0.0 else if (isFlash) {
+                                    (inTokens * 0.000000075) + (outTokens * 0.0000003)
+                                } else {
+                                    (inTokens * 0.00000125) + (outTokens * 0.000005)
+                                }
+                                repository.getSqlEngine()?.recordLlmMetric(
+                                    modelName = modelInfo?.name ?: settings.activeModel,
+                                    promptTokens = inTokens,
+                                    completionTokens = outTokens,
+                                    latencyMs = latencyMs,
+                                    costCents = estCost * 100.0
+                                )
+                            } catch (_: Exception) {}
                         }
                     }
                 } else {
@@ -433,5 +373,267 @@ class AntigravityAgentEngine(
         currentJob?.cancel()
         currentJob = null
         _agentState.value = AgentRunState.IDLE
+    }
+
+    private suspend fun executeModelCall(
+        gateway: ModelGateway,
+        settings: AppSettings,
+        modelInfo: ModelInfo?,
+        prompt: String,
+        sysInstruction: String,
+        previousMessages: List<ChatMessage>
+    ): Result<String> {
+        return when (gateway) {
+            ModelGateway.GEMINI -> {
+                val key = when {
+                    settings.apiKey.isNotBlank() && !settings.apiKey.startsWith("sk-") && !settings.apiKey.startsWith("gsk_") -> settings.apiKey
+                    settings.apiKey.startsWith("AIza") -> settings.apiKey
+                    settings.openAiApiKey.startsWith("AIza") -> settings.openAiApiKey
+                    settings.customGatewayApiKey.startsWith("AIza") -> settings.customGatewayApiKey
+                    else -> settings.apiKey
+                }
+                if (key.isNotBlank()) {
+                    geminiService.generateContent(
+                        apiKey = key,
+                        modelName = modelInfo?.id ?: settings.activeModel,
+                        prompt = prompt,
+                        systemInstruction = sysInstruction,
+                        history = previousMessages
+                    )
+                } else {
+                    Result.failure(Exception("Google Gemini API key is required. Please add your key in Settings -> Model Gateways."))
+                }
+            }
+            ModelGateway.KILOCODE -> {
+                val key = settings.kiloCodeApiKey.ifBlank { settings.apiKey }
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = ModelGateway.KILOCODE.defaultBaseUrl,
+                    apiKey = key,
+                    modelId = modelInfo?.id ?: "kilo/qwen-2.5-coder-32b",
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+            ModelGateway.OPENCODE -> {
+                val key = settings.openCodeApiKey.ifBlank { settings.apiKey }
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = ModelGateway.OPENCODE.defaultBaseUrl,
+                    apiKey = key,
+                    modelId = modelInfo?.id ?: "opencode/deepseek-coder-v2-lite",
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+            ModelGateway.OPENROUTER -> {
+                val key = when {
+                    settings.openRouterApiKey.isNotBlank() -> settings.openRouterApiKey
+                    settings.apiKey.startsWith("sk-or-") -> settings.apiKey
+                    else -> settings.apiKey
+                }
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = ModelGateway.OPENROUTER.defaultBaseUrl,
+                    apiKey = key,
+                    modelId = modelInfo?.id ?: "meta-llama/llama-3.3-70b-instruct:free",
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+            ModelGateway.GROQ -> {
+                val key = when {
+                    settings.groqApiKey.isNotBlank() -> settings.groqApiKey
+                    settings.apiKey.startsWith("gsk_") -> settings.apiKey
+                    else -> settings.apiKey
+                }
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = ModelGateway.GROQ.defaultBaseUrl,
+                    apiKey = key,
+                    modelId = modelInfo?.id ?: "llama-3.3-70b-versatile",
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+            ModelGateway.OPENAI -> {
+                val key = when {
+                    settings.openAiApiKey.isNotBlank() -> settings.openAiApiKey
+                    settings.apiKey.startsWith("sk-") && !settings.apiKey.startsWith("sk-or-") -> settings.apiKey
+                    else -> settings.openAiApiKey
+                }
+                if (key.isNotBlank()) {
+                    openAiGatewayService.generateChatCompletion(
+                        baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
+                        apiKey = key,
+                        modelId = modelInfo?.id ?: "gpt-4o",
+                        prompt = prompt,
+                        systemInstruction = sysInstruction,
+                        history = previousMessages
+                    )
+                } else {
+                    Result.failure(Exception("OpenAI API key is required. Please add your key in Settings -> Model Gateways."))
+                }
+            }
+            ModelGateway.OLLAMA -> {
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = settings.customGatewayUrl.ifBlank { ModelGateway.OLLAMA.defaultBaseUrl },
+                    apiKey = settings.customGatewayApiKey,
+                    modelId = modelInfo?.id ?: "llama3.3:latest",
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+            ModelGateway.HUGGINGFACE -> {
+                val key = when {
+                    settings.huggingFaceApiKey.isNotBlank() -> settings.huggingFaceApiKey
+                    settings.apiKey.startsWith("hf_") -> settings.apiKey
+                    else -> settings.apiKey
+                }
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
+                    apiKey = key,
+                    modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+            ModelGateway.CUSTOM -> {
+                val matchedCustomProvider = settings.customProviders.find { cp ->
+                    cp.isEnabled && (
+                        modelInfo?.providerName.equals(cp.name, ignoreCase = true) ||
+                        modelInfo?.tags?.contains(cp.id) == true ||
+                        modelInfo?.tags?.contains(cp.name.lowercase().replace("\\s+".toRegex(), "-")) == true
+                    )
+                }
+                val resolvedBaseUrl = matchedCustomProvider?.baseUrl?.ifBlank { settings.customGatewayUrl }
+                    ?: settings.customGatewayUrl
+                val resolvedApiKey = matchedCustomProvider?.apiKey?.ifBlank { settings.customGatewayApiKey }
+                    ?: settings.customGatewayApiKey
+
+                openAiGatewayService.generateChatCompletion(
+                    baseUrl = resolvedBaseUrl,
+                    apiKey = resolvedApiKey,
+                    modelId = modelInfo?.id ?: settings.activeModelId,
+                    prompt = prompt,
+                    systemInstruction = sysInstruction,
+                    history = previousMessages
+                )
+            }
+        }
+    }
+
+    fun parseToolCallsFromResponse(text: String): List<ToolCallItem> {
+        val toolCalls = mutableListOf<ToolCallItem>()
+        val xmlRegex = Regex("""<tool_call\s+name=["']([a-zA-Z0-9_]+)["']([^>]*)/?>""", RegexOption.IGNORE_CASE)
+        val attrRegex = Regex("""([a-zA-Z0-9_]+)=(?:"([^"]*)"|'([^']*)')""")
+
+        xmlRegex.findAll(text).forEach { match ->
+            val toolName = match.groupValues[1]
+            val attrString = match.groupValues[2]
+            val args = mutableMapOf<String, String>()
+            attrRegex.findAll(attrString).forEach { attrMatch ->
+                val key = attrMatch.groupValues[1].lowercase()
+                val doubleQuoted = attrMatch.groups[2]?.value
+                val singleQuoted = attrMatch.groups[3]?.value
+                args[key] = doubleQuoted ?: singleQuoted ?: ""
+            }
+            toolCalls.add(
+                ToolCallItem(
+                    id = UUID.randomUUID().toString(),
+                    name = toolName,
+                    toolSummary = "$toolName ${args.values.firstOrNull() ?: ""}".trim(),
+                    toolAction = "Autonomous $toolName execution",
+                    arguments = args,
+                    status = ToolStatus.PENDING
+                )
+            )
+        }
+        return toolCalls
+    }
+
+    fun executeAutonomousTool(tool: ToolCallItem): Result<String> {
+        val activeWs = repository.activeWorkspace.value
+        val wsDir = java.io.File(activeWs.path)
+        return try {
+            when (tool.name.lowercase()) {
+                "view_file" -> {
+                    val filePath = tool.arguments["path"] ?: tool.arguments["file"] ?: ""
+                    val target = if (java.io.File(filePath).isAbsolute) java.io.File(filePath) else java.io.File(wsDir, filePath)
+                    if (target.exists() && target.isFile) {
+                        val content = target.readLines().take(200).joinToString("\n")
+                        Result.success(content)
+                    } else {
+                        Result.failure(Exception("File not found: $filePath"))
+                    }
+                }
+                "list_dir" -> {
+                    val sub = tool.arguments["path"] ?: ""
+                    val target = if (sub.isBlank() || sub == ".") wsDir else java.io.File(wsDir, sub)
+                    if (target.exists() && target.isDirectory) {
+                        val entries = target.listFiles()?.take(50)?.joinToString("\n") {
+                            (if (it.isDirectory) "[DIR] " else "[FILE] ") + it.name + " (" + (if (it.isFile) "${it.length()}B" else "dir") + ")"
+                        } ?: "Empty directory"
+                        Result.success(entries)
+                    } else {
+                        Result.failure(Exception("Directory not found: $sub"))
+                    }
+                }
+                "grep_search" -> {
+                    val query = tool.arguments["query"] ?: tool.arguments["term"] ?: ""
+                    if (query.isBlank()) return Result.failure(Exception("Query cannot be blank"))
+                    val matches = mutableListOf<String>()
+                    wsDir.walkTopDown()
+                        .onEnter { !it.name.startsWith(".") && it.name != "build" && it.name != ".gradle" }
+                        .filter { it.isFile && it.length() < 500000 }
+                        .take(100)
+                        .forEach { f ->
+                            try {
+                                f.readLines().forEachIndexed { idx, line ->
+                                    if (line.contains(query, ignoreCase = true)) {
+                                        val rel = f.relativeTo(wsDir).path.replace('\\', '/')
+                                        matches.add("$rel:${idx + 1}: ${line.trim().take(120)}")
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    Result.success(if (matches.isNotEmpty()) matches.take(30).joinToString("\n") else "No matches found for: $query")
+                }
+                "git_status" -> {
+                    repository.executeTerminalCommand("git status")
+                    val logs = repository.terminalLogs.value.takeLast(10).joinToString("\n")
+                    Result.success(logs.ifBlank { "Git status: clean working tree" })
+                }
+                "execute_sql" -> {
+                    val sql = tool.arguments["query"] ?: tool.arguments["sql"] ?: ""
+                    val engine = repository.getSqlEngine()
+                    if (engine != null && sql.isNotBlank()) {
+                        val res = engine.executeQuery(sql)
+                        if (res.errorMessage != null) {
+                            Result.failure(Exception(res.errorMessage))
+                        } else {
+                            val header = res.columns.joinToString(" | ")
+                            val rows = res.rows.take(15).joinToString("\n") { it.joinToString(" | ") }
+                            Result.success("$header\n" + "-".repeat(header.length.coerceAtLeast(10)) + "\n$rows\n(${res.rowCount} rows)")
+                        }
+                    } else {
+                        Result.failure(Exception("SQL engine not initialized or query blank"))
+                    }
+                }
+                "run_command" -> {
+                    val cmd = tool.arguments["command"] ?: tool.arguments["cmd"] ?: ""
+                    repository.executeTerminalCommand(cmd)
+                    val lastLogs = repository.terminalLogs.value.takeLast(8).joinToString("\n")
+                    Result.success("Executed: $cmd\n$lastLogs")
+                }
+                else -> {
+                    Result.failure(Exception("Unknown tool: ${tool.name}"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

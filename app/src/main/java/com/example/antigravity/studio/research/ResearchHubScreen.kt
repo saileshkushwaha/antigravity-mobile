@@ -7,6 +7,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -49,6 +51,13 @@ fun ResearchHubScreen(
     var matrixPapers by remember { mutableStateOf<Set<ResearchPaper>>(emptySet()) }
     var showMatrixDialog by remember { mutableStateOf(false) }
     var expandedPaperId by remember { mutableStateOf<String?>(null) }
+    
+    val sqlEngine = remember(activeWorkspaceDir) {
+        com.example.antigravity.studio.analytics.AnalyticsSqlEngine(context, activeWorkspaceDir)
+    }
+    var isExtractingText by remember { mutableStateOf(false) }
+    var showFullTextDialog by remember { mutableStateOf(false) }
+    var selectedPaperDoc by remember { mutableStateOf<com.example.antigravity.studio.analytics.ResearchDocRecord?>(null) }
 
     val quickChips = listOf(
         "Agentic AI", "Chain of Thought", "https://developer.android.com", "CRISPR Cas9", "RAG Embeddings"
@@ -436,6 +445,28 @@ fun ResearchHubScreen(
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         IconButton(
                                             onClick = {
+                                                coroutineScope.launch {
+                                                    isExtractingText = true
+                                                    val res = researchService.downloadAndIndexPaper(paper, sqlEngine)
+                                                    isExtractingText = false
+                                                    res.onSuccess { doc ->
+                                                        selectedPaperDoc = doc
+                                                        showFullTextDialog = true
+                                                    }.onFailure { err ->
+                                                        Toast.makeText(context, "PDF Extraction failed: ${err.message}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Description,
+                                                contentDescription = "Extract Full Text",
+                                                tint = Color(0xFF10B981)
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
                                                 matrixPapers = if (isInMatrix) {
                                                     matrixPapers - paper
                                                 } else {
@@ -568,6 +599,78 @@ fun ResearchHubScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showMatrixDialog = false }) {
+                    Text("Close", color = Color.LightGray)
+                }
+            },
+            containerColor = Color(0xFF1E293B)
+        )
+    }
+
+    // Full-Text Literature Extraction Dialog
+    if (showFullTextDialog && selectedPaperDoc != null) {
+        val doc = selectedPaperDoc!!
+        AlertDialog(
+            onDismissRequest = { showFullTextDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Article, contentDescription = null, tint = Color(0xFF10B981))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Deep Literature Full-Text", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(380.dp)
+                ) {
+                    Text(doc.title, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("${doc.source} • Authors: ${doc.authors}", fontSize = 11.sp, color = Color(0xFF38BDF8))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF0F172A),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                        ) {
+                            Text(
+                                "Extracted Full-Text (${doc.fullText.length} characters):",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                doc.fullText,
+                                fontSize = 12.sp,
+                                color = Color.LightGray,
+                                fontFamily = FontFamily.Monospace,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Paper Full Text", doc.fullText))
+                        Toast.makeText(context, "Full text copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        showFullTextDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text("Copy Text", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFullTextDialog = false }) {
                     Text("Close", color = Color.LightGray)
                 }
             },

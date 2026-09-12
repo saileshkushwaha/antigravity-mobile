@@ -16,6 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -251,324 +257,371 @@ fun AntigravityMainScreen(
         )
             }
             else -> {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = AntigravityColors.SurfaceDark
-            ) {
-                SidebarDrawerContent(
-                    workspaces = workspaces,
-                    activeWorkspace = activeWorkspace,
-                    conversations = conversations,
-                    activeConversationId = activeConversationId,
-                    onSelectWorkspace = {
-                        repository.switchWorkspace(it)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onAddWorkspace = { name, path, branch ->
-                        repository.addWorkspace(name, path, branch)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onDeleteWorkspace = { wsId ->
-                        repository.deleteWorkspace(wsId)
-                    },
-                    onSelectConversation = {
-                        repository.switchConversation(it)
-                        currentScreen = AntigravityAppScreen.CHAT
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onNewConversation = {
-                        repository.createNewConversation()
-                        currentScreen = AntigravityAppScreen.CHAT
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onDeleteConversation = {
-                        repository.deleteConversation(it)
-                    },
-                    onOpenScheduledTasks = {
-                        showScheduledTasksDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenSkillsMcp = {
-                        currentScreen = AntigravityAppScreen.SKILLS
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenSettings = {
-                        showSettingsDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenDiagnostics = {
-                        showDiagnosticsDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenAbout = {
-                        showAboutDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenLandingScreen = {
-                        showLandingScreen = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenCodeStudio = {
-                        currentScreen = AntigravityAppScreen.CODE
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenDesignStudio = {
-                        currentScreen = AntigravityAppScreen.DESIGN
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenResearchHub = {
-                        currentScreen = AntigravityAppScreen.RESEARCH
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenAnalyticsStudio = {
-                        currentScreen = AntigravityAppScreen.ANALYTICS
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenConnectorsAndSwarm = {
-                        currentScreen = AntigravityAppScreen.CONNECTORS
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenSdlcHub = {
-                        currentScreen = AntigravityAppScreen.SDLC
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenPersonas = {
-                        currentScreen = AntigravityAppScreen.PERSONAS
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenPrompts = {
-                        currentScreen = AntigravityAppScreen.PERSONAS
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenInspector = {
-                        currentScreen = AntigravityAppScreen.INSPECTOR
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenAddProjectOrFolder = {
-                        showAddWorkspaceDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onLockStudio = {
-                        onLockStudio()
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    currentScreen = currentScreen,
-                    onOpenChatStudio = {
-                        currentScreen = AntigravityAppScreen.CHAT
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenModelSelection = {
-                        showModelSelectionDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenApiKeyCsv = {
-                        showApiKeyCsvDialog = true
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onOpenStudioMatrix = {
-                        showAllStudiosModal = true
-                        coroutineScope.launch { drawerState.close() }
+                val configuration = LocalConfiguration.current
+                val isTabletOrExpanded = configuration.screenWidthDp >= 720
+                var isSidebarDockedVisible by remember { mutableStateOf(true) }
+
+                val handleOpenDrawer: () -> Unit = {
+                    if (isTabletOrExpanded) {
+                        isSidebarDockedVisible = !isSidebarDockedVisible
+                    } else {
+                        coroutineScope.launch { drawerState.open() }
                     }
-                )
-            }
-        }
-    ) {
-        Scaffold(
-            bottomBar = {
-                if (currentScreen == AntigravityAppScreen.CHAT) {
-                    ChatInputBar(
-                        inputText = inputText,
-                        onInputChange = { inputText = it },
-                        onSend = { prompt ->
-                            agentEngine.sendPrompt(prompt)
-                            inputText = ""
+                }
+
+                val sidebarContent = @Composable {
+                    SidebarDrawerContent(
+                        workspaces = workspaces,
+                        activeWorkspace = activeWorkspace,
+                        conversations = conversations,
+                        activeConversationId = activeConversationId,
+                        onSelectWorkspace = {
+                            repository.switchWorkspace(it)
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
-                        onStop = { agentEngine.cancelTask() },
-                        isBusy = isBusy,
-                        slashCommands = agentEngine.slashCommands,
-                        mentionItems = agentEngine.mentionItems,
-                        activePersonaName = activePersona.name,
-                        workspaceName = activeConversation?.workspaceName?.ifBlank { activeWorkspace.name } ?: activeWorkspace.name,
-                        githubRepo = activeConversation?.githubRepo?.ifBlank { activeWorkspace.githubRepo } ?: activeWorkspace.githubRepo,
-                        onOpenPersonaSelection = {
-                            showChatPersonaDialog = true
+                        onAddWorkspace = { name, path, branch ->
+                            repository.addWorkspace(name, path, branch)
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
-                        onOpenPromptLibrary = {
-                            showChatPromptDialog = true
+                        onDeleteWorkspace = { wsId ->
+                            repository.deleteWorkspace(wsId)
                         },
-                        onOpenWorkspaceManager = {
+                        onSelectConversation = {
+                            repository.switchConversation(it)
+                            currentScreen = AntigravityAppScreen.CHAT
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onNewConversation = {
+                            repository.createNewConversation()
+                            currentScreen = AntigravityAppScreen.CHAT
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onDeleteConversation = {
+                            repository.deleteConversation(it)
+                        },
+                        onOpenScheduledTasks = {
+                            showScheduledTasksDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenSkillsMcp = {
+                            currentScreen = AntigravityAppScreen.SKILLS
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenSettings = {
+                            showSettingsDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenDiagnostics = {
+                            showDiagnosticsDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenAbout = {
+                            showAboutDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenLandingScreen = {
+                            showLandingScreen = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenCodeStudio = {
+                            currentScreen = AntigravityAppScreen.CODE
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenDesignStudio = {
+                            currentScreen = AntigravityAppScreen.DESIGN
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenResearchHub = {
+                            currentScreen = AntigravityAppScreen.RESEARCH
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenAnalyticsStudio = {
+                            currentScreen = AntigravityAppScreen.ANALYTICS
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenConnectorsAndSwarm = {
+                            currentScreen = AntigravityAppScreen.CONNECTORS
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenSdlcHub = {
+                            currentScreen = AntigravityAppScreen.SDLC
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenPersonas = {
+                            currentScreen = AntigravityAppScreen.PERSONAS
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenPrompts = {
+                            currentScreen = AntigravityAppScreen.PERSONAS
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenInspector = {
+                            currentScreen = AntigravityAppScreen.INSPECTOR
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenAddProjectOrFolder = {
                             showAddWorkspaceDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onLockStudio = {
+                            onLockStudio()
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        currentScreen = currentScreen,
+                        onOpenChatStudio = {
+                            currentScreen = AntigravityAppScreen.CHAT
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenModelSelection = {
+                            showModelSelectionDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenApiKeyCsv = {
+                            showApiKeyCsvDialog = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
+                        },
+                        onOpenStudioMatrix = {
+                            showAllStudiosModal = true
+                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         }
                     )
                 }
-            },
-            containerColor = AntigravityColors.BackgroundDark,
-            modifier = modifier
-        ) { scaffoldPadding ->
-            androidx.compose.animation.Crossfade(
-                targetState = currentScreen,
-                label = "ScreenTransition",
-                animationSpec = androidx.compose.animation.core.tween(400),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(scaffoldPadding)
-            ) { targetScreen ->
-                when (targetScreen) {
-                    AntigravityAppScreen.CHAT -> {
-                        ChatCanvas(
-                            conversation = activeConversation,
-                            agentState = agentState,
-                            activeModel = activeConversation?.activeModel?.takeIf { it.isNotBlank() } ?: settings.activeModel,
-                            activePersona = activePersona,
-                            activeWorkspace = activeWorkspace,
-                            workspaces = workspaces,
-                            onSelectWorkspace = { ws ->
-                                repository.switchWorkspace(ws)
-                            },
-                            models = models,
-                            onSelectModel = { selectedModel ->
-                                repository.selectModel(selectedModel)
-                            },
-                            onOpenModelPicker = {
-                                showModelSelectionDialog = true
-                            },
-                            onOpenPersonaPicker = {
-                                showChatPersonaDialog = true
-                            },
-                            onOpenPromptLibrary = {
-                                showChatPromptDialog = true
-                            },
-                            onOpenWorkspaceManager = {
-                                showAddWorkspaceDialog = true
-                            },
-                            onOpenDrawer = {
-                                coroutineScope.launch { drawerState.open() }
-                            },
-                            onToggleAuxiliary = {
-                                currentScreen = AntigravityAppScreen.INSPECTOR
-                            },
-                            auxiliaryActiveCount = auxiliaryActiveCount,
-                            onApprovePlan = { messageId ->
-                                agentEngine.approvePlan(messageId)
-                            },
-                            onRejectPlan = { messageId ->
-                                agentEngine.rejectPlan(messageId)
-                            },
-                            onLockStudio = onLockStudio,
-                            modifier = Modifier.fillMaxSize()
-                        )
+
+                val mainScaffoldContent = @Composable { contentModifier: Modifier ->
+                    Scaffold(
+                        bottomBar = {
+                            if (currentScreen == AntigravityAppScreen.CHAT) {
+                                ChatInputBar(
+                                    inputText = inputText,
+                                    onInputChange = { inputText = it },
+                                    onSend = { prompt ->
+                                        agentEngine.sendPrompt(prompt)
+                                        inputText = ""
+                                    },
+                                    onStop = { agentEngine.cancelTask() },
+                                    isBusy = isBusy,
+                                    slashCommands = agentEngine.slashCommands,
+                                    mentionItems = agentEngine.mentionItems,
+                                    activePersonaName = activePersona.name,
+                                    workspaceName = activeConversation?.workspaceName?.ifBlank { activeWorkspace.name } ?: activeWorkspace.name,
+                                    githubRepo = activeConversation?.githubRepo?.ifBlank { activeWorkspace.githubRepo } ?: activeWorkspace.githubRepo,
+                                    onOpenPersonaSelection = {
+                                        showChatPersonaDialog = true
+                                    },
+                                    onOpenPromptLibrary = {
+                                        showChatPromptDialog = true
+                                    },
+                                    onOpenWorkspaceManager = {
+                                        showAddWorkspaceDialog = true
+                                    }
+                                )
+                            }
+                        },
+                        containerColor = AntigravityColors.BackgroundDark,
+                        modifier = contentModifier
+                    ) { scaffoldPadding ->
+                        androidx.compose.animation.Crossfade(
+                            targetState = currentScreen,
+                            label = "ScreenTransition",
+                            animationSpec = androidx.compose.animation.core.tween(400),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(scaffoldPadding)
+                        ) { targetScreen ->
+                            when (targetScreen) {
+                                AntigravityAppScreen.CHAT -> {
+                                    ChatCanvas(
+                                        conversation = activeConversation,
+                                        agentState = agentState,
+                                        activeModel = activeConversation?.activeModel?.takeIf { it.isNotBlank() } ?: settings.activeModel,
+                                        activePersona = activePersona,
+                                        activeWorkspace = activeWorkspace,
+                                        workspaces = workspaces,
+                                        onSelectWorkspace = { ws ->
+                                            repository.switchWorkspace(ws)
+                                        },
+                                        models = models,
+                                        onSelectModel = { selectedModel ->
+                                            repository.selectModel(selectedModel)
+                                        },
+                                        onOpenModelPicker = {
+                                            showModelSelectionDialog = true
+                                        },
+                                        onOpenPersonaPicker = {
+                                            showChatPersonaDialog = true
+                                        },
+                                        onOpenPromptLibrary = {
+                                            showChatPromptDialog = true
+                                        },
+                                        onOpenWorkspaceManager = {
+                                            showAddWorkspaceDialog = true
+                                        },
+                                        onOpenDrawer = handleOpenDrawer,
+                                        onToggleAuxiliary = {
+                                            currentScreen = AntigravityAppScreen.INSPECTOR
+                                        },
+                                        auxiliaryActiveCount = auxiliaryActiveCount,
+                                        onApprovePlan = { messageId ->
+                                            agentEngine.approvePlan(messageId)
+                                        },
+                                        onRejectPlan = { messageId ->
+                                            agentEngine.rejectPlan(messageId)
+                                        },
+                                        onLockStudio = onLockStudio,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.CODE -> {
+                                    CodeStudioScreen(
+                                        activeWorkspace = activeWorkspace,
+                                        workspaces = workspaces,
+                                        onSelectWorkspace = { repository.switchWorkspace(it) },
+                                        onAddWorkspace = { name, path, branch -> repository.addWorkspace(name, path, branch) },
+                                        onOpenDrawer = handleOpenDrawer,
+                                        onExecuteCommand = { repository.executeTerminalCommand(it) },
+                                        terminalLogs = terminalLogs,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.DESIGN -> {
+                                    ProductDesignScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                                    )
+                                }
+                                AntigravityAppScreen.RESEARCH -> {
+                                    ResearchHubScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                                    )
+                                }
+                                AntigravityAppScreen.ANALYTICS -> {
+                                    DataAnalyticsScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                                    )
+                                }
+                                AntigravityAppScreen.CONNECTORS -> {
+                                    ConnectorsAndSwarmScreen(
+                                        activeWorkspaceDir = activeWorkspaceDir,
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                                    )
+                                }
+                                AntigravityAppScreen.SDLC -> {
+                                    SdlcHubContent(
+                                        onOpenDrawer = handleOpenDrawer,
+                                        onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                                        appRepository = repository,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.PERSONAS -> {
+                                    PersonasAndPromptsContent(
+                                        activePersona = activePersona,
+                                        personas = personas,
+                                        prompts = prompts,
+                                        onSelectPersona = { selectedPersona ->
+                                            agentEngine.setActivePersona(selectedPersona)
+                                        },
+                                        onSelectPrompt = { promptTemplate ->
+                                            inputText = promptTemplate
+                                            currentScreen = AntigravityAppScreen.CHAT
+                                        },
+                                        onAddPersona = { repository.addPersona(it) },
+                                        onUpdatePersona = { repository.updatePersona(it) },
+                                        onDeletePersona = { repository.deletePersona(it) },
+                                        onResetPersonas = { repository.resetPersonasToDefault() },
+                                        onAddPrompt = { repository.addPrompt(it) },
+                                        onUpdatePrompt = { repository.updatePrompt(it) },
+                                        onDeletePrompt = { repository.deletePrompt(it) },
+                                        onResetPrompts = { repository.resetPromptsToDefault() },
+                                        onOpenDrawer = handleOpenDrawer,
+                                        onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.SKILLS -> {
+                                    SkillsMcpContent(
+                                        skills = skills,
+                                        mcpServers = mcpServers,
+                                        onToggleSkill = { repository.toggleSkill(it) },
+                                        onAddSkill = { repository.addSkill(it) },
+                                        onUpdateSkill = { repository.updateSkill(it) },
+                                        onDeleteSkill = { repository.deleteSkill(it) },
+                                        onCloneSkill = { repository.cloneSkill(it) },
+                                        onResetSkills = { repository.resetSkillsToDefault() },
+                                        onAddMcpServer = { repository.addMcpServer(it) },
+                                        onUpdateMcpServer = { repository.updateMcpServer(it) },
+                                        onDeleteMcpServer = { repository.deleteMcpServer(it) },
+                                        onToggleMcpServer = { repository.toggleMcpServer(it) },
+                                        onResetMcpServers = { repository.resetMcpServersToDefault() },
+                                        onOpenDrawer = handleOpenDrawer,
+                                        onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                AntigravityAppScreen.INSPECTOR -> {
+                                    AuxiliaryPane(
+                                        subagents = subagents,
+                                        backgroundTasks = backgroundTasks,
+                                        fileDiffs = fileDiffs,
+                                        artifacts = artifacts,
+                                        terminalLogs = terminalLogs,
+                                        onExecuteTerminalCommand = { repository.executeTerminalCommand(it) },
+                                        onKillTask = { repository.updateTaskStatus(it, com.example.antigravity.model.TaskStatus.KILLED) },
+                                        onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                                        onOpenDrawer = handleOpenDrawer,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+                        }
                     }
-                    AntigravityAppScreen.CODE -> {
-                        CodeStudioScreen(
-                            activeWorkspace = activeWorkspace,
-                            workspaces = workspaces,
-                            onSelectWorkspace = { repository.switchWorkspace(it) },
-                            onAddWorkspace = { name, path, branch -> repository.addWorkspace(name, path, branch) },
-                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                            onExecuteCommand = { repository.executeTerminalCommand(it) },
-                            terminalLogs = terminalLogs,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                }
+
+                if (isTabletOrExpanded) {
+                    Row(modifier = modifier.fillMaxSize()) {
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = isSidebarDockedVisible,
+                            enter = androidx.compose.animation.expandHorizontally() + androidx.compose.animation.fadeIn(),
+                            exit = androidx.compose.animation.shrinkHorizontally() + androidx.compose.animation.fadeOut()
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .width(300.dp)
+                                    .fillMaxHeight(),
+                                color = AntigravityColors.SurfaceDark,
+                                tonalElevation = 4.dp
+                            ) {
+                                sidebarContent()
+                            }
+                        }
+                        if (isSidebarDockedVisible) {
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .fillMaxHeight()
+                                    .background(AntigravityColors.DividerColor)
+                            )
+                        }
+                        mainScaffoldContent(Modifier.weight(1f).fillMaxHeight())
                     }
-                    AntigravityAppScreen.DESIGN -> {
-                        ProductDesignScreen(
-                            activeWorkspaceDir = activeWorkspaceDir,
-                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
-                        )
-                    }
-                    AntigravityAppScreen.RESEARCH -> {
-                        ResearchHubScreen(
-                            activeWorkspaceDir = activeWorkspaceDir,
-                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
-                        )
-                    }
-                    AntigravityAppScreen.ANALYTICS -> {
-                        DataAnalyticsScreen(
-                            activeWorkspaceDir = activeWorkspaceDir,
-                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
-                        )
-                    }
-                    AntigravityAppScreen.CONNECTORS -> {
-                        ConnectorsAndSwarmScreen(
-                            activeWorkspaceDir = activeWorkspaceDir,
-                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
-                        )
-                    }
-                    AntigravityAppScreen.SDLC -> {
-                        SdlcHubContent(
-                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
-                            appRepository = repository,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    AntigravityAppScreen.PERSONAS -> {
-                        PersonasAndPromptsContent(
-                            activePersona = activePersona,
-                            personas = personas,
-                            prompts = prompts,
-                            onSelectPersona = { selectedPersona ->
-                                agentEngine.setActivePersona(selectedPersona)
-                            },
-                            onSelectPrompt = { promptTemplate ->
-                                inputText = promptTemplate
-                                currentScreen = AntigravityAppScreen.CHAT
-                            },
-                            onAddPersona = { repository.addPersona(it) },
-                            onUpdatePersona = { repository.updatePersona(it) },
-                            onDeletePersona = { repository.deletePersona(it) },
-                            onResetPersonas = { repository.resetPersonasToDefault() },
-                            onAddPrompt = { repository.addPrompt(it) },
-                            onUpdatePrompt = { repository.updatePrompt(it) },
-                            onDeletePrompt = { repository.deletePrompt(it) },
-                            onResetPrompts = { repository.resetPromptsToDefault() },
-                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    AntigravityAppScreen.SKILLS -> {
-                        SkillsMcpContent(
-                            skills = skills,
-                            mcpServers = mcpServers,
-                            onToggleSkill = { repository.toggleSkill(it) },
-                            onAddSkill = { repository.addSkill(it) },
-                            onUpdateSkill = { repository.updateSkill(it) },
-                            onDeleteSkill = { repository.deleteSkill(it) },
-                            onCloneSkill = { repository.cloneSkill(it) },
-                            onResetSkills = { repository.resetSkillsToDefault() },
-                            onAddMcpServer = { repository.addMcpServer(it) },
-                            onUpdateMcpServer = { repository.updateMcpServer(it) },
-                            onDeleteMcpServer = { repository.deleteMcpServer(it) },
-                            onToggleMcpServer = { repository.toggleMcpServer(it) },
-                            onResetMcpServers = { repository.resetMcpServersToDefault() },
-                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    AntigravityAppScreen.INSPECTOR -> {
-                        AuxiliaryPane(
-                            subagents = subagents,
-                            backgroundTasks = backgroundTasks,
-                            fileDiffs = fileDiffs,
-                            artifacts = artifacts,
-                            terminalLogs = terminalLogs,
-                            onExecuteTerminalCommand = { repository.executeTerminalCommand(it) },
-                            onKillTask = { repository.updateTaskStatus(it, com.example.antigravity.model.TaskStatus.KILLED) },
-                            onClose = { currentScreen = AntigravityAppScreen.CHAT },
-                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                } else {
+                    ModalNavigationDrawer(
+                        drawerState = drawerState,
+                        drawerContent = {
+                            ModalDrawerSheet(
+                                drawerContainerColor = AntigravityColors.SurfaceDark
+                            ) {
+                                sidebarContent()
+                            }
+                        }
+                    ) {
+                        mainScaffoldContent(modifier.fillMaxSize())
                     }
                 }
             }
         }
-    }
-        }
-    }
     }
 
     // All Enterprise Studios & Hubs Dialog (1-Tap Direct Switcher)
