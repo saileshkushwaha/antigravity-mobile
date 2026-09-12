@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.launch
 import com.example.antigravity.model.AppSettings
 import com.example.antigravity.model.ModelCatalog
 import com.example.antigravity.model.ModelInfo
@@ -44,6 +45,7 @@ fun SettingsDialog(
     onFactoryResetAll: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(0) } // 0: Models & Gateways, 1: Autonomy, 2: DevOps, 3: Editor, 4: Data & Reset
 
     // Gateways & Model Parameters
@@ -76,6 +78,13 @@ fun SettingsDialog(
     var githubRepo by remember { mutableStateOf(settings.githubRepo) }
     var targetBranch by remember { mutableStateOf(settings.targetBranch) }
     var showGithubToken by remember { mutableStateOf(false) }
+
+    // Dynamic Discovery State
+    val discoveredAccounts by com.example.antigravity.sdlc.SdlcManager.discoveredAccounts.collectAsState()
+    val discoveredRepos by com.example.antigravity.sdlc.SdlcManager.discoveredRepositories.collectAsState()
+    val isFetchingRepos by com.example.antigravity.sdlc.SdlcManager.isFetchingRepos.collectAsState()
+    val repoFetchError by com.example.antigravity.sdlc.SdlcManager.repoFetchError.collectAsState()
+    var repoFilterQuery by remember { mutableStateOf("") }
 
     // UI & Editor Preferences
     var codeFontFamily by remember { mutableStateOf(settings.codeFontFamily) }
@@ -691,7 +700,171 @@ fun SettingsDialog(
                                         )
                                     }
 
-                                    // Owner and Repo
+                                    // Dynamic Discovery Action
+                                    Button(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                val accounts = com.example.antigravity.sdlc.SdlcManager.fetchUserAccounts(githubToken.trim()).getOrDefault(emptyList())
+                                                val ownerToFetch = githubOwner.trim().ifBlank { accounts.firstOrNull()?.login ?: "" }
+                                                if (ownerToFetch.isNotBlank()) {
+                                                    if (githubOwner.isBlank()) githubOwner = ownerToFetch
+                                                    com.example.antigravity.sdlc.SdlcManager.fetchAccountRepositories(ownerToFetch, githubToken.trim())
+                                                }
+                                            }
+                                        },
+                                        enabled = !isFetchingRepos && (githubToken.isNotBlank() || githubOwner.isNotBlank()),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.2f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        if (isFetchingRepos) {
+                                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AntigravityColors.ElectricCyan, strokeWidth = 2.dp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Discovering from GitHub...", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
+                                        } else {
+                                            Icon(Icons.Default.CloudDownload, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Discover GitHub Accounts & Repositories", fontSize = 11.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    // Error Banner
+                                    if (repoFetchError != null) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFFF5252).copy(alpha = 0.12f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = repoFetchError ?: "",
+                                                color = Color(0xFFFF8A80),
+                                                fontSize = 11.sp,
+                                                modifier = Modifier.padding(8.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Discovered Accounts Chips
+                                    if (discoveredAccounts.isNotEmpty()) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("Discovered Accounts / Orgs (${discoveredAccounts.size})", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                discoveredAccounts.forEach { acc ->
+                                                    val isSelected = githubOwner.equals(acc.login, ignoreCase = true)
+                                                    Surface(
+                                                        shape = RoundedCornerShape(16.dp),
+                                                        color = if (isSelected) AntigravityColors.ElectricCyan.copy(alpha = 0.2f) else AntigravityColors.SurfaceElevated,
+                                                        border = androidx.compose.foundation.BorderStroke(
+                                                            1.dp,
+                                                            if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.CardBorder
+                                                        ),
+                                                        modifier = Modifier.clickable {
+                                                            githubOwner = acc.login
+                                                            coroutineScope.launch {
+                                                                com.example.antigravity.sdlc.SdlcManager.fetchAccountRepositories(acc.login, githubToken.trim())
+                                                            }
+                                                        }
+                                                    ) {
+                                                        Text(
+                                                            text = "${if (acc.isOrganization) "🏢 " else "@"}${acc.login}",
+                                                            fontSize = 11.sp,
+                                                            color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary,
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Discovered Repositories Chips
+                                    if (discoveredRepos.isNotEmpty()) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Discovered Repositories (${discoveredRepos.size})", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                                if (discoveredRepos.size > 5) {
+                                                    Text(
+                                                        "${discoveredRepos.filter { it.name.contains(repoFilterQuery, ignoreCase = true) }.size} matches",
+                                                        fontSize = 10.sp,
+                                                        color = AntigravityColors.TextMuted
+                                                    )
+                                                }
+                                            }
+
+                                            if (discoveredRepos.size > 6) {
+                                                OutlinedTextField(
+                                                    value = repoFilterQuery,
+                                                    onValueChange = { repoFilterQuery = it },
+                                                    placeholder = { Text("Filter repos...", fontSize = 11.sp) },
+                                                    singleLine = true,
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedTextColor = AntigravityColors.TextPrimary,
+                                                        unfocusedTextColor = AntigravityColors.TextPrimary,
+                                                        focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                        unfocusedBorderColor = AntigravityColors.CardBorder
+                                                    )
+                                                )
+                                            }
+
+                                            val filteredRepos = discoveredRepos.filter { it.name.contains(repoFilterQuery, ignoreCase = true) }.take(12)
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                filteredRepos.forEach { repo ->
+                                                    val isSelected = githubRepo.equals(repo.name, ignoreCase = true)
+                                                    Surface(
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        color = if (isSelected) AntigravityColors.ElectricCyan.copy(alpha = 0.2f) else AntigravityColors.SurfaceElevated,
+                                                        border = androidx.compose.foundation.BorderStroke(
+                                                            1.dp,
+                                                            if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.CardBorder
+                                                        ),
+                                                        modifier = Modifier.clickable {
+                                                            githubRepo = repo.name
+                                                            if (repo.defaultBranch.isNotBlank()) targetBranch = repo.defaultBranch
+                                                            coroutineScope.launch {
+                                                                com.example.antigravity.sdlc.SdlcManager.fetchRepositoryBranches(githubOwner, repo.name, githubToken.trim())
+                                                            }
+                                                        }
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = repo.name,
+                                                                fontSize = 11.sp,
+                                                                color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                            )
+                                                            if (repo.isPrivate) {
+                                                                Text("🔒", fontSize = 9.sp)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Owner and Repo Fields
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -701,7 +874,7 @@ fun SettingsDialog(
                                             OutlinedTextField(
                                                 value = githubOwner,
                                                 onValueChange = { githubOwner = it },
-                                                placeholder = { Text("saileshkushwaha", fontSize = 12.sp) },
+                                                placeholder = { Text("e.g. octocat, my-org", fontSize = 12.sp) },
                                                 singleLine = true,
                                                 modifier = Modifier.fillMaxWidth(),
                                                 colors = OutlinedTextFieldDefaults.colors(
@@ -717,7 +890,7 @@ fun SettingsDialog(
                                             OutlinedTextField(
                                                 value = githubRepo,
                                                 onValueChange = { githubRepo = it },
-                                                placeholder = { Text("antigravity-mobile", fontSize = 12.sp) },
+                                                placeholder = { Text("e.g. my-app", fontSize = 12.sp) },
                                                 singleLine = true,
                                                 modifier = Modifier.fillMaxWidth(),
                                                 colors = OutlinedTextFieldDefaults.colors(
@@ -1004,8 +1177,19 @@ fun SettingsDialog(
                                 cfg.copy(
                                     githubToken = githubToken.trim(),
                                     repositoryOwner = githubOwner.trim(),
-                                    projectName = githubRepo.trim()
+                                    projectName = githubRepo.trim(),
+                                    targetBranch = targetBranch.trim().ifBlank { "main" }
                                 )
+                            }
+                            if (githubOwner.isNotBlank() && githubRepo.isNotBlank()) {
+                                coroutineScope.launch {
+                                    com.example.antigravity.sdlc.SdlcManager.switchRepository(
+                                        owner = githubOwner.trim(),
+                                        repo = githubRepo.trim(),
+                                        branch = targetBranch.trim().ifBlank { "main" },
+                                        token = githubToken.trim()
+                                    )
+                                }
                             }
                             onSave(updated)
                             onDismiss()

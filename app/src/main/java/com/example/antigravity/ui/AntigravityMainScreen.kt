@@ -268,6 +268,7 @@ fun AntigravityMainScreen(
                         SdlcHubContent(
                             onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
                             onClose = { currentScreen = AntigravityAppScreen.CHAT },
+                            appRepository = repository,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

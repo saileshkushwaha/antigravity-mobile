@@ -79,7 +79,7 @@ class OpenAiGatewayService {
 
             // Gateway specific client headers
             if (endpointUrl.contains("openrouter", ignoreCase = true)) {
-                requestBuilder.addHeader("HTTP-Referer", "https://github.com/saileshkushwaha/antigravity-mobile")
+                requestBuilder.addHeader("HTTP-Referer", "https://antigravity.ai")
                 requestBuilder.addHeader("X-Title", "Antigravity Mobile")
             } else if (endpointUrl.contains("kilo", ignoreCase = true)) {
                 requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")
@@ -128,7 +128,7 @@ class OpenAiGatewayService {
             }
 
             if (endpointUrl.contains("openrouter", ignoreCase = true)) {
-                requestBuilder.addHeader("HTTP-Referer", "https://github.com/saileshkushwaha/antigravity-mobile")
+                requestBuilder.addHeader("HTTP-Referer", "https://antigravity.ai")
                 requestBuilder.addHeader("X-Title", "Antigravity Mobile")
             } else if (endpointUrl.contains("kilo", ignoreCase = true)) {
                 requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")

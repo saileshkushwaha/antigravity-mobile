@@ -222,15 +222,37 @@ data class PreFlightPolicy(
 )
 
 @Serializable
+data class GitHubRepositoryInfo(
+    val name: String,
+    val fullName: String,
+    val owner: String,
+    val description: String = "",
+    val defaultBranch: String = "main",
+    val isPrivate: Boolean = false,
+    val stars: Int = 0,
+    val forks: Int = 0,
+    val language: String = "",
+    val updatedAt: String = ""
+)
+
+@Serializable
+data class GitHubAccountInfo(
+    val login: String,
+    val name: String = "",
+    val avatarUrl: String = "",
+    val isOrganization: Boolean = false,
+    val publicRepos: Int = 0
+)
+
+@Serializable
 data class ProjectSdlcConfig(
-    val projectName: String = "antigravity-mobile",
-    val repositoryOwner: String = "saileshkushwaha",
+    val projectName: String = "",
+    val repositoryOwner: String = "",
     val githubToken: String = "",
+    val targetBranch: String = "main",
+    val availableBranches: List<String> = listOf("main"),
     val branchProtections: BranchProtectionRules = BranchProtectionRules(),
     val releaseConfig: ReleaseConfig = ReleaseConfig(),
     val preFlightPolicy: PreFlightPolicy = PreFlightPolicy(),
-    val secrets: List<EnvironmentSecret> = listOf(
-        EnvironmentSecret("GEMINI_API_KEY", "••••••••••••••••", EnvironmentType.PRODUCTION),
-        EnvironmentSecret("DEPLOY_WEBHOOK_URL", "https://api.github.com/repos/.../dispatches", EnvironmentType.STAGING)
-    )
+    val secrets: List<EnvironmentSecret> = emptyList()
 )

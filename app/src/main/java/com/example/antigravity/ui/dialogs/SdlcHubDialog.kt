@@ -25,11 +25,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.antigravity.data.AppRepository
 import com.example.antigravity.model.*
 import com.example.antigravity.sdlc.SdlcManager
 import com.example.antigravity.theme.AntigravityColors
@@ -44,7 +46,8 @@ enum class SdlcTab(val title: String, val icon: androidx.compose.ui.graphics.vec
 
 @Composable
 fun SdlcHubDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    appRepository: AppRepository? = null
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -60,7 +63,8 @@ fun SdlcHubDialog(
         ) {
             SdlcHubContent(
                 onOpenDrawer = null,
-                onClose = onDismiss
+                onClose = onDismiss,
+                appRepository = appRepository
             )
         }
     }
@@ -70,6 +74,7 @@ fun SdlcHubDialog(
 fun SdlcHubContent(
     onOpenDrawer: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
+    appRepository: AppRepository? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(SdlcTab.GITHUB) }
@@ -170,33 +175,69 @@ fun SdlcHubContent(
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "${sdlcConfig.repositoryOwner}/${sdlcConfig.projectName}",
-                            color = AntigravityColors.CyanElectric,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(3.dp),
-                            color = if (sdlcConfig.githubToken.isNotBlank())
-                                AntigravityColors.DiffGreen.copy(alpha = 0.15f)
-                            else AntigravityColors.AmberWarning.copy(alpha = 0.15f)
+                    if (sdlcConfig.repositoryOwner.isNotBlank() && sdlcConfig.projectName.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { showGithubAuthDialog = true }
+                                .padding(vertical = 2.dp)
                         ) {
                             Text(
-                                text = if (sdlcConfig.githubToken.isNotBlank()) "● LIVE (RW)" else "○ PUBLIC (RO)",
-                                color = if (sdlcConfig.githubToken.isNotBlank())
-                                    AntigravityColors.DiffGreen
-                                else AntigravityColors.AmberWarning,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                text = "${sdlcConfig.repositoryOwner}/${sdlcConfig.projectName}",
+                                color = AntigravityColors.CyanElectric,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
+                            Surface(
+                                shape = RoundedCornerShape(3.dp),
+                                color = AntigravityColors.CyanElectric.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = sdlcConfig.targetBranch.ifBlank { "main" },
+                                    color = AntigravityColors.CyanElectric,
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Switch repository",
+                                tint = AntigravityColors.CyanElectric,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = AntigravityColors.VioletNebula.copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.VioletNebula.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { showGithubAuthDialog = true }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = AntigravityColors.VioletNebula,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = "Select GitHub Repository",
+                                    color = AntigravityColors.VioletNebula,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -207,16 +248,16 @@ fun SdlcHubContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Setup GitHub credentials modal
+                // Setup GitHub credentials / switch repo modal
                 IconButton(
                     onClick = { showGithubAuthDialog = true },
                     modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.VpnKey,
-                        contentDescription = "GitHub Credentials",
-                        tint = if (sdlcConfig.githubToken.isNotBlank()) AntigravityColors.DiffGreen else AntigravityColors.AmberWarning,
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.Default.SwapHoriz,
+                        contentDescription = "Switch GitHub Repository",
+                        tint = if (sdlcConfig.projectName.isNotBlank()) AntigravityColors.CyanElectric else AntigravityColors.AmberWarning,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -224,13 +265,18 @@ fun SdlcHubContent(
                 IconButton(
                     onClick = {
                         if (!isSyncing) {
-                            statusMessage = "Syncing live GitHub actions, PRs, issues, and commits..."
-                            coroutineScope.launch {
-                                val res = SdlcManager.syncWithGitHub()
-                                statusMessage = res.fold(
-                                    onSuccess = { it },
-                                    onFailure = { "GitHub sync notice: ${it.localizedMessage}" }
-                                )
+                            if (sdlcConfig.projectName.isBlank() || sdlcConfig.repositoryOwner.isBlank()) {
+                                showGithubAuthDialog = true
+                                statusMessage = "Please select a GitHub repository first."
+                            } else {
+                                statusMessage = "Syncing live GitHub actions, PRs, issues, and commits..."
+                                coroutineScope.launch {
+                                    val res = SdlcManager.syncWithGitHub()
+                                    statusMessage = res.fold(
+                                        onSuccess = { it },
+                                        onFailure = { "GitHub sync notice: ${it.localizedMessage}" }
+                                    )
+                                }
                             }
                         }
                     },
@@ -356,6 +402,7 @@ fun SdlcHubContent(
                     issues = issues,
                     workflowRuns = workflowRuns,
                     commits = commits,
+                    onSelectRepoClick = { showGithubAuthDialog = true },
                     onNewPrClick = { showNewPrDialog = true },
                     onNewIssueClick = { showNewIssueDialog = true },
                     onDispatchWorkflowClick = { showDispatchWfDialog = true },
@@ -457,22 +504,25 @@ fun SdlcHubContent(
         }
     }
 
-    // Modal: Setup GitHub Auth & Repo
+    // Modal: Dynamic GitHub Repository & Account Selection
     if (showGithubAuthDialog) {
-        GitHubAuthDialog(
+        GitHubRepositorySelectionDialog(
             currentOwner = sdlcConfig.repositoryOwner,
             currentRepo = sdlcConfig.projectName,
+            currentBranch = sdlcConfig.targetBranch,
             currentToken = sdlcConfig.githubToken,
             onDismiss = { showGithubAuthDialog = false },
-            onSave = { owner, repo, token ->
-                SdlcManager.updateSdlcConfig {
-                    it.copy(repositoryOwner = owner, projectName = repo, githubToken = token)
-                }
-                statusMessage = "Updated GitHub settings for $owner/$repo. Syncing..."
-                showGithubAuthDialog = false
+            onSelect = { owner, repo, branch, token ->
+                appRepository?.selectGitHubRepository(owner, repo, branch)
                 coroutineScope.launch {
-                    SdlcManager.syncWithGitHub()
+                    statusMessage = "Connecting to $owner/$repo ($branch)..."
+                    val res = SdlcManager.switchRepository(owner, repo, branch, token)
+                    statusMessage = res.fold(
+                        onSuccess = { "Connected to $owner/$repo ($branch) and synced live artifacts!" },
+                        onFailure = { "Connected: ${it.localizedMessage}" }
+                    )
                 }
+                showGithubAuthDialog = false
             }
         )
     }
@@ -599,6 +649,7 @@ fun GitHubCenterTab(
     issues: List<GitHubIssueItem>,
     workflowRuns: List<WorkflowRunItem>,
     commits: List<GitHubCommitItem>,
+    onSelectRepoClick: () -> Unit = {},
     onNewPrClick: () -> Unit,
     onNewIssueClick: () -> Unit,
     onDispatchWorkflowClick: () -> Unit,
@@ -607,6 +658,65 @@ fun GitHubCenterTab(
     onToggleIssue: (Int) -> Unit,
     onRerunWorkflow: (Long) -> Unit
 ) {
+    if (pullRequests.isEmpty() && issues.isEmpty() && workflowRuns.isEmpty() && commits.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = AntigravityColors.SurfaceElevated),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle),
+                modifier = Modifier.fillMaxWidth(0.95f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(AntigravityColors.CyanElectric.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Source,
+                            contentDescription = null,
+                            tint = AntigravityColors.CyanElectric,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Text(
+                        text = "No GitHub Repository Connected",
+                        color = AntigravityColors.TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Select any GitHub account and repository to sync live Pull Requests, Issues, GitHub Actions runs, and Git commits with bi-directional operational capabilities.",
+                        color = AntigravityColors.TextSecondary,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Button(
+                        onClick = onSelectRepoClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.CyanElectric),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Layers, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Select & Discover Repository", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+        return
+    }
+
     var subSection by remember { mutableStateOf(0) } // 0: PRs, 1: Issues, 2: Actions, 3: Commits
     var searchQuery by remember { mutableStateOf("") }
 
@@ -1466,7 +1576,7 @@ fun EnvironmentCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(text = "Deployed", color = AntigravityColors.TextMuted, fontSize = 10.sp)
                     Text(
-                        text = "${activeRecord?.timestamp ?: "Just now"} by ${activeRecord?.deployedBy ?: "saileshkushwaha"}",
+                        text = "${activeRecord?.timestamp ?: "Just now"} by ${activeRecord?.deployedBy ?: "system"}",
                         color = AntigravityColors.TextSecondary,
                         fontSize = 11.sp
                     )
@@ -1959,64 +2069,511 @@ fun ConfigToggleRow(
 // ==========================================
 
 @Composable
-fun GitHubAuthDialog(
+fun GitHubRepositorySelectionDialog(
     currentOwner: String,
     currentRepo: String,
+    currentBranch: String,
     currentToken: String,
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit
+    onSelect: (owner: String, repo: String, branch: String, token: String) -> Unit
 ) {
+    var token by remember { mutableStateOf(currentToken) }
     var owner by remember { mutableStateOf(currentOwner) }
     var repo by remember { mutableStateOf(currentRepo) }
-    var token by remember { mutableStateOf(currentToken) }
+    var branch by remember { mutableStateOf(currentBranch.ifBlank { "main" }) }
+    var searchQuery by remember { mutableStateOf("") }
+    var isManualMode by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    val discoveredAccounts by SdlcManager.discoveredAccounts.collectAsState()
+    val discoveredRepos by SdlcManager.discoveredRepositories.collectAsState()
+    val availableBranches by SdlcManager.availableBranches.collectAsState()
+    val isFetchingRepos by SdlcManager.isFetchingRepos.collectAsState()
+    val fetchError by SdlcManager.repoFetchError.collectAsState()
+
+    // Auto-discover if token is already present and accounts/repos are empty
+    LaunchedEffect(Unit) {
+        if (token.isNotBlank() && discoveredAccounts.isEmpty()) {
+            SdlcManager.fetchUserAccounts(token)
+            val targetOwner = owner.ifBlank { SdlcManager.discoveredAccounts.value.firstOrNull()?.login ?: "" }
+            if (targetOwner.isNotBlank()) {
+                SdlcManager.fetchAccountRepositories(targetOwner, token)
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.96f)
+            .fillMaxHeight(0.88f),
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.VpnKey, contentDescription = null, tint = AntigravityColors.CyanElectric)
-                Text("GitHub Repository & Auth", color = AntigravityColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(AntigravityColors.CyanElectric.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Source,
+                            contentDescription = null,
+                            tint = AntigravityColors.CyanElectric,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Select GitHub Repository",
+                            color = AntigravityColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Connect personal or organization repositories dynamically",
+                            color = AntigravityColors.TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
+                }
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Configure your GitHub repository and Personal Access Token (PAT) for live bi-directional DevOps operations.",
-                    color = AntigravityColors.TextSecondary,
-                    fontSize = 12.sp
-                )
-                OutlinedTextField(
-                    value = owner,
-                    onValueChange = { owner = it },
-                    label = { Text("Repository Owner / Organization") },
-                    placeholder = { Text("saileshkushwaha") },
-                    singleLine = true,
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Section 1: GitHub Token & Discovery Trigger
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AntigravityColors.SurfaceDark,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle),
                     modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = repo,
-                    onValueChange = { repo = it },
-                    label = { Text("Repository Name") },
-                    placeholder = { Text("antigravity-mobile") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = token,
-                    onValueChange = { token = it },
-                    label = { Text("GitHub Token (PAT)") },
-                    placeholder = { Text("ghp_... (Required for writes & merge)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "1. GitHub Personal Access Token (PAT)",
+                            color = AntigravityColors.TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        OutlinedTextField(
+                            value = token,
+                            onValueChange = { token = it },
+                            placeholder = { Text("ghp_... (Required for private repos, PRs, and Actions)", fontSize = 11.sp) },
+                            singleLine = true,
+                            trailingIcon = {
+                                if (token.isNotBlank()) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Token Present",
+                                        tint = AntigravityColors.DiffGreen,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.CyanElectric,
+                                unfocusedBorderColor = AntigravityColors.BorderSubtle
+                            )
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        if (token.isNotBlank()) {
+                                            SdlcManager.fetchUserAccounts(token)
+                                            val primary = SdlcManager.discoveredAccounts.value.firstOrNull()?.login ?: owner
+                                            if (primary.isNotBlank()) {
+                                                owner = primary
+                                                SdlcManager.fetchAccountRepositories(primary, token)
+                                            }
+                                        } else if (owner.isNotBlank()) {
+                                            SdlcManager.fetchAccountRepositories(owner, token)
+                                        }
+                                    }
+                                },
+                                enabled = !isFetchingRepos,
+                                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.CyanElectric),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (isFetchingRepos) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color.Black)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Discovering...", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Discover Repositories", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = { isManualMode = !isManualMode },
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.TextSecondary)
+                            ) {
+                                Text(if (isManualMode) "Guided" else "Manual Entry", fontSize = 11.sp)
+                            }
+                        }
+
+                        fetchError?.let { err ->
+                            Text(text = err, color = AntigravityColors.StatusError, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                if (isManualMode) {
+                    // Manual owner & repo entry
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = AntigravityColors.SurfaceDark,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Manual Repository Coordinates",
+                                color = AntigravityColors.TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = owner,
+                                    onValueChange = { owner = it },
+                                    label = { Text("Account / Org", fontSize = 11.sp) },
+                                    placeholder = { Text("e.g. google, octocat", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = repo,
+                                    onValueChange = {
+                                        repo = it
+                                        if (owner.isNotBlank() && it.isNotBlank()) {
+                                            coroutineScope.launch {
+                                                SdlcManager.fetchRepositoryBranches(owner.trim(), it.trim(), token.trim())
+                                            }
+                                        }
+                                    },
+                                    label = { Text("Repository Name", fontSize = 11.sp) },
+                                    placeholder = { Text("e.g. android-agent", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Section 2: Account Selection Chips (User & Orgs)
+                    if (discoveredAccounts.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "2. Select Account or Organization (${discoveredAccounts.size})",
+                                color = AntigravityColors.TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                discoveredAccounts.forEach { acc ->
+                                    val isSelected = owner.equals(acc.login, ignoreCase = true)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            owner = acc.login
+                                            coroutineScope.launch {
+                                                SdlcManager.fetchAccountRepositories(acc.login, token)
+                                            }
+                                        },
+                                        label = {
+                                            Text(
+                                                text = if (acc.isOrganization) "🏢 ${acc.login}" else "👤 @${acc.login}",
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AntigravityColors.CyanElectric.copy(alpha = 0.2f),
+                                            selectedLabelColor = AntigravityColors.CyanElectric,
+                                            containerColor = AntigravityColors.SurfaceDark,
+                                            labelColor = AntigravityColors.TextSecondary
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSelected,
+                                            borderColor = if (isSelected) AntigravityColors.CyanElectric else AntigravityColors.BorderSubtle
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Section 3: Repository Search & List
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "3. Select Repository (${discoveredRepos.size})",
+                                color = AntigravityColors.TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (repo.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = AntigravityColors.CyanElectric.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "Selected: $repo",
+                                        color = AntigravityColors.CyanElectric,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Search box
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Filter repositories by name or language...", fontSize = 11.sp) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.CyanElectric,
+                                unfocusedBorderColor = AntigravityColors.BorderSubtle
+                            )
+                        )
+
+                        val filteredRepos = discoveredRepos.filter {
+                            searchQuery.isBlank() ||
+                            it.name.contains(searchQuery, ignoreCase = true) ||
+                            it.description.contains(searchQuery, ignoreCase = true) ||
+                            it.language.contains(searchQuery, ignoreCase = true)
+                        }
+
+                        if (filteredRepos.isEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AntigravityColors.SurfaceDark,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = if (discoveredRepos.isEmpty()) "No repositories loaded yet. Click 'Discover Repositories' above or enter an account name." else "No repositories match '$searchQuery'",
+                                        color = AntigravityColors.TextSecondary,
+                                        fontSize = 11.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                filteredRepos.forEach { repoInfo ->
+                                    val isSelected = repo.equals(repoInfo.name, ignoreCase = true)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) AntigravityColors.CyanElectric.copy(alpha = 0.12f) else AntigravityColors.SurfaceDark,
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) AntigravityColors.CyanElectric else AntigravityColors.BorderSubtle
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                repo = repoInfo.name
+                                                owner = repoInfo.owner
+                                                branch = repoInfo.defaultBranch
+                                                coroutineScope.launch {
+                                                    SdlcManager.fetchRepositoryBranches(repoInfo.owner, repoInfo.name, token)
+                                                }
+                                            }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = repoInfo.name,
+                                                        color = if (isSelected) AntigravityColors.CyanElectric else AntigravityColors.TextPrimary,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp
+                                                    )
+                                                    Surface(
+                                                        shape = RoundedCornerShape(3.dp),
+                                                        color = if (repoInfo.isPrivate) AntigravityColors.AmberWarning.copy(alpha = 0.15f) else AntigravityColors.DiffGreen.copy(alpha = 0.15f)
+                                                    ) {
+                                                        Text(
+                                                            text = if (repoInfo.isPrivate) "Private" else "Public",
+                                                            color = if (repoInfo.isPrivate) AntigravityColors.AmberWarning else AntigravityColors.DiffGreen,
+                                                            fontSize = 9.sp,
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                        )
+                                                    }
+                                                    if (repoInfo.language.isNotBlank()) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(3.dp),
+                                                            color = AntigravityColors.VioletNebula.copy(alpha = 0.15f)
+                                                        ) {
+                                                            Text(
+                                                                text = repoInfo.language,
+                                                                color = AntigravityColors.VioletNebula,
+                                                                fontSize = 9.sp,
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                if (repoInfo.description.isNotBlank()) {
+                                                    Text(
+                                                        text = repoInfo.description,
+                                                        color = AntigravityColors.TextSecondary,
+                                                        fontSize = 11.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = "Selected",
+                                                    tint = AntigravityColors.CyanElectric,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section 4: Target Branch Selector
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "4. Target Git Branch",
+                        color = AntigravityColors.TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val branchesToDisplay = if (availableBranches.contains(branch)) availableBranches else (listOf(branch) + availableBranches).distinct()
+                        branchesToDisplay.forEach { b ->
+                            val isSelected = branch == b
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { branch = b },
+                                label = {
+                                    Text(
+                                        text = b,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AntigravityColors.CyanElectric.copy(alpha = 0.2f),
+                                    selectedLabelColor = AntigravityColors.CyanElectric,
+                                    containerColor = AntigravityColors.SurfaceDark,
+                                    labelColor = AntigravityColors.TextSecondary
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = if (isSelected) AntigravityColors.CyanElectric else AntigravityColors.BorderSubtle
+                                )
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(owner.trim(), repo.trim(), token.trim()) },
-                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.CyanElectric)
+                onClick = {
+                    if (owner.isNotBlank() && repo.isNotBlank()) {
+                        onSelect(owner.trim(), repo.trim(), branch.trim().ifBlank { "main" }, token.trim())
+                    }
+                },
+                enabled = owner.isNotBlank() && repo.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.CyanElectric),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Save & Connect", color = Color.Black, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Select & Connect Repository", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

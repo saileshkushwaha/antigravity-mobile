@@ -13,121 +13,15 @@ import okhttp3.RequestBody.Companion.toRequestBody
 object SdlcManager {
 
     // --- Pull Requests ---
-    private val _pullRequests = MutableStateFlow<List<PullRequestItem>>(
-        listOf(
-            PullRequestItem(
-                number = 42,
-                title = "feat: add Antigravity logo, enterprise security guardrails, and audit logging",
-                author = "saileshkushwaha",
-                sourceBranch = "feature/enterprise-guardrails",
-                targetBranch = "main",
-                status = PrStatus.OPEN,
-                reviewStatus = PrReviewStatus.APPROVED,
-                ciStatus = CiStatus.PASSING,
-                additions = 938,
-                deletions = 206,
-                createdAt = "2 hours ago",
-                commentsCount = 4
-            ),
-            PullRequestItem(
-                number = 41,
-                title = "feat: add open model gateways, free models catalog, and searchable model selector",
-                author = "saileshkushwaha",
-                sourceBranch = "feature/open-model-gateways",
-                targetBranch = "main",
-                status = PrStatus.MERGED,
-                reviewStatus = PrReviewStatus.APPROVED,
-                ciStatus = CiStatus.PASSING,
-                additions = 1240,
-                deletions = 84,
-                createdAt = "Yesterday",
-                commentsCount = 2
-            ),
-            PullRequestItem(
-                number = 40,
-                title = "ci: add GitHub Actions workflow to build and package APK",
-                author = "saileshkushwaha",
-                sourceBranch = "infra/github-actions-apk",
-                targetBranch = "main",
-                status = PrStatus.MERGED,
-                reviewStatus = PrReviewStatus.APPROVED,
-                ciStatus = CiStatus.PASSING,
-                additions = 56,
-                deletions = 0,
-                createdAt = "2 days ago",
-                commentsCount = 1
-            )
-        )
-    )
+    private val _pullRequests = MutableStateFlow<List<PullRequestItem>>(emptyList())
     val pullRequests: StateFlow<List<PullRequestItem>> = _pullRequests.asStateFlow()
 
     // --- Issues ---
-    private val _issues = MutableStateFlow<List<GitHubIssueItem>>(
-        listOf(
-            GitHubIssueItem(
-                number = 15,
-                title = "Support real-time streaming audio with Gemini Live API",
-                author = "external-contributor",
-                state = IssueState.OPEN,
-                labels = listOf("enhancement", "agent-engine"),
-                commentsCount = 3,
-                assignee = "saileshkushwaha"
-            ),
-            GitHubIssueItem(
-                number = 14,
-                title = "Add multi-environment deployment rollback capabilities",
-                author = "saileshkushwaha",
-                state = IssueState.OPEN,
-                labels = listOf("sdlc", "devops"),
-                commentsCount = 1,
-                assignee = "saileshkushwaha"
-            ),
-            GitHubIssueItem(
-                number = 12,
-                title = "Ensure memory heap monitoring handles low memory triggers",
-                author = "qa-bot",
-                state = IssueState.CLOSED,
-                labels = listOf("enterprise", "performance"),
-                commentsCount = 5,
-                assignee = "saileshkushwaha"
-            )
-        )
-    )
+    private val _issues = MutableStateFlow<List<GitHubIssueItem>>(emptyList())
     val issues: StateFlow<List<GitHubIssueItem>> = _issues.asStateFlow()
 
     // --- GitHub Actions Workflow Runs ---
-    private val _workflowRuns = MutableStateFlow<List<WorkflowRunItem>>(
-        listOf(
-            WorkflowRunItem(
-                id = 34632457290L,
-                name = "Build & Package Android APK",
-                event = "push",
-                branch = "main",
-                commitHash = "7403b1e",
-                commitMessage = "feat: add Antigravity logo, enterprise security guardrails, audit logging, and diagnostics",
-                status = WorkflowStatus.COMPLETED,
-                conclusion = WorkflowConclusion.SUCCESS,
-                duration = "1m 42s",
-                runStartedAt = "5m ago",
-                artifactName = "Antigravity-Mobile-Debug-APK",
-                artifactUrl = "https://github.com/saileshkushwaha/antigravity-mobile/actions/runs/34632457290"
-            ),
-            WorkflowRunItem(
-                id = 34632001124L,
-                name = "Build & Package Android APK",
-                event = "push",
-                branch = "main",
-                commitHash = "c3b3504",
-                commitMessage = "feat: add open model gateways, free models catalog, and searchable model selector",
-                status = WorkflowStatus.COMPLETED,
-                conclusion = WorkflowConclusion.SUCCESS,
-                duration = "1m 35s",
-                runStartedAt = "35m ago",
-                artifactName = "Antigravity-Mobile-Debug-APK",
-                artifactUrl = "https://github.com/saileshkushwaha/antigravity-mobile/actions/runs/34632001124"
-            )
-        )
-    )
+    private val _workflowRuns = MutableStateFlow<List<WorkflowRunItem>>(emptyList())
     val workflowRuns: StateFlow<List<WorkflowRunItem>> = _workflowRuns.asStateFlow()
 
     // --- Commits ---
@@ -148,11 +42,11 @@ object SdlcManager {
                 environment = EnvironmentType.PRODUCTION,
                 versionTag = "v2.4.0",
                 commitHash = "7403b1e",
-                deployedBy = "saileshkushwaha",
+                deployedBy = "system",
                 timestamp = "Today at 00:04",
                 status = DeploymentStatus.DEPLOYED,
                 healthStatus = HealthStatus.HEALTHY,
-                liveUrl = "https://antigravity.production.internal",
+                liveUrl = "https://app.production.internal",
                 rollbackVersion = "v2.3.9"
             ),
             DeploymentRecord(
@@ -164,7 +58,7 @@ object SdlcManager {
                 timestamp = "Today at 00:10",
                 status = DeploymentStatus.DEPLOYED,
                 healthStatus = HealthStatus.HEALTHY,
-                liveUrl = "https://staging.antigravity.internal",
+                liveUrl = "https://staging.app.internal",
                 rollbackVersion = "v2.4.0"
             ),
             DeploymentRecord(
@@ -192,7 +86,7 @@ object SdlcManager {
                 category = IntegrationCategory.CI_CD,
                 description = "Automated APK build, test matrix, and release packaging workflow",
                 state = ConnectionState.CONNECTED,
-                webhookUrl = "https://api.github.com/repos/saileshkushwaha/antigravity-mobile/dispatches",
+                webhookUrl = "https://api.github.com/repos/{owner}/{repo}/dispatches",
                 lastPingStatus = "200 OK - Active Runner",
                 lastSyncTime = "3m ago"
             ),
@@ -244,19 +138,246 @@ object SdlcManager {
     private val _sdlcConfig = MutableStateFlow(ProjectSdlcConfig())
     val sdlcConfig: StateFlow<ProjectSdlcConfig> = _sdlcConfig.asStateFlow()
 
+    // --- Dynamic GitHub Discovery ---
+    private val _discoveredAccounts = MutableStateFlow<List<GitHubAccountInfo>>(emptyList())
+    val discoveredAccounts: StateFlow<List<GitHubAccountInfo>> = _discoveredAccounts.asStateFlow()
+
+    private val _discoveredRepositories = MutableStateFlow<List<GitHubRepositoryInfo>>(emptyList())
+    val discoveredRepositories: StateFlow<List<GitHubRepositoryInfo>> = _discoveredRepositories.asStateFlow()
+
+    private val _availableBranches = MutableStateFlow<List<String>>(listOf("main"))
+    val availableBranches: StateFlow<List<String>> = _availableBranches.asStateFlow()
+
+    private val _isFetchingRepos = MutableStateFlow(false)
+    val isFetchingRepos: StateFlow<Boolean> = _isFetchingRepos.asStateFlow()
+
+    private val _repoFetchError = MutableStateFlow<String?>(null)
+    val repoFetchError: StateFlow<String?> = _repoFetchError.asStateFlow()
+
     private val httpClient = okhttp3.OkHttpClient.Builder()
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
+    // --- Dynamic GitHub Discovery Operations ---
+
+    suspend fun fetchUserAccounts(token: String): Result<List<GitHubAccountInfo>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (token.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("GitHub Personal Access Token is required to discover accounts."))
+        }
+        try {
+            val accounts = mutableListOf<GitHubAccountInfo>()
+
+            // 1. Fetch authenticated user profile
+            val userReq = okhttp3.Request.Builder()
+                .url("https://api.github.com/user")
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("Authorization", "Bearer $token")
+                .header("User-Agent", "Antigravity-Mobile-App")
+                .build()
+            val userResp = httpClient.newCall(userReq).execute()
+            if (userResp.isSuccessful) {
+                val userJson = org.json.JSONObject(userResp.body?.string() ?: "{}")
+                val login = userJson.optString("login", "")
+                if (login.isNotBlank()) {
+                    accounts.add(
+                        GitHubAccountInfo(
+                            login = login,
+                            name = userJson.optString("name", login),
+                            avatarUrl = userJson.optString("avatar_url", ""),
+                            isOrganization = false,
+                            publicRepos = userJson.optInt("public_repos", 0)
+                        )
+                    )
+                }
+            }
+
+            // 2. Fetch authenticated user's organizations
+            val orgsReq = okhttp3.Request.Builder()
+                .url("https://api.github.com/user/orgs?per_page=100")
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("Authorization", "Bearer $token")
+                .header("User-Agent", "Antigravity-Mobile-App")
+                .build()
+            val orgsResp = httpClient.newCall(orgsReq).execute()
+            if (orgsResp.isSuccessful) {
+                val orgsArray = org.json.JSONArray(orgsResp.body?.string() ?: "[]")
+                for (i in 0 until orgsArray.length()) {
+                    val orgObj = orgsArray.getJSONObject(i)
+                    val login = orgObj.optString("login", "")
+                    if (login.isNotBlank()) {
+                        accounts.add(
+                            GitHubAccountInfo(
+                                login = login,
+                                name = orgObj.optString("description", login),
+                                avatarUrl = orgObj.optString("avatar_url", ""),
+                                isOrganization = true,
+                                publicRepos = 0
+                            )
+                        )
+                    }
+                }
+            }
+
+            _discoveredAccounts.value = accounts
+            Result.success(accounts)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchAccountRepositories(owner: String, token: String = ""): Result<List<GitHubRepositoryInfo>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        _isFetchingRepos.value = true
+        _repoFetchError.value = null
+        val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
+        try {
+            val repos = mutableListOf<GitHubRepositoryInfo>()
+
+            val url = when {
+                owner.isNotBlank() -> "https://api.github.com/users/$owner/repos?per_page=100&sort=updated"
+                actualToken.isNotBlank() -> "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member"
+                else -> {
+                    _isFetchingRepos.value = false
+                    _repoFetchError.value = "Please enter an account username or organization"
+                    return@withContext Result.failure(IllegalArgumentException("Account or token required"))
+                }
+            }
+
+            var req = okhttp3.Request.Builder()
+                .url(url)
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("User-Agent", "Antigravity-Mobile-App")
+                .apply { if (actualToken.isNotBlank()) header("Authorization", "Bearer $actualToken") }
+                .build()
+
+            var resp = httpClient.newCall(req).execute()
+
+            // If user endpoint returned 404 (e.g. it is an organization account), fallback to /orgs/:org/repos
+            if (resp.code == 404 && owner.isNotBlank()) {
+                val orgUrl = "https://api.github.com/orgs/$owner/repos?per_page=100&sort=updated"
+                req = okhttp3.Request.Builder()
+                    .url(orgUrl)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("User-Agent", "Antigravity-Mobile-App")
+                    .apply { if (actualToken.isNotBlank()) header("Authorization", "Bearer $actualToken") }
+                    .build()
+                resp = httpClient.newCall(req).execute()
+            }
+
+            if (resp.isSuccessful) {
+                val body = resp.body?.string() ?: "[]"
+                val array = org.json.JSONArray(body)
+                for (i in 0 until array.length()) {
+                    val item = array.getJSONObject(i)
+                    repos.add(
+                        GitHubRepositoryInfo(
+                            name = item.getString("name"),
+                            fullName = item.getString("full_name"),
+                            owner = item.optJSONObject("owner")?.optString("login", owner) ?: owner,
+                            description = item.optString("description", ""),
+                            defaultBranch = item.optString("default_branch", "main"),
+                            isPrivate = item.optBoolean("private", false),
+                            stars = item.optInt("stargazers_count", 0),
+                            forks = item.optInt("forks_count", 0),
+                            language = item.optString("language", ""),
+                            updatedAt = item.optString("updated_at", "")
+                        )
+                    )
+                }
+                _discoveredRepositories.value = repos
+                Result.success(repos)
+            } else {
+                val err = "GitHub API (${resp.code}): ${resp.body?.string()?.take(150)}"
+                _repoFetchError.value = err
+                Result.failure(Exception(err))
+            }
+        } catch (e: Exception) {
+            _repoFetchError.value = e.localizedMessage
+            Result.failure(e)
+        } finally {
+            _isFetchingRepos.value = false
+        }
+    }
+
+    suspend fun fetchRepositoryBranches(owner: String, repo: String, token: String = ""): Result<List<String>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (owner.isBlank() || repo.isBlank()) {
+            return@withContext Result.success(listOf("main"))
+        }
+        val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
+        try {
+            val req = okhttp3.Request.Builder()
+                .url("https://api.github.com/repos/$owner/$repo/branches?per_page=100")
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("User-Agent", "Antigravity-Mobile-App")
+                .apply { if (actualToken.isNotBlank()) header("Authorization", "Bearer $actualToken") }
+                .build()
+
+            val resp = httpClient.newCall(req).execute()
+            if (resp.isSuccessful) {
+                val body = resp.body?.string() ?: "[]"
+                val array = org.json.JSONArray(body)
+                val branches = mutableListOf<String>()
+                for (i in 0 until array.length()) {
+                    val branchName = array.getJSONObject(i).optString("name", "")
+                    if (branchName.isNotBlank()) branches.add(branchName)
+                }
+                val resultList = branches.ifEmpty { listOf("main") }
+                _availableBranches.value = resultList
+                _sdlcConfig.update { it.copy(availableBranches = resultList) }
+                Result.success(resultList)
+            } else {
+                Result.success(listOf("main"))
+            }
+        } catch (e: Exception) {
+            Result.success(listOf("main"))
+        }
+    }
+
+    suspend fun switchRepository(
+        owner: String,
+        repo: String,
+        branch: String = "main",
+        token: String = ""
+    ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
+        _sdlcConfig.update {
+            it.copy(
+                repositoryOwner = owner,
+                projectName = repo,
+                targetBranch = branch,
+                githubToken = actualToken
+            )
+        }
+
+        // Reset previous repository data
+        _pullRequests.value = emptyList()
+        _issues.value = emptyList()
+        _workflowRuns.value = emptyList()
+        _commits.value = emptyList()
+
+        // Fetch live branches
+        fetchRepositoryBranches(owner, repo, actualToken)
+
+        // Sync repository artifacts from GitHub
+        val syncResult = syncWithGitHub(owner, repo, actualToken)
+
+        EnterpriseAuditLogger.log(
+            category = AuditCategory.SDLC_OPERATION,
+            action = "SWITCH_REPOSITORY",
+            details = "Connected to repository $owner/$repo on branch $branch"
+        )
+
+        syncResult
+    }
+
     // --- Actions & Operations ---
 
     fun createPullRequest(title: String, sourceBranch: String, targetBranch: String = "main"): PullRequestItem {
-        val nextNumber = (_pullRequests.value.maxOfOrNull { it.number } ?: 40) + 1
+        val nextNumber = (_pullRequests.value.maxOfOrNull { it.number } ?: 0) + 1
         val newPr = PullRequestItem(
             number = nextNumber,
             title = title,
-            author = _sdlcConfig.value.repositoryOwner.ifBlank { "saileshkushwaha" },
+            author = _sdlcConfig.value.repositoryOwner.ifBlank { "developer" },
             sourceBranch = sourceBranch,
             targetBranch = targetBranch,
             status = PrStatus.OPEN,
@@ -285,9 +406,14 @@ object SdlcManager {
         owner: String = "",
         repo: String = ""
     ): Result<PullRequestItem> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
+
+        if (actualOwner.isBlank() || actualRepo.isBlank()) {
+            val pr = createPullRequest(title, sourceBranch, targetBranch)
+            return@withContext Result.success(pr)
+        }
 
         if (actualToken.isNotBlank()) {
             try {
@@ -398,14 +524,14 @@ object SdlcManager {
         owner: String = "",
         repo: String = ""
     ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
         val localResult = mergePullRequest(prNumber)
         if (localResult.isFailure) return@withContext localResult
 
-        if (actualToken.isNotBlank()) {
+        if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
             try {
                 val jsonPayload = org.json.JSONObject().apply {
                     put("commit_title", "Merge pull request #$prNumber")
@@ -438,11 +564,11 @@ object SdlcManager {
         owner: String = "",
         repo: String = ""
     ): GitHubIssueItem = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
-        if (actualToken.isNotBlank()) {
+        if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
             try {
                 val jsonPayload = org.json.JSONObject().apply {
                     put("title", title)
@@ -488,11 +614,11 @@ object SdlcManager {
         val newIssue = GitHubIssueItem(
             number = nextNumber,
             title = title,
-            author = actualOwner,
+            author = actualOwner.ifBlank { "developer" },
             state = IssueState.OPEN,
             labels = labels,
             commentsCount = 0,
-            assignee = actualOwner
+            assignee = actualOwner.ifBlank { null }
         )
         _issues.update { listOf(newIssue) + it }
         EnterpriseAuditLogger.log(
@@ -511,15 +637,15 @@ object SdlcManager {
     ): IssueState = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val current = _issues.value.find { it.number == issueNumber }
         val targetState = if (current?.state == IssueState.OPEN) IssueState.CLOSED else IssueState.OPEN
-        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
         _issues.update { list ->
             list.map { if (it.number == issueNumber) it.copy(state = targetState) else it }
         }
 
-        if (actualToken.isNotBlank()) {
+        if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
             try {
                 val jsonPayload = org.json.JSONObject().apply {
                     put("state", if (targetState == IssueState.CLOSED) "closed" else "open")
@@ -538,19 +664,21 @@ object SdlcManager {
     }
 
     fun dispatchWorkflow(workflowName: String): WorkflowRunItem {
+        val repoName = _sdlcConfig.value.projectName.ifBlank { "app" }
+        val ownerName = _sdlcConfig.value.repositoryOwner
         val newRun = WorkflowRunItem(
             id = System.currentTimeMillis(),
             name = workflowName,
             event = "workflow_dispatch",
-            branch = "main",
+            branch = _sdlcConfig.value.targetBranch.ifBlank { "main" },
             commitHash = "HEAD",
             commitMessage = "Manual dispatch from Antigravity Mobile SDLC Center",
             status = WorkflowStatus.IN_PROGRESS,
             conclusion = WorkflowConclusion.SUCCESS,
             duration = "Running...",
             runStartedAt = "Just now",
-            artifactName = "Antigravity-Mobile-Debug-APK",
-            artifactUrl = "https://github.com/saileshkushwaha/antigravity-mobile/actions"
+            artifactName = "$repoName-Release-APK",
+            artifactUrl = if (ownerName.isNotBlank() && repoName.isNotBlank()) "https://github.com/$ownerName/$repoName/actions" else ""
         )
         _workflowRuns.update { listOf(newRun) + it }
         EnterpriseAuditLogger.log(
@@ -568,13 +696,13 @@ object SdlcManager {
         owner: String = "",
         repo: String = ""
     ): Result<WorkflowRunItem> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
         val localRun = dispatchWorkflow(workflowIdOrName)
 
-        if (actualToken.isNotBlank()) {
+        if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
             try {
                 val jsonPayload = org.json.JSONObject().apply {
                     put("ref", branch)
@@ -612,8 +740,8 @@ object SdlcManager {
         owner: String = "",
         repo: String = ""
     ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
         _workflowRuns.update { list ->
@@ -622,7 +750,7 @@ object SdlcManager {
             }
         }
 
-        if (actualToken.isNotBlank()) {
+        if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
             try {
                 val req = okhttp3.Request.Builder()
                     .url("https://api.github.com/repos/$actualOwner/$actualRepo/actions/runs/$runId/rerun")
@@ -650,15 +778,15 @@ object SdlcManager {
             environment = environment,
             versionTag = versionTag,
             commitHash = "HEAD",
-            deployedBy = _sdlcConfig.value.repositoryOwner.ifBlank { "saileshkushwaha" },
+            deployedBy = _sdlcConfig.value.repositoryOwner.ifBlank { "system" },
             timestamp = "Just now",
             status = DeploymentStatus.DEPLOYED,
             healthStatus = HealthStatus.HEALTHY,
             liveUrl = when (environment) {
-                EnvironmentType.PRODUCTION -> "https://antigravity.production.internal"
-                EnvironmentType.STAGING -> "https://staging.antigravity.internal"
+                EnvironmentType.PRODUCTION -> "https://app.production.internal"
+                EnvironmentType.STAGING -> "https://staging.app.internal"
                 EnvironmentType.DEVELOPMENT -> "http://localhost:8080"
-                EnvironmentType.CANARY -> "https://canary.antigravity.internal"
+                EnvironmentType.CANARY -> "https://canary.app.internal"
             },
             rollbackVersion = currentActive?.versionTag
         )
@@ -747,7 +875,7 @@ object SdlcManager {
             environment = environment,
             versionTag = versionTag,
             commitHash = branch,
-            deployedBy = _sdlcConfig.value.repositoryOwner.ifBlank { "saileshkushwaha" },
+            deployedBy = _sdlcConfig.value.repositoryOwner.ifBlank { "system" },
             timestamp = "Just now",
             status = DeploymentStatus.DEPLOYED,
             healthStatus = HealthStatus.HEALTHY,
@@ -1058,17 +1186,21 @@ environments:
     }
 
     suspend fun syncWithGitHub(
-        owner: String = "saileshkushwaha",
-        repo: String = "antigravity-mobile",
+        owner: String = "",
+        repo: String = "",
         token: String = ""
     ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         if (_isSyncing.value) return@withContext Result.success("Sync in progress")
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
+        val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
+
+        if (actualOwner.isBlank() || actualRepo.isBlank()) {
+            return@withContext Result.failure(IllegalStateException("No GitHub repository selected. Please configure or select a repository."))
+        }
+
         _isSyncing.value = true
         try {
-            val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }.ifBlank { "saileshkushwaha" }
-            val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }.ifBlank { "antigravity-mobile" }
-            val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
-
             // 1. Sync Workflow Runs
             try {
                 val runsReq = okhttp3.Request.Builder()
@@ -1118,7 +1250,7 @@ environments:
                                     conclusion = conclusion,
                                     duration = "1m 30s",
                                     runStartedAt = item.optString("created_at", "Recently"),
-                                    artifactName = "Antigravity-Mobile-Debug-APK",
+                                    artifactName = "$actualRepo-Release-APK",
                                     artifactUrl = item.optString("html_url")
                                 )
                             )

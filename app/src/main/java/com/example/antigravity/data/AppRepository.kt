@@ -7,6 +7,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.UUID
 
 class AppRepository {
@@ -37,14 +38,14 @@ class AppRepository {
             ProjectWorkspace(
                 id = "ws-1",
                 name = "magical-bose",
-                path = "c:\\Users\\SaileshKushwaha\\Documents\\antigravity\\magical-bose",
+                path = System.getProperty("user.dir") ?: "c:\\workspace\\magical-bose",
                 branch = "main",
                 customRules = listOf("user_rules.md", "guidelines.md")
             ),
             ProjectWorkspace(
                 id = "ws-2",
-                name = "antigravity-mobile",
-                path = "c:\\Projects\\mobile\\antigravity-mobile",
+                name = "mobile-client",
+                path = "c:\\Projects\\mobile\\mobile-client",
                 branch = "feature/agent-engine",
                 customRules = listOf("compose-best-practices.md")
             ),
@@ -209,6 +210,14 @@ class AppRepository {
 
     fun updateSettings(newSettings: AppSettings) {
         _settings.value = newSettings
+        com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
+            it.copy(
+                repositoryOwner = newSettings.githubOwner,
+                projectName = newSettings.githubRepo,
+                targetBranch = newSettings.targetBranch,
+                githubToken = newSettings.githubToken
+            )
+        }
     }
 
     fun selectModel(model: ModelInfo) {
@@ -630,6 +639,27 @@ class AppRepository {
                 ))
             } else conv
         }
+    }
+
+    fun selectGitHubRepository(owner: String, repo: String, branch: String = "main") {
+        _settings.update {
+            it.copy(
+                githubOwner = owner,
+                githubRepo = repo,
+                targetBranch = branch
+            )
+        }
+        com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
+            it.copy(
+                repositoryOwner = owner,
+                projectName = repo,
+                targetBranch = branch
+            )
+        }
+    }
+
+    fun updateSettings(transform: (AppSettings) -> AppSettings) {
+        _settings.update(transform)
     }
 
     fun resetAllDataToDefaults() {
