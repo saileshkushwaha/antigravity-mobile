@@ -56,9 +56,9 @@ data class ResearchDocRecord(
     val extractedAt: String = ""
 )
 
-class AnalyticsSqlEngine(private val context: Context, private val activeWorkspaceDir: File) {
+class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File) {
 
-    private val dbHelper = object : SQLiteOpenHelper(context, "antigravity_analytics.db", null, 3) {
+    private val dbHelper = object : SQLiteOpenHelper(context.applicationContext, "antigravity_analytics.db", null, 3) {
         override fun onConfigure(db: SQLiteDatabase) {
             super.onConfigure(db)
             db.setForeignKeyConstraintsEnabled(true)

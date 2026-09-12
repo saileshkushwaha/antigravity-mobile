@@ -30,11 +30,11 @@ import java.io.File
 @Composable
 fun ObservabilityStudioScreen(
     activeWorkspaceDir: File,
-    onBack: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var activeTab by remember { mutableStateOf(0) } // 0: Crash Analyzer, 1: Network Monitor
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Crash Analyzer, 1: Network Monitor
     var stackTraceInput by remember { mutableStateOf("") }
     var crashReport by remember { mutableStateOf<CrashReport?>(null) }
     val networkLogs by NetworkTrafficMonitor.logs.collectAsState()
@@ -92,7 +92,7 @@ fun ObservabilityStudioScreen(
         }
 
         // Subtabs: Crash Analyzer vs Network Monitor
-        TabRow(
+        PrimaryTabRow(
             selectedTabIndex = activeTab,
             containerColor = AntigravityColors.SurfaceDark,
             contentColor = AntigravityColors.ElectricCyan,

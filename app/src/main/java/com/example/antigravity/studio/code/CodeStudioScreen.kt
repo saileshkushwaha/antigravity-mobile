@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,13 +33,13 @@ import java.io.File
 @Composable
 fun CodeStudioScreen(
     activeWorkspace: ProjectWorkspace,
+    modifier: Modifier = Modifier,
     workspaces: List<ProjectWorkspace> = emptyList(),
     onSelectWorkspace: (ProjectWorkspace) -> Unit = {},
     onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
     onOpenDrawer: () -> Unit = {},
     onExecuteCommand: (String) -> Unit = {},
-    terminalLogs: List<String> = emptyList(),
-    modifier: Modifier = Modifier
+    terminalLogs: List<String> = emptyList()
 ) {
     val workspaceDir = remember(activeWorkspace.path) {
         val f = File(activeWorkspace.path)
@@ -68,7 +69,7 @@ fun CodeStudioScreen(
     var showTerminalDrawer by remember { mutableStateOf(false) }
     var terminalInput by remember { mutableStateOf("") }
     var showFileTreePane by remember { mutableStateOf(true) }
-    var activeStudioView by remember { mutableStateOf(0) } // 0: Editor, 1: Test Explorer
+    var activeStudioView by remember { mutableIntStateOf(0) } // 0: Editor, 1: Test Explorer
     var showDiagnosticsDrawer by remember { mutableStateOf(false) }
 
     // Interactive Breakpoints & Debug Session Simulator
@@ -447,7 +448,7 @@ fun CodeStudioScreen(
                                         },
                                         modifier = Modifier.size(28.dp)
                                     ) {
-                                        Icon(Icons.Default.Redo, contentDescription = "Step Over", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Step Over", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
                                     }
                                     // Step Into
                                     IconButton(
@@ -591,7 +592,7 @@ fun CodeStudioScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         IconButton(onClick = { /* Explain */ }, modifier = Modifier.size(32.dp)) {
-                                            Icon(Icons.Default.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
                                         }
                                         IconButton(onClick = { /* Optimize */ }, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.Default.Bolt, contentDescription = "Optimize", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
@@ -1426,7 +1427,7 @@ fun FileTreeNodeItem(
         ) {
             if (node.isDirectory) {
                 Icon(
-                    if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                    if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = AntigravityColors.TextMuted,
                     modifier = Modifier.size(12.dp)
@@ -1485,10 +1486,10 @@ fun getFileIcon(extension: String): androidx.compose.ui.graphics.vector.ImageVec
     return when (extension) {
         "kt", "kts", "java" -> Icons.Default.Code
         "json", "xml", "yaml", "yml" -> Icons.Default.Description
-        "md", "txt" -> Icons.Default.Article
+        "md", "txt" -> Icons.AutoMirrored.Filled.Article
         "sql" -> Icons.Default.Storage
         "dart" -> Icons.Default.FlutterDash
-        else -> Icons.Default.InsertDriveFile
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile
     }
 }
 

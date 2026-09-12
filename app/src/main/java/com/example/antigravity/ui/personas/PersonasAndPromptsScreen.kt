@@ -31,10 +31,11 @@ import java.util.UUID
 @Composable
 fun PersonasAndPromptsContent(
     activePersona: AgentPersona,
-    personas: List<AgentPersona> = PersonaCatalog.allPersonas,
-    prompts: List<PromptTemplate> = PromptLibrary.allPrompts,
     onSelectPersona: (AgentPersona) -> Unit,
     onSelectPrompt: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    personas: List<AgentPersona> = PersonaCatalog.allPersonas,
+    prompts: List<PromptTemplate> = PromptLibrary.allPrompts,
     onAddPersona: ((AgentPersona) -> Unit)? = null,
     onUpdatePersona: ((AgentPersona) -> Unit)? = null,
     onDeletePersona: ((String) -> Unit)? = null,
@@ -44,10 +45,9 @@ fun PersonasAndPromptsContent(
     onDeletePrompt: ((String) -> Unit)? = null,
     onResetPrompts: (() -> Unit)? = null,
     onOpenDrawer: (() -> Unit)? = null,
-    onClose: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onClose: (() -> Unit)? = null
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0: Personas, 1: Prompts
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Personas, 1: Prompts
 
     Column(
         modifier = modifier
@@ -133,7 +133,7 @@ fun PersonasAndPromptsContent(
         }
 
         // Tab Row
-        TabRow(
+        PrimaryTabRow(
             selectedTabIndex = selectedTab,
             containerColor = AntigravityColors.CardBackground,
             contentColor = AntigravityColors.ElectricCyan

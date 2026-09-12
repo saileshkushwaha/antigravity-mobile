@@ -37,9 +37,9 @@ data class TestCaseResult(
  */
 @Composable
 fun VisualTestRunnerView(
+    modifier: Modifier = Modifier,
     onRunTests: (String) -> Unit = {},
-    isRunning: Boolean = false,
-    modifier: Modifier = Modifier
+    isRunning: Boolean = false
 ) {
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, PASSED, FAILED
     var searchQuery by remember { mutableStateOf("") }

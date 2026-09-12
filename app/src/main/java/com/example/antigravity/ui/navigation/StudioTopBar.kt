@@ -26,10 +26,10 @@ fun StudioTopBar(
     descriptor: StudioScreenDescriptor,
     onOpenDrawer: () -> Unit,
     onOpenMatrix: () -> Unit,
+    modifier: Modifier = Modifier,
     onLockStudio: (() -> Unit)? = null,
     activeWorkspaceBranch: String = "",
-    actions: @Composable RowScope.() -> Unit = {},
-    modifier: Modifier = Modifier
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
         title = {

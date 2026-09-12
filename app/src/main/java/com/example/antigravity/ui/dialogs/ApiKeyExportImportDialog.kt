@@ -41,7 +41,7 @@ fun ApiKeyExportImportDialog(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    var selectedTab by remember { mutableStateOf(0) } // 0: Export, 1: Import
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Export, 1: Import
 
     // Export State
     var maskExportedKeys by remember { mutableStateOf(false) }
@@ -129,7 +129,7 @@ fun ApiKeyExportImportDialog(
                 }
 
                 // Tab Switcher
-                TabRow(
+                PrimaryTabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = AntigravityColors.CardBackground,
                     contentColor = AntigravityColors.ElectricCyan

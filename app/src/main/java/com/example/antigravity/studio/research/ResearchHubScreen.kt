@@ -2,6 +2,7 @@ package com.example.antigravity.studio.research
 
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -45,7 +46,7 @@ fun ResearchHubScreen(
     val crawlerService = remember { WebCrawlerService() }
 
     var searchQuery by remember { mutableStateOf("Autonomous LLM Agents") }
-    var selectedSourceIndex by remember { mutableStateOf(0) } // 0: All, 1: arXiv, 2: PubMed, 3: Web Crawler
+    var selectedSourceIndex by remember { mutableIntStateOf(0) } // 0: All, 1: arXiv, 2: PubMed, 3: Web Crawler
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var papers by remember { mutableStateOf<List<ResearchPaper>>(emptyList()) }
@@ -226,7 +227,7 @@ fun ResearchHubScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Source Selector Tabs
-            TabRow(
+            PrimaryTabRow(
                 selectedTabIndex = selectedSourceIndex,
                 containerColor = Color(0xFF131C2E),
                 contentColor = Color(0xFF38BDF8),
@@ -485,7 +486,7 @@ fun ResearchHubScreen(
                                         IconButton(
                                             onClick = {
                                                 try {
-                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paper.url))
+                                                    val intent = Intent(Intent.ACTION_VIEW, paper.url.toUri())
                                                     context.startActivity(intent)
                                                 } catch (e: Exception) {
                                                     Toast.makeText(context, "Could not open URL", Toast.LENGTH_SHORT).show()

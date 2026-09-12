@@ -22,6 +22,8 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -60,11 +62,11 @@ import java.io.File
 fun AntigravityMainScreen(
     repository: AppRepository,
     agentEngine: AntigravityAgentEngine,
+    modifier: Modifier = Modifier,
     fragmentActivity: FragmentActivity? = null,
     isBiometricLocked: Boolean = false,
     onBiometricUnlock: () -> Unit = {},
-    onLockStudio: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onLockStudio: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -261,8 +263,9 @@ fun AntigravityMainScreen(
         )
             }
             else -> {
-                val configuration = LocalConfiguration.current
-                val isTabletOrExpanded = configuration.screenWidthDp >= 720
+                val windowInfo = LocalWindowInfo.current
+                val density = LocalDensity.current
+                val isTabletOrExpanded = with(density) { windowInfo.containerSize.width.toDp() } >= 720.dp
                 var isSidebarDockedVisible by remember { mutableStateOf(true) }
 
                 val handleOpenDrawer: () -> Unit = {

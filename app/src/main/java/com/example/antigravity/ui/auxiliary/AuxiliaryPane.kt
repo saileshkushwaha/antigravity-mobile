@@ -39,13 +39,13 @@ fun AuxiliaryPane(
     subagents: List<SubagentItem>,
     backgroundTasks: List<BackgroundTaskItem>,
     fileDiffs: List<FileDiffItem>,
-    artifacts: List<ArtifactItem> = emptyList(),
     terminalLogs: List<String>,
     onExecuteTerminalCommand: (String) -> Unit,
     onKillTask: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    artifacts: List<ArtifactItem> = emptyList(),
     onClose: (() -> Unit)? = null,
-    onOpenDrawer: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     var selectedTab by remember { mutableStateOf(AuxiliaryTab.SUBAGENTS) }
 
@@ -123,7 +123,7 @@ fun AuxiliaryPane(
         }
 
         // Tab Navigation Row
-        ScrollableTabRow(
+        PrimaryScrollableTabRow(
             selectedTabIndex = selectedTab.ordinal,
             containerColor = AntigravityColors.SurfaceDark,
             contentColor = AntigravityColors.ElectricCyan,

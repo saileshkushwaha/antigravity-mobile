@@ -32,8 +32,8 @@ import java.io.File
 @Composable
 fun IacStudioScreen(
     activeWorkspaceDir: File,
-    onBack: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current

@@ -46,9 +46,9 @@ fun ProductDesignScreen(
     val coroutineScope = rememberCoroutineScope()
     var tokens by remember { mutableStateOf(DesignTokens()) }
     var showExportDialog by remember { mutableStateOf(false) }
-    var exportTab by remember { mutableStateOf(0) } // 0: Compose, 1: Flutter, 2: W3C DTCG, 3: Tailwind, 4: CSS
+    var exportTab by remember { mutableIntStateOf(0) } // 0: Compose, 1: Flutter, 2: W3C DTCG, 3: Tailwind, 4: CSS
     var saveStatus by remember { mutableStateOf<String?>(null) }
-    var activeStudioTab by remember { mutableStateOf(0) } // 0: Tokens, 1: Storybook, 2: Figma Sync, 3: Spec QA, 4: Web Sandbox
+    var activeStudioTab by remember { mutableIntStateOf(0) } // 0: Tokens, 1: Storybook, 2: Figma Sync, 3: Spec QA, 4: Web Sandbox
 
     var showPrConfirmDialog by remember { mutableStateOf(false) }
     var isDispatchingPr by remember { mutableStateOf(false) }
@@ -134,7 +134,7 @@ fun ProductDesignScreen(
                 )
 
                 // Navigation Studio Tabs
-                ScrollableTabRow(
+                PrimaryScrollableTabRow(
                     selectedTabIndex = activeStudioTab,
                     containerColor = Color(0xFF0F172A),
                     contentColor = tokens.getPrimaryColor(),
@@ -545,7 +545,7 @@ fun ProductDesignScreen(
                     Column {
                         Text("Export Design System", color = Color.White, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
-                        ScrollableTabRow(
+                        PrimaryScrollableTabRow(
                             selectedTabIndex = exportTab,
                             containerColor = Color(0xFF1E293B),
                             contentColor = Color.White,

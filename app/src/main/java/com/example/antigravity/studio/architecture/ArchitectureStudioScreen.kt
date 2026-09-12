@@ -32,12 +32,12 @@ import java.io.File
 @Composable
 fun ArchitectureStudioScreen(
     activeWorkspaceDir: File,
-    onBack: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    var activeTab by remember { mutableStateOf(0) } // 0: Mermaid Diagrams, 1: ADR Catalog, 2: Room Migrations
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Mermaid Diagrams, 1: ADR Catalog, 2: Room Migrations
 
     val diagrams = remember(activeWorkspaceDir) { ArchitectureStudioManager.scanAndGenerateMermaid(activeWorkspaceDir) }
     var selectedDiagram by remember { mutableStateOf(diagrams.first()) }
@@ -105,7 +105,7 @@ fun ArchitectureStudioScreen(
         }
 
         // Subtabs
-        TabRow(
+        PrimaryTabRow(
             selectedTabIndex = activeTab,
             containerColor = AntigravityColors.SurfaceDark,
             contentColor = AntigravityColors.ElectricCyan,

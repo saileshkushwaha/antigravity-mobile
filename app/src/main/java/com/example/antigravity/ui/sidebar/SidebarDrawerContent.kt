@@ -44,6 +44,7 @@ fun SidebarDrawerContent(
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
+    modifier: Modifier = Modifier,
     onOpenLandingScreen: () -> Unit = {},
     onOpenCodeStudio: () -> Unit = {},
     onOpenDesignStudio: () -> Unit = {},
@@ -66,8 +67,7 @@ fun SidebarDrawerContent(
     onOpenChatStudio: () -> Unit = {},
     onOpenModelSelection: () -> Unit = {},
     onOpenApiKeyCsv: () -> Unit = {},
-    onOpenStudioMatrix: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onOpenStudioMatrix: () -> Unit = {}
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
     var showAddWorkspaceDialog by remember { mutableStateOf(false) }
@@ -810,10 +810,10 @@ fun SidebarActionItem(
 fun SidebarIconTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    tint: Color = AntigravityColors.ElectricCyan,
-    isActive: Boolean = false,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tint: Color = AntigravityColors.ElectricCyan,
+    isActive: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),

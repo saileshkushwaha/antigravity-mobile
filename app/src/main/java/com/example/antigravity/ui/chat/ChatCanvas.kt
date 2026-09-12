@@ -34,23 +34,23 @@ fun ChatCanvas(
     conversation: Conversation?,
     agentState: AgentRunState,
     activeModel: String,
+    onOpenModelPicker: () -> Unit,
+    onOpenDrawer: () -> Unit,
+    onToggleAuxiliary: () -> Unit,
+    auxiliaryActiveCount: Int,
+    onApprovePlan: (String) -> Unit,
+    onRejectPlan: (String) -> Unit,
+    modifier: Modifier = Modifier,
     activePersona: AgentPersona? = null,
     activeWorkspace: ProjectWorkspace? = null,
     workspaces: List<ProjectWorkspace> = emptyList(),
     onSelectWorkspace: ((ProjectWorkspace) -> Unit)? = null,
     models: List<ModelInfo> = ModelCatalog.allModels,
     onSelectModel: ((ModelInfo) -> Unit)? = null,
-    onOpenModelPicker: () -> Unit,
     onOpenPersonaPicker: (() -> Unit)? = null,
     onOpenPromptLibrary: (() -> Unit)? = null,
     onOpenWorkspaceManager: () -> Unit = {},
-    onOpenDrawer: () -> Unit,
-    onToggleAuxiliary: () -> Unit,
-    auxiliaryActiveCount: Int,
-    onApprovePlan: (String) -> Unit,
-    onRejectPlan: (String) -> Unit,
-    onLockStudio: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onLockStudio: (() -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     var showModelDropdown by remember { mutableStateOf(false) }

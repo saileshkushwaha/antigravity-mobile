@@ -1,5 +1,6 @@
 package com.example.antigravity.data
 
+import androidx.core.content.edit
 import com.example.antigravity.engine.GeminiApiService
 import com.example.antigravity.engine.OpenAiGatewayService
 import com.example.antigravity.model.*
@@ -114,7 +115,7 @@ class AppRepository {
                 ListSerializer(ProjectWorkspace.serializer()),
                 _workspaces.value
             )
-            sharedPrefs?.edit()?.putString("saved_workspaces", json)?.apply()
+            sharedPrefs?.edit { putString("saved_workspaces", json) }
             _sqlEngine?.let { engine ->
                 _workspaces.value.forEach { engine.saveWorkspace(it) }
             }
@@ -558,7 +559,7 @@ class AppRepository {
         _settings.value = newSettings
         try {
             val json = kotlinx.serialization.json.Json.encodeToString(AppSettings.serializer(), newSettings)
-            sharedPrefs?.edit()?.putString("app_settings", json)?.apply()
+            sharedPrefs?.edit { putString("app_settings", json) }
             
             // Persist into enterprise AppConfigManager & SQLite app_configurations table
             com.example.antigravity.config.AppConfigManager.saveConfig("api_key", newSettings.apiKey)

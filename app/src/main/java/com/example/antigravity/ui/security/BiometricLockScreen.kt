@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.core.content.edit
 import com.example.antigravity.R
 import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.security.BiometricHardwareStatus
@@ -38,8 +39,8 @@ fun BiometricLockScreen(
     hardwareStatus: BiometricHardwareStatus,
     onTriggerBiometric: () -> Unit,
     onUnlock: () -> Unit,
-    errorMessage: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorMessage: String? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -528,7 +529,7 @@ fun BiometricLockScreen(
                             } else if (enteredPin != confirmPin) {
                                 pinErrorText = "PINs do not match"
                             } else {
-                                sharedPrefs.edit().putString("enclave_pin", enteredPin).apply()
+                                sharedPrefs.edit { putString("enclave_pin", enteredPin) }
                                 enrolledPin = enteredPin
                                 showPinDialog = false
                                 onUnlock()

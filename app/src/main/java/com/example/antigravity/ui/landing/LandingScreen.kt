@@ -27,6 +27,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.R
@@ -53,7 +54,6 @@ fun LandingScreen(
     skillsCount: Int,
     mcpCount: Int,
     showOnStartup: Boolean,
-    isBiometricEnabled: Boolean = false,
     onToggleShowOnStartup: (Boolean) -> Unit,
     onLaunchStudio: () -> Unit,
     onConfigureGateways: () -> Unit,
@@ -61,6 +61,9 @@ fun LandingScreen(
     onOpenPersonas: () -> Unit,
     onOpenSkills: () -> Unit,
     onOpenSdlc: () -> Unit,
+    onStartMissionPrompt: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    isBiometricEnabled: Boolean = false,
     onOpenCodeStudio: () -> Unit = onLaunchStudio,
     onOpenDesignStudio: () -> Unit = onLaunchStudio,
     onOpenResearchHub: () -> Unit = onLaunchStudio,
@@ -68,9 +71,7 @@ fun LandingScreen(
     onOpenConnectorsAndSwarm: () -> Unit = onLaunchStudio,
     onOpenInspector: () -> Unit = onLaunchStudio,
     onOpenChatStudio: () -> Unit = onLaunchStudio,
-    onStartMissionPrompt: (String) -> Unit,
-    onLockStudio: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onLockStudio: (() -> Unit)? = null
 ) {
     // Infinite animation transition for floating hero logo and pulsing halo
     val infiniteTransition = rememberInfiniteTransition(label = "HeroTransition")
@@ -361,7 +362,7 @@ fun LandingScreen(
                         )
                     ),
                     modifier = Modifier
-                        .offset(y = floatOffset.dp)
+                        .offset { IntOffset(0, floatOffset.dp.roundToPx()) }
                         .size(92.dp)
                 ) {
                     Box(

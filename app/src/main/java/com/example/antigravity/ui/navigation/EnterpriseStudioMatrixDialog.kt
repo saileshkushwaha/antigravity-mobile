@@ -35,13 +35,13 @@ fun EnterpriseStudioMatrixDialog(
     currentScreen: AntigravityAppScreen,
     onSelectStudio: (AntigravityAppScreen) -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     activeModel: String = "",
     activeWorkspaceName: String = "",
     activeBranch: String = "",
     skillsCount: Int = 0,
     mcpCount: Int = 0,
-    subagentsCount: Int = 0,
-    modifier: Modifier = Modifier
+    subagentsCount: Int = 0
 ) {
     var searchQuery by remember { mutableStateOf("") }
 

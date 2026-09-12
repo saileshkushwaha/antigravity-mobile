@@ -92,7 +92,11 @@ object CloudSandboxService {
                     onOutputLine?.invoke(line)
                     line = reader.readLine()
                 }
-                process.waitFor(config.timeoutSeconds.toLong(), TimeUnit.SECONDS)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    process.waitFor(config.timeoutSeconds.toLong(), TimeUnit.SECONDS)
+                } else {
+                    process.waitFor()
+                }
 
                 val duration = System.currentTimeMillis() - startTime
                 val exit = process.exitValue()

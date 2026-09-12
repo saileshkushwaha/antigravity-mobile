@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AltRoute
+import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,7 +47,7 @@ fun ConnectorsAndSwarmScreen(
     val connectorsManager = remember { MarketConnectorsManager() }
     val sqlEngine = remember(activeWorkspaceDir) { AnalyticsSqlEngine(context, activeWorkspaceDir) }
 
-    var selectedTab by remember { mutableStateOf(0) } // 0: Connectors, 1: Swarm DAG
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Connectors, 1: Swarm DAG
     var connectors by remember { mutableStateOf(connectorsManager.getAvailableConnectors()) }
     var agents by remember { mutableStateOf(connectorsManager.getInitialSwarmAgents()) }
     var isPingingAll by remember { mutableStateOf(false) }
@@ -61,7 +63,7 @@ fun ConnectorsAndSwarmScreen(
             "Containerized Docker Build & CI/CD Deployment"
         )
     }
-    var selectedMissionIndex by remember { mutableStateOf(0) }
+    var selectedMissionIndex by remember { mutableIntStateOf(0) }
 
     fun pingAll() {
         isPingingAll = true
@@ -139,7 +141,7 @@ fun ConnectorsAndSwarmScreen(
                 .padding(16.dp)
         ) {
             // Main Selector Tab
-            TabRow(
+            PrimaryTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = Color(0xFF131C2E),
                 contentColor = Color(0xFFA855F7),
@@ -484,7 +486,7 @@ fun ConnectorsAndSwarmScreen(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     ) {
-                                        Icon(Icons.Default.AltRoute, contentDescription = null, tint = Color(0xFFA855F7), modifier = Modifier.size(14.dp))
+                                        Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null, tint = Color(0xFFA855F7), modifier = Modifier.size(14.dp))
                                         Text(
                                             "STAGE 2: PARALLEL WORKERS (${agents.count { it.stage == 2 && it.isEnabled }} ACTIVE)",
                                             fontSize = 9.sp,
@@ -538,7 +540,7 @@ fun ConnectorsAndSwarmScreen(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     ) {
-                                        Icon(Icons.Default.CallMerge, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(14.dp))
+                                        Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(14.dp))
                                         Text(
                                             "STAGE 3: CONVERGENCE & AUDIT",
                                             fontSize = 9.sp,
@@ -730,7 +732,7 @@ fun ConnectorsAndSwarmScreen(
         if (showAddAgentDialog) {
             var customName by remember { mutableStateOf("") }
             var customRole by remember { mutableStateOf("") }
-            var customStage by remember { mutableStateOf(2) } // 1: Decomp, 2: Worker, 3: Review, 4: DevOps
+            var customStage by remember { mutableIntStateOf(2) } // 1: Decomp, 2: Worker, 3: Review, 4: DevOps
 
             AlertDialog(
                 onDismissRequest = { showAddAgentDialog = false },
@@ -825,9 +827,9 @@ fun ConnectorsAndSwarmScreen(
 fun SwarmDagNodeCard(
     agent: SwarmAgent,
     nodeTag: String,
+    modifier: Modifier = Modifier,
     onToggleEnabled: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onDelete: (() -> Unit)? = null
 ) {
     val stateColor by animateColorAsState(
         when (agent.state) {

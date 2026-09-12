@@ -2,6 +2,7 @@ package com.example.antigravity.config
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.example.antigravity.model.AppSettings
 import com.example.antigravity.studio.analytics.AnalyticsSqlEngine
 import java.io.File
@@ -25,7 +26,7 @@ object AppConfigManager {
     private val fileConfigs = mutableMapOf<String, String>()
 
     fun init(context: Context, workspaceDir: File? = null, engine: AnalyticsSqlEngine? = null) {
-        sharedPrefs = context.getSharedPreferences("antigravity_prefs", Context.MODE_PRIVATE)
+        sharedPrefs = context.applicationContext.getSharedPreferences("antigravity_prefs", Context.MODE_PRIVATE)
         sqlEngine = engine
         loadWorkspaceConfigFiles(workspaceDir)
     }
@@ -128,7 +129,7 @@ object AppConfigManager {
      */
     fun saveConfig(key: String, value: String, category: String = "SETTINGS") {
         memoryOverrides[key] = value
-        sharedPrefs?.edit()?.putString(key, value)?.apply()
+        sharedPrefs?.edit { putString(key, value) }
         sqlEngine?.saveConfiguration(key, value, category)
     }
 

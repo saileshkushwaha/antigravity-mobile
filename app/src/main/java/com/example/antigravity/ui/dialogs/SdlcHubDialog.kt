@@ -72,10 +72,10 @@ fun SdlcHubDialog(
 
 @Composable
 fun SdlcHubContent(
+    modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
-    appRepository: AppRepository? = null,
-    modifier: Modifier = Modifier
+    appRepository: AppRepository? = null
 ) {
     var selectedTab by remember { mutableStateOf(SdlcTab.GITHUB) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
@@ -717,7 +717,7 @@ fun GitHubCenterTab(
         return
     }
 
-    var subSection by remember { mutableStateOf(0) } // 0: PRs, 1: Issues, 2: Actions, 3: Commits
+    var subSection by remember { mutableIntStateOf(0) } // 0: PRs, 1: Issues, 2: Actions, 3: Commits
     var searchQuery by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1819,7 +1819,7 @@ fun ProjectConfigTab(
     onUpdateConfig: ((ProjectSdlcConfig) -> ProjectSdlcConfig) -> Unit,
     onExportWorkspace: () -> Unit
 ) {
-    var viewMode by remember { mutableStateOf(0) } // 0: Visual Controls, 1: YAML Output
+    var viewMode by remember { mutableIntStateOf(0) } // 0: Visual Controls, 1: YAML Output
     val yamlContent = remember(config) { SdlcManager.exportYaml() }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current

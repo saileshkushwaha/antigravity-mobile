@@ -34,8 +34,8 @@ import java.io.File
 @Composable
 fun ApiStudioScreen(
     activeWorkspaceDir: File,
-    onBack: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -47,9 +47,9 @@ fun ApiStudioScreen(
     var isLoading by remember { mutableStateOf(false) }
 
     // Sub-tabs: 0: Params, 1: Headers, 2: Body, 3: Auth
-    var activeRequestTab by remember { mutableStateOf(0) }
+    var activeRequestTab by remember { mutableIntStateOf(0) }
     // Response view tabs: 0: Body, 1: Headers
-    var activeResponseTab by remember { mutableStateOf(0) }
+    var activeResponseTab by remember { mutableIntStateOf(0) }
 
     var showCodeGenDialog by remember { mutableStateOf(false) }
     var selectedCodeGenTarget by remember { mutableStateOf(CodeTargetType.RETROFIT_KOTLIN) }

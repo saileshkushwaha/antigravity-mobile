@@ -275,7 +275,7 @@ fun WebSandboxView(
                             Text("Clear", color = Color.LightGray, fontSize = 10.sp)
                         }
                     }
-                    Divider(color = Color(0xFF1E293B), thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
                     if (consoleLogs.isEmpty()) {
                         Text("No console logs yet. Interact with the sandbox above.", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     } else {

@@ -36,13 +36,13 @@ fun ChatInputBar(
     isBusy: Boolean,
     slashCommands: List<SlashCommand>,
     mentionItems: List<MentionItem>,
+    modifier: Modifier = Modifier,
     activePersonaName: String? = null,
     workspaceName: String? = null,
     githubRepo: String? = null,
     onOpenPersonaSelection: () -> Unit = {},
     onOpenPromptLibrary: () -> Unit = {},
-    onOpenWorkspaceManager: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onOpenWorkspaceManager: () -> Unit = {}
 ) {
     var showSlashMenu by remember { mutableStateOf(false) }
     var showMentionMenu by remember { mutableStateOf(false) }

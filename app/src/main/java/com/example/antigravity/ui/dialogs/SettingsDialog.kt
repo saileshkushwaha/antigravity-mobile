@@ -33,6 +33,7 @@ import com.example.antigravity.model.ModelCatalog
 import com.example.antigravity.model.ModelInfo
 import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.theme.AntigravityColors
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +53,7 @@ fun SettingsDialog(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val biometricStatus = remember { BiometricAuthManager.checkBiometricAvailability(context) }
-    var selectedTab by remember { mutableStateOf(0) } // 0: Models & Gateways, 1: Autonomy, 2: DevOps, 3: Editor, 4: Data & Reset
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Models & Gateways, 1: Autonomy, 2: DevOps, 3: Editor, 4: Data & Reset
     var showApiKeyCsvDialog by remember { mutableStateOf(false) }
 
     // Gateways & Model Parameters
@@ -69,9 +70,9 @@ fun SettingsDialog(
     var showAddProviderModal by remember { mutableStateOf(false) }
     var selectedModel by remember { mutableStateOf(settings.activeModel) }
     var selectedModelId by remember { mutableStateOf(settings.activeModelId) }
-    var temperature by remember { mutableStateOf(settings.temperature) }
-    var topP by remember { mutableStateOf(settings.topP) }
-    var maxOutputTokens by remember { mutableStateOf(settings.maxOutputTokens.toFloat()) }
+    var temperature by remember { mutableFloatStateOf(settings.temperature) }
+    var topP by remember { mutableFloatStateOf(settings.topP) }
+    var maxOutputTokens by remember { mutableFloatStateOf(settings.maxOutputTokens.toFloat()) }
     var showThinkingBlock by remember { mutableStateOf(settings.showThinkingBlock) }
     var streamResponses by remember { mutableStateOf(settings.streamResponses) }
 
@@ -79,7 +80,7 @@ fun SettingsDialog(
     var executionPolicy by remember { mutableStateOf(settings.toolExecutionPolicy) }
     var sandboxEnabled by remember { mutableStateOf(settings.terminalSandbox) }
     var offlineDemoMode by remember { mutableStateOf(settings.isOfflineDemoMode) }
-    var maxSteps by remember { mutableStateOf(settings.maxAutonomousSteps.toFloat()) }
+    var maxSteps by remember { mutableFloatStateOf(settings.maxAutonomousSteps.toFloat()) }
     var autoApproveReadOnly by remember { mutableStateOf(settings.autoApproveReadOnlyTools) }
     var biometricLockEnabled by remember { mutableStateOf(settings.biometricLockEnabled) }
     var requireBiometricOnResume by remember { mutableStateOf(settings.requireBiometricOnResume) }
@@ -100,7 +101,7 @@ fun SettingsDialog(
 
     // UI & Editor Preferences
     var codeFontFamily by remember { mutableStateOf(settings.codeFontFamily) }
-    var codeFontSize by remember { mutableStateOf(settings.codeFontSize.toFloat()) }
+    var codeFontSize by remember { mutableFloatStateOf(settings.codeFontSize.toFloat()) }
     var hapticFeedback by remember { mutableStateOf(settings.hapticFeedback) }
     var autoScrollChat by remember { mutableStateOf(settings.autoScrollChat) }
     var showLandingOnStartup by remember { mutableStateOf(settings.showLandingOnStartup) }
@@ -197,7 +198,7 @@ fun SettingsDialog(
                 }
 
                 // Categorized Tab Switcher
-                ScrollableTabRow(
+                PrimaryScrollableTabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = AntigravityColors.CardBackground,
                     contentColor = AntigravityColors.ElectricCyan,
@@ -316,7 +317,7 @@ fun SettingsDialog(
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text("Temperature (Creativity)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                                            Text(String.format("%.2f", temperature), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                            Text(String.format(Locale.US, "%.2f", temperature), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
                                         }
                                         Slider(
                                             value = temperature,
@@ -344,7 +345,7 @@ fun SettingsDialog(
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text("Top P (Nucleus Sampling)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                                            Text(String.format("%.2f", topP), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                            Text(String.format(Locale.US, "%.2f", topP), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
                                         }
                                         Slider(
                                             value = topP,

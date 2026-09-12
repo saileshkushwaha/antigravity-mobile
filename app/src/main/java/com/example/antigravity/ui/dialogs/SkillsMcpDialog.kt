@@ -86,6 +86,7 @@ fun SkillsMcpDialog(
 fun SkillsMcpContent(
     skills: List<SkillItem>,
     mcpServers: List<McpServerItem>,
+    modifier: Modifier = Modifier,
     onToggleSkill: (String) -> Unit = {},
     onAddSkill: (SkillItem) -> Unit = {},
     onUpdateSkill: (SkillItem) -> Unit = {},
@@ -98,10 +99,9 @@ fun SkillsMcpContent(
     onToggleMcpServer: (String) -> Unit = {},
     onResetMcpServers: () -> Unit = {},
     onOpenDrawer: (() -> Unit)? = null,
-    onClose: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onClose: (() -> Unit)? = null
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0: Skills, 1: MCP
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Skills, 1: MCP
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
 
@@ -225,7 +225,7 @@ fun SkillsMcpContent(
         }
 
         // Tab Switcher
-        TabRow(
+        PrimaryTabRow(
             selectedTabIndex = selectedTab,
             containerColor = AntigravityColors.CardBackground,
             contentColor = AntigravityColors.ElectricCyan
