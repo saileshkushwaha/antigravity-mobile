@@ -64,6 +64,7 @@ fun AntigravityMainScreen(
     fragmentActivity: FragmentActivity? = null,
     isBiometricLocked: Boolean = false,
     onBiometricUnlock: () -> Unit = {},
+    onLockStudio: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -221,6 +222,7 @@ fun AntigravityMainScreen(
                 currentScreen = AntigravityAppScreen.CHAT
                 inputText = prompt
             },
+            onLockStudio = onLockStudio,
             modifier = modifier.fillMaxSize()
         )
             }
@@ -322,6 +324,10 @@ fun AntigravityMainScreen(
                     },
                     onOpenAddProjectOrFolder = {
                         showAddWorkspaceDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onLockStudio = {
+                        onLockStudio()
                         coroutineScope.launch { drawerState.close() }
                     }
                 )
@@ -439,6 +445,7 @@ fun AntigravityMainScreen(
                             onRejectPlan = { messageId ->
                                 agentEngine.rejectPlan(messageId)
                             },
+                            onLockStudio = onLockStudio,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

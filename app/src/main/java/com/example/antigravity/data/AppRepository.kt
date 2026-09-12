@@ -41,7 +41,7 @@ class AppRepository {
         if (savedJson != null) {
             try {
                 val parsed = kotlinx.serialization.json.Json.decodeFromString(AppSettings.serializer(), savedJson)
-                _settings.value = parsed
+                _settings.value = parsed.copy(biometricLockEnabled = true)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

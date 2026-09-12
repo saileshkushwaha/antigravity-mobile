@@ -60,6 +60,7 @@ fun LandingScreen(
     onOpenSkills: () -> Unit,
     onOpenSdlc: () -> Unit,
     onStartMissionPrompt: (String) -> Unit,
+    onLockStudio: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // Infinite animation transition for floating hero logo and pulsing halo
@@ -210,16 +211,32 @@ fun LandingScreen(
                     }
                 }
 
-                TextButton(
-                    onClick = onLaunchStudio,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = "Skip to Studio →",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AntigravityColors.ElectricCyan
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (onLockStudio != null) {
+                        IconButton(
+                            onClick = onLockStudio,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Lock Studio with Biometrics",
+                                tint = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onLaunchStudio,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Skip to Studio →",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AntigravityColors.ElectricCyan
+                        )
+                    }
                 }
             }
 

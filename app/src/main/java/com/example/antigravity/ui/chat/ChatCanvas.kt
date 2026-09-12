@@ -44,6 +44,7 @@ fun ChatCanvas(
     auxiliaryActiveCount: Int,
     onApprovePlan: (String) -> Unit,
     onRejectPlan: (String) -> Unit,
+    onLockStudio: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -141,6 +142,18 @@ fun ChatCanvas(
                     }
                 },
                 actions = {
+                    // Lock Studio Button
+                    if (onLockStudio != null) {
+                        IconButton(onClick = onLockStudio) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Lock Studio",
+                                tint = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
+
                     // Add Project or Folder Button
                     IconButton(onClick = onOpenWorkspaceManager) {
                         Icon(

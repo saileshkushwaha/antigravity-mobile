@@ -18,7 +18,7 @@ import com.example.antigravity.ui.AntigravityMainScreen
 class MainActivity : FragmentActivity() {
 
     private val repository by lazy { AppRepository() }
-    private var isAppLocked by mutableStateOf(false)
+    private var isAppLocked by mutableStateOf(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,9 +26,7 @@ class MainActivity : FragmentActivity() {
         
         repository.init(applicationContext)
 
-        if (repository.settings.value.biometricLockEnabled) {
-            isAppLocked = true
-        }
+        isAppLocked = repository.settings.value.biometricLockEnabled
 
         setContent {
             val scope = rememberCoroutineScope()
@@ -46,7 +44,8 @@ class MainActivity : FragmentActivity() {
                         agentEngine = agentEngine,
                         fragmentActivity = this@MainActivity,
                         isBiometricLocked = isAppLocked,
-                        onBiometricUnlock = { isAppLocked = false }
+                        onBiometricUnlock = { isAppLocked = false },
+                        onLockStudio = { isAppLocked = true }
                     )
                 }
             }

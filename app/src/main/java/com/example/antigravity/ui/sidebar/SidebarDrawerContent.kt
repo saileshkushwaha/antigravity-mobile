@@ -54,6 +54,7 @@ fun SidebarDrawerContent(
     onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
     onDeleteWorkspace: (String) -> Unit = {},
     onOpenAddProjectOrFolder: () -> Unit = {},
+    onLockStudio: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
@@ -481,6 +482,17 @@ fun SidebarDrawerContent(
                     label = "Overview",
                     tint = AntigravityColors.TextSecondary,
                     onClick = onOpenLandingScreen,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Row 6: Security Lock Studio
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SidebarIconTile(
+                    icon = Icons.Default.Lock,
+                    label = "Lock Studio",
+                    tint = AntigravityColors.StatusError,
+                    onClick = onLockStudio,
                     modifier = Modifier.weight(1f)
                 )
             }
