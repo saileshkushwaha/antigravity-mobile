@@ -42,6 +42,11 @@ fun SidebarDrawerContent(
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLandingScreen: () -> Unit = {},
+    onOpenCodeStudio: () -> Unit = {},
+    onOpenDesignStudio: () -> Unit = {},
+    onOpenResearchHub: () -> Unit = {},
+    onOpenAnalyticsStudio: () -> Unit = {},
+    onOpenConnectorsAndSwarm: () -> Unit = {},
     onOpenSdlcHub: () -> Unit = {},
     onOpenPersonas: () -> Unit = {},
     onOpenPrompts: () -> Unit = {},
@@ -366,10 +371,57 @@ fun SidebarDrawerContent(
                 onClick = onOpenLandingScreen
             )
 
+            // Studio Pillars Section
+            Text(
+                text = "ENTERPRISE STUDIOS",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = AntigravityColors.ElectricCyan,
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp, start = 8.dp)
+            )
+
+            SidebarActionItem(
+                icon = Icons.Default.Code,
+                title = "Mobile Code IDE & Runner",
+                onClick = onOpenCodeStudio
+            )
+
+            SidebarActionItem(
+                icon = Icons.Default.Palette,
+                title = "Product Design Studio",
+                onClick = onOpenDesignStudio
+            )
+
+            SidebarActionItem(
+                icon = Icons.Default.MenuBook,
+                title = "Deep Research Hub",
+                onClick = onOpenResearchHub
+            )
+
+            SidebarActionItem(
+                icon = Icons.Default.Analytics,
+                title = "Data Analytics & SQL",
+                onClick = onOpenAnalyticsStudio
+            )
+
+            SidebarActionItem(
+                icon = Icons.Default.Hub,
+                title = "DevOps & Swarm DAG",
+                onClick = onOpenConnectorsAndSwarm
+            )
+
+            Text(
+                text = "WORKFLOW & EXTENSIONS",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = AntigravityColors.TextMuted,
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp, start = 8.dp)
+            )
+
             // SDLC & DevOps Center
             SidebarActionItem(
                 icon = Icons.Default.RocketLaunch,
-                title = "SDLC & DevOps Center",
+                title = "SDLC & GitHub Center",
                 onClick = onOpenSdlcHub
             )
 

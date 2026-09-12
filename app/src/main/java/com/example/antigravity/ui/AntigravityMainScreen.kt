@@ -27,14 +27,25 @@ import com.example.antigravity.ui.dialogs.*
 import com.example.antigravity.ui.landing.LandingScreen
 import com.example.antigravity.ui.personas.PersonasAndPromptsContent
 import com.example.antigravity.ui.security.BiometricLockScreen
+import com.example.antigravity.studio.analytics.DataAnalyticsScreen
+import com.example.antigravity.studio.code.CodeStudioScreen
+import com.example.antigravity.studio.connectors.ConnectorsAndSwarmScreen
+import com.example.antigravity.studio.design.ProductDesignScreen
+import com.example.antigravity.studio.research.ResearchHubScreen
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
+import java.io.File
 
 enum class AntigravityAppScreen(
     val title: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    CHAT("Chat", Icons.Default.ChatBubbleOutline),
+    CHAT("Agent", Icons.Default.ChatBubbleOutline),
+    CODE("Code", Icons.Default.Code),
+    DESIGN("Design", Icons.Default.Palette),
+    RESEARCH("Research", Icons.Default.MenuBook),
+    ANALYTICS("Analytics", Icons.Default.Analytics),
+    CONNECTORS("DevOps", Icons.Default.Hub),
     SDLC("SDLC", Icons.Default.RocketLaunch),
     PERSONAS("Personas", Icons.Default.Psychology),
     SKILLS("Skills", Icons.Default.Extension),
@@ -63,10 +74,21 @@ fun AntigravityMainScreen(
     // State flows
     val workspaces by repository.workspaces.collectAsState()
     val activeWorkspace by repository.activeWorkspace.collectAsState()
+    val activeWorkspaceDir = remember(activeWorkspace.path) {
+        File(activeWorkspace.path).apply {
+            if (!exists()) mkdirs()
+        }
+    }
     val conversations by repository.conversations.collectAsState()
     val activeConversationId by repository.activeConversationId.collectAsState()
     val activeConversation = conversations.find { it.id == activeConversationId }
     val settings by repository.settings.collectAsState()
+
+    if (!showLandingScreen && !isBiometricLocked && currentScreen != AntigravityAppScreen.CHAT) {
+        BackHandler {
+            currentScreen = AntigravityAppScreen.CHAT
+        }
+    }
 
     val backgroundTasks by repository.backgroundTasks.collectAsState()
     val subagents by repository.subagents.collectAsState()
@@ -238,6 +260,26 @@ fun AntigravityMainScreen(
                         showLandingScreen = true
                         coroutineScope.launch { drawerState.close() }
                     },
+                    onOpenCodeStudio = {
+                        currentScreen = AntigravityAppScreen.CODE
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenDesignStudio = {
+                        currentScreen = AntigravityAppScreen.DESIGN
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenResearchHub = {
+                        currentScreen = AntigravityAppScreen.RESEARCH
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenAnalyticsStudio = {
+                        currentScreen = AntigravityAppScreen.ANALYTICS
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onOpenConnectorsAndSwarm = {
+                        currentScreen = AntigravityAppScreen.CONNECTORS
+                        coroutineScope.launch { drawerState.close() }
+                    },
                     onOpenSdlcHub = {
                         currentScreen = AntigravityAppScreen.SDLC
                         coroutineScope.launch { drawerState.close() }
@@ -280,29 +322,25 @@ fun AntigravityMainScreen(
                         )
                     }
 
+                    val bottomNavScreens = listOf(
+                        AntigravityAppScreen.CHAT,
+                        AntigravityAppScreen.CODE,
+                        AntigravityAppScreen.DESIGN,
+                        AntigravityAppScreen.RESEARCH,
+                        AntigravityAppScreen.ANALYTICS,
+                        AntigravityAppScreen.CONNECTORS
+                    )
+
                     NavigationBar(
                         containerColor = AntigravityColors.SurfaceDark,
                         tonalElevation = 8.dp
                     ) {
-                        AntigravityAppScreen.values().forEach { screen ->
+                        bottomNavScreens.forEach { screen ->
                             NavigationBarItem(
                                 selected = currentScreen == screen,
                                 onClick = { currentScreen = screen },
                                 icon = {
-                                    BadgedBox(
-                                        badge = {
-                                            if (screen == AntigravityAppScreen.INSPECTOR && auxiliaryActiveCount > 0) {
-                                                Badge(
-                                                    containerColor = AntigravityColors.ElectricCyan,
-                                                    contentColor = Color.Black
-                                                ) {
-                                                    Text("$auxiliaryActiveCount")
-                                                }
-                                            }
-                                        }
-                                    ) {
-                                        Icon(screen.icon, contentDescription = screen.title)
-                                    }
+                                    Icon(screen.icon, contentDescription = screen.title)
                                 },
                                 label = {
                                     Text(
@@ -361,6 +399,39 @@ fun AntigravityMainScreen(
                                 agentEngine.rejectPlan(messageId)
                             },
                             modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AntigravityAppScreen.CODE -> {
+                        CodeStudioScreen(
+                            activeWorkspace = activeWorkspace,
+                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                            onExecuteCommand = { repository.executeTerminalCommand(it) },
+                            terminalLogs = terminalLogs,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    AntigravityAppScreen.DESIGN -> {
+                        ProductDesignScreen(
+                            activeWorkspaceDir = activeWorkspaceDir,
+                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                        )
+                    }
+                    AntigravityAppScreen.RESEARCH -> {
+                        ResearchHubScreen(
+                            activeWorkspaceDir = activeWorkspaceDir,
+                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                        )
+                    }
+                    AntigravityAppScreen.ANALYTICS -> {
+                        DataAnalyticsScreen(
+                            activeWorkspaceDir = activeWorkspaceDir,
+                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                        )
+                    }
+                    AntigravityAppScreen.CONNECTORS -> {
+                        ConnectorsAndSwarmScreen(
+                            activeWorkspaceDir = activeWorkspaceDir,
+                            onBack = { currentScreen = AntigravityAppScreen.CHAT }
                         )
                     }
                     AntigravityAppScreen.SDLC -> {
