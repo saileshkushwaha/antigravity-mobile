@@ -1,12 +1,24 @@
 package com.example.antigravity.data
 
+import com.example.antigravity.engine.GeminiApiService
+import com.example.antigravity.engine.OpenAiGatewayService
 import com.example.antigravity.model.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
 class AppRepository {
+
+    private val geminiService = GeminiApiService()
+    private val openAiGatewayService = OpenAiGatewayService()
+
+    private val _models = MutableStateFlow<List<ModelInfo>>(ModelCatalog.allModels)
+    val models: StateFlow<List<ModelInfo>> = _models.asStateFlow()
+
+    private val _isFetchingModels = MutableStateFlow(false)
+    val isFetchingModels: StateFlow<Boolean> = _isFetchingModels.asStateFlow()
 
     private val _settings = MutableStateFlow(
         AppSettings(
@@ -197,6 +209,140 @@ class AppRepository {
 
     fun updateSettings(newSettings: AppSettings) {
         _settings.value = newSettings
+    }
+
+    fun selectModel(model: ModelInfo) {
+        _settings.value = _settings.value.copy(
+            activeModel = model.name,
+            activeModelId = model.id
+        )
+        // Also update active conversation activeModel
+        val currentConv = getActiveConversation()
+        if (currentConv != null) {
+            val current = _conversations.value.toMutableList()
+            val index = current.indexOfFirst { it.id == currentConv.id }
+            if (index != -1) {
+                current[index] = currentConv.copy(activeModel = model.name)
+                _conversations.value = current
+            }
+        }
+    }
+
+    suspend fun refreshModelsFromGateways() = withContext(Dispatchers.IO) {
+        if (_isFetchingModels.value) return@withContext
+        _isFetchingModels.value = true
+        try {
+            val liveModels = mutableListOf<ModelInfo>()
+            val currentSettings = _settings.value
+
+            coroutineScope {
+                val deferreds = mutableListOf<Deferred<List<ModelInfo>>>()
+
+                // 1. Google Gemini (if API key available)
+                if (currentSettings.apiKey.isNotBlank()) {
+                    deferreds.add(async {
+                        geminiService.fetchModels(currentSettings.apiKey).getOrDefault(emptyList())
+                    })
+                }
+
+                // 2. OpenRouter (always discoverable public models endpoint)
+                deferreds.add(async {
+                    openAiGatewayService.fetchModels(
+                        baseUrl = ModelGateway.OPENROUTER.defaultBaseUrl,
+                        apiKey = currentSettings.openRouterApiKey,
+                        gateway = ModelGateway.OPENROUTER
+                    ).getOrDefault(emptyList())
+                })
+
+                // 3. KiloCode Free Models
+                deferreds.add(async {
+                    openAiGatewayService.fetchModels(
+                        baseUrl = ModelGateway.KILOCODE.defaultBaseUrl,
+                        apiKey = currentSettings.kiloCodeApiKey,
+                        gateway = ModelGateway.KILOCODE
+                    ).getOrDefault(emptyList())
+                })
+
+                // 4. OpenCode Free Models
+                deferreds.add(async {
+                    openAiGatewayService.fetchModels(
+                        baseUrl = ModelGateway.OPENCODE.defaultBaseUrl,
+                        apiKey = currentSettings.openCodeApiKey,
+                        gateway = ModelGateway.OPENCODE
+                    ).getOrDefault(emptyList())
+                })
+
+                // 5. OpenAI
+                if (currentSettings.openAiApiKey.isNotBlank()) {
+                    deferreds.add(async {
+                        openAiGatewayService.fetchModels(
+                            baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
+                            apiKey = currentSettings.openAiApiKey,
+                            gateway = ModelGateway.OPENAI
+                        ).getOrDefault(emptyList())
+                    })
+                }
+
+                // 6. Groq
+                if (currentSettings.groqApiKey.isNotBlank()) {
+                    deferreds.add(async {
+                        openAiGatewayService.fetchModels(
+                            baseUrl = ModelGateway.GROQ.defaultBaseUrl,
+                            apiKey = currentSettings.groqApiKey,
+                            gateway = ModelGateway.GROQ
+                        ).getOrDefault(emptyList())
+                    })
+                }
+
+                // 7. Ollama Local Gateway
+                deferreds.add(async {
+                    openAiGatewayService.fetchModels(
+                        baseUrl = ModelGateway.OLLAMA.defaultBaseUrl,
+                        apiKey = "",
+                        gateway = ModelGateway.OLLAMA
+                    ).getOrDefault(emptyList())
+                })
+
+                // 8. Hugging Face
+                if (currentSettings.huggingFaceApiKey.isNotBlank()) {
+                    deferreds.add(async {
+                        openAiGatewayService.fetchModels(
+                            baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
+                            apiKey = currentSettings.huggingFaceApiKey,
+                            gateway = ModelGateway.HUGGINGFACE
+                        ).getOrDefault(emptyList())
+                    })
+                }
+
+                // 9. Custom Gateway
+                if (currentSettings.customGatewayUrl.isNotBlank()) {
+                    deferreds.add(async {
+                        openAiGatewayService.fetchModels(
+                            baseUrl = currentSettings.customGatewayUrl,
+                            apiKey = currentSettings.customGatewayApiKey,
+                            gateway = ModelGateway.CUSTOM
+                        ).getOrDefault(emptyList())
+                    })
+                }
+
+                deferreds.forEach { job ->
+                    try {
+                        val result = job.await()
+                        liveModels.addAll(result)
+                    } catch (_: Exception) {}
+                }
+            }
+
+            if (liveModels.isNotEmpty()) {
+                val merged = ModelCatalog.mergeModels(liveModels)
+                _models.value = merged
+                executeTerminalCommand("Auto-discovered ${liveModels.size} live models across provider gateways (Total catalog: ${merged.size})")
+            }
+        } catch (e: Exception) {
+            executeTerminalCommand("Model discovery exception: ${e.message}")
+        } finally {
+            _isFetchingModels.value = false
+        }
     }
 
     fun switchWorkspace(workspace: ProjectWorkspace) {

@@ -103,7 +103,8 @@ class AntigravityAgentEngine(
 
         // 3. Launch execution
         val settings = repository.settings.value
-        val modelInfo = ModelCatalog.findModel(settings.activeModelId) ?: ModelCatalog.findModel(settings.activeModel)
+        val modelInfo = ModelCatalog.findModel(settings.activeModelId, repository.models.value) 
+            ?: ModelCatalog.findModel(settings.activeModel, repository.models.value)
         val gateway = modelInfo?.gateway ?: ModelGateway.GEMINI
 
         val previousMessages = repository.getActiveConversation()?.messages

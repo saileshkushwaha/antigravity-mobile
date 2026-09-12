@@ -29,6 +29,7 @@ import com.example.antigravity.theme.AntigravityColors
 @Composable
 fun SettingsDialog(
     settings: AppSettings,
+    models: List<ModelInfo> = ModelCatalog.allModels,
     onSave: (AppSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -340,6 +341,7 @@ fun SettingsDialog(
 
     if (showModelPicker) {
         ModelSelectionDialog(
+            models = models,
             selectedModelId = selectedModelId,
             onSelectModel = { model ->
                 selectedModel = model.name

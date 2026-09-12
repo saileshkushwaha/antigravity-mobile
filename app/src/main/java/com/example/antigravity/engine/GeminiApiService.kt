@@ -2,6 +2,8 @@ package com.example.antigravity.engine
 
 import com.example.antigravity.model.ChatMessage
 import com.example.antigravity.model.MessageSender
+import com.example.antigravity.model.ModelGateway
+import com.example.antigravity.model.ModelInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -106,6 +108,65 @@ class GeminiApiService {
             }
 
             Result.success("No text candidates returned by Gemini.")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchModels(apiKey: String): Result<List<ModelInfo>> = withContext(Dispatchers.IO) {
+        try {
+            if (apiKey.isBlank()) return@withContext Result.failure(Exception("Gemini API key is required"))
+            val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(Exception("Gemini models fetch failed: ${response.code}"))
+            }
+            val respString = response.body?.string() ?: ""
+            val json = JSONObject(respString)
+            val modelsArray = json.optJSONArray("models") ?: JSONArray()
+            val list = mutableListOf<ModelInfo>()
+            for (i in 0 until modelsArray.length()) {
+                val item = modelsArray.getJSONObject(i)
+                val rawName = item.optString("name", "") // e.g. "models/gemini-2.5-flash"
+                val id = rawName.removePrefix("models/")
+                val displayName = item.optString("displayName", id)
+                val description = item.optString("description", "Google Gemini foundational model.")
+                val inputLimit = item.optInt("inputTokenLimit", 0)
+                val contextWindow = if (inputLimit >= 1000000) "${inputLimit / 1000000}M"
+                else if (inputLimit > 0) "${inputLimit / 1024}k" else "1M"
+
+                val methods = item.optJSONArray("supportedGenerationMethods")
+                var supportsGenerateContent = false
+                if (methods != null) {
+                    for (m in 0 until methods.length()) {
+                        if (methods.getString(m) == "generateContent") supportsGenerateContent = true
+                    }
+                } else supportsGenerateContent = true
+
+                if (supportsGenerateContent && !id.contains("embedding", ignoreCase = true) && !id.contains("aqa", ignoreCase = true)) {
+                    val isFree = id.contains("flash", ignoreCase = true) || id.contains("gemma", ignoreCase = true)
+                    val tags = mutableListOf("google", "gemini")
+                    if (isFree) tags.add("free")
+                    if (id.contains("flash", ignoreCase = true)) tags.add("fast")
+                    if (id.contains("pro", ignoreCase = true)) tags.add("complex")
+                    if (id.contains("gemma", ignoreCase = true)) tags.add("open-weights")
+                    tags.add("multimodal")
+
+                    list.add(
+                        ModelInfo(
+                            id = id,
+                            name = displayName,
+                            gateway = ModelGateway.GEMINI,
+                            isFree = isFree,
+                            contextWindow = contextWindow,
+                            description = description,
+                            tags = tags
+                        )
+                    )
+                }
+            }
+            Result.success(list)
         } catch (e: Exception) {
             Result.failure(e)
         }

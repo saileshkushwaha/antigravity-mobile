@@ -27,8 +27,8 @@ import com.example.antigravity.model.ModelInfo
 import com.example.antigravity.theme.AntigravityColors
 
 enum class ModelFilterCategory(val label: String) {
-    ALL("All Models"),
-    FREE_ONLY("★ Free Models"),
+    ALL("All Gateways"),
+    FREE_ONLY("★ Free Tier"),
     KILOCODE("KiloCode Free"),
     OPENCODE("OpenCode Free"),
     OPENROUTER("OpenRouter"),
@@ -39,19 +39,48 @@ enum class ModelFilterCategory(val label: String) {
     HUGGINGFACE("Hugging Face")
 }
 
+enum class ModelCapabilityFilter(val label: String) {
+    ALL("All Domains"),
+    CODING("💻 Coding"),
+    REASONING("🧠 Reasoning"),
+    FAST("⚡ Fast"),
+    MULTIMODAL("👁️ Vision"),
+    LOCAL("🔒 Local")
+}
+
+enum class ContextFilter(val label: String) {
+    ALL("Any Context"),
+    LARGE_128K("≥ 128k"),
+    MEDIUM_32K("≥ 32k")
+}
+
 @Composable
 fun ModelSelectionDialog(
+    models: List<ModelInfo> = ModelCatalog.allModels,
     selectedModelId: String,
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     onSelectModel: (ModelInfo) -> Unit,
     onOpenApiKeys: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(ModelFilterCategory.ALL) }
+    var selectedCapability by remember { mutableStateOf(ModelCapabilityFilter.ALL) }
+    var selectedContext by remember { mutableStateOf(ContextFilter.ALL) }
 
-    val filteredModels = remember(searchQuery, selectedCategory) {
-        ModelCatalog.allModels.filter { model ->
-            // Category Filter
+    fun parseContextK(raw: String): Int {
+        val clean = raw.trim().lowercase()
+        return when {
+            clean.endsWith("m") -> (clean.removeSuffix("m").toDoubleOrNull() ?: 1.0).toInt() * 1024
+            clean.endsWith("k") -> (clean.removeSuffix("k").toDoubleOrNull() ?: 128.0).toInt()
+            else -> 128
+        }
+    }
+
+    val filteredModels = remember(models, searchQuery, selectedCategory, selectedCapability, selectedContext) {
+        models.filter { model ->
+            // 1. Gateway / Provider Category Filter
             val matchesCategory = when (selectedCategory) {
                 ModelFilterCategory.ALL -> true
                 ModelFilterCategory.FREE_ONLY -> model.isFree
@@ -65,7 +94,45 @@ fun ModelSelectionDialog(
                 ModelFilterCategory.HUGGINGFACE -> model.gateway == ModelGateway.HUGGINGFACE
             }
 
-            // Search Query Filter
+            // 2. Capability / Domain Filter
+            val matchesCapability = when (selectedCapability) {
+                ModelCapabilityFilter.ALL -> true
+                ModelCapabilityFilter.CODING ->
+                    model.tags.any { it.contains("code", true) || it.contains("program", true) } ||
+                            model.name.contains("code", true) ||
+                            model.name.contains("coder", true) ||
+                            model.id.contains("code", true) ||
+                            model.id.contains("coder", true)
+                ModelCapabilityFilter.REASONING ->
+                    model.tags.any { it.contains("reason", true) || it.contains("cot", true) || it.contains("math", true) || it.contains("r1", true) } ||
+                            model.id.contains("r1", true) ||
+                            model.id.contains("o1", true) ||
+                            model.id.contains("o3", true) ||
+                            model.description.contains("reason", true)
+                ModelCapabilityFilter.FAST ->
+                    model.tags.any { it.contains("fast", true) || it.contains("flash", true) || it.contains("mini", true) || it.contains("low-latency", true) } ||
+                            model.id.contains("flash", true) ||
+                            model.id.contains("mini", true) ||
+                            model.id.contains("8b", true) ||
+                            model.id.contains("7b", true) ||
+                            model.id.contains("3b", true)
+                ModelCapabilityFilter.MULTIMODAL ->
+                    model.tags.any { it.contains("multimodal", true) || it.contains("vision", true) || it.contains("image", true) } ||
+                            model.description.contains("multimodal", true) ||
+                            model.description.contains("vision", true)
+                ModelCapabilityFilter.LOCAL ->
+                    model.gateway == ModelGateway.OLLAMA ||
+                            model.tags.any { it.contains("local", true) || it.contains("offline", true) || it.contains("private", true) }
+            }
+
+            // 3. Context Filter
+            val matchesContext = when (selectedContext) {
+                ContextFilter.ALL -> true
+                ContextFilter.LARGE_128K -> parseContextK(model.contextWindow) >= 128
+                ContextFilter.MEDIUM_32K -> parseContextK(model.contextWindow) >= 32
+            }
+
+            // 4. Search Query Filter
             val q = searchQuery.trim().lowercase()
             val matchesQuery = q.isEmpty() ||
                     model.name.lowercase().contains(q) ||
@@ -74,7 +141,7 @@ fun ModelSelectionDialog(
                     model.tags.any { it.lowercase().contains(q) } ||
                     model.gateway.displayName.lowercase().contains(q)
 
-            matchesCategory && matchesQuery
+            matchesCategory && matchesCapability && matchesContext && matchesQuery
         }
     }
 
@@ -85,14 +152,14 @@ fun ModelSelectionDialog(
             border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.85f)
+                .fillMaxHeight(0.88f)
                 .padding(4.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Header
                 Row(
@@ -102,7 +169,8 @@ fun ModelSelectionDialog(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             Icons.Default.Dns,
@@ -112,19 +180,42 @@ fun ModelSelectionDialog(
                         )
                         Column {
                             Text(
-                                text = "Select Model & Gateway",
-                                fontSize = 16.sp,
+                                text = "Models & Gateways",
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = AntigravityColors.TextPrimary
                             )
                             Text(
-                                text = "${filteredModels.size} models available",
+                                text = "${filteredModels.size} of ${models.size} models • Live Catalog",
                                 fontSize = 11.sp,
                                 color = AntigravityColors.TextSecondary
                             )
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (onRefresh != null) {
+                            IconButton(
+                                onClick = onRefresh,
+                                enabled = !isRefreshing,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                if (isRefreshing) {
+                                    CircularProgressIndicator(
+                                        color = AntigravityColors.ElectricCyan,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = "Refresh Models",
+                                        tint = AntigravityColors.ElectricCyan,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
                         if (onOpenApiKeys != null) {
                             OutlinedButton(
                                 onClick = onOpenApiKeys,
@@ -135,7 +226,7 @@ fun ModelSelectionDialog(
                             ) {
                                 Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("API Keys", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Keys", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                         IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
@@ -148,7 +239,7 @@ fun ModelSelectionDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search models (e.g. free, llama, deepseek, groq)...", fontSize = 12.sp, color = AntigravityColors.TextMuted) },
+                    placeholder = { Text("Search models, providers, tags...", fontSize = 12.sp, color = AntigravityColors.TextMuted) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextSecondary, modifier = Modifier.size(18.dp))
                     },
@@ -160,7 +251,7 @@ fun ModelSelectionDialog(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AntigravityColors.ElectricCyan,
                         unfocusedBorderColor = AntigravityColors.CardBorder,
@@ -170,7 +261,7 @@ fun ModelSelectionDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Category Filter Chips
+                // Gateway Filter Chips Row
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -180,7 +271,7 @@ fun ModelSelectionDialog(
                         val chipColor = if (category == ModelFilterCategory.FREE_ONLY) AntigravityColors.StatusSuccess else AntigravityColors.ElectricCyan
 
                         Surface(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(14.dp),
                             color = if (isSelected) chipColor.copy(alpha = 0.2f) else AntigravityColors.CardBackground,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
@@ -193,7 +284,55 @@ fun ModelSelectionDialog(
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = if (isSelected) chipColor else AntigravityColors.TextSecondary,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Domain & Context Filter Chips Row
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(ModelCapabilityFilter.values()) { capability ->
+                        val isSelected = selectedCapability == capability
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) AntigravityColors.NeonViolet.copy(alpha = 0.25f) else AntigravityColors.CardBackground,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) AntigravityColors.NeonViolet else AntigravityColors.CardBorder
+                            ),
+                            modifier = Modifier.clickable { selectedCapability = capability }
+                        ) {
+                            Text(
+                                text = capability.label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) AntigravityColors.NeonViolet else AntigravityColors.TextSecondary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    items(ContextFilter.values()) { ctx ->
+                        val isSelected = selectedContext == ctx
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) Color(0xFFF59E0B).copy(alpha = 0.25f) else AntigravityColors.CardBackground,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) Color(0xFFF59E0B) else AntigravityColors.CardBorder
+                            ),
+                            modifier = Modifier.clickable { selectedContext = ctx }
+                        ) {
+                            Text(
+                                text = ctx.label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) Color(0xFFF59E0B) else AntigravityColors.TextSecondary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
                     }
@@ -222,7 +361,7 @@ fun ModelSelectionDialog(
                             .fillMaxWidth()
                             .weight(1f)
                     ) {
-                        items(filteredModels, key = { it.id }) { model ->
+                        items(filteredModels, key = { "${it.gateway.name}_${it.id}" }) { model ->
                             val isSelected = model.id.equals(selectedModelId, ignoreCase = true) ||
                                     model.name.equals(selectedModelId, ignoreCase = true)
 
@@ -362,12 +501,14 @@ fun ModelItemCard(
                 }
 
                 // Description
-                Text(
-                    text = model.description,
-                    fontSize = 11.sp,
-                    color = AntigravityColors.TextSecondary,
-                    lineHeight = 15.sp
-                )
+                if (model.description.isNotBlank()) {
+                    Text(
+                        text = model.description,
+                        fontSize = 11.sp,
+                        color = AntigravityColors.TextSecondary,
+                        lineHeight = 15.sp
+                    )
+                }
 
                 // Model ID
                 Text(
@@ -376,6 +517,28 @@ fun ModelItemCard(
                     fontFamily = FontFamily.Monospace,
                     color = AntigravityColors.TextMuted
                 )
+
+                // Tags chips
+                if (model.tags.isNotEmpty()) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(model.tags.take(6)) { tag ->
+                            Surface(
+                                shape = RoundedCornerShape(3.dp),
+                                color = AntigravityColors.SurfaceDark.copy(alpha = 0.6f)
+                            ) {
+                                Text(
+                                    text = "#$tag",
+                                    fontSize = 9.sp,
+                                    color = AntigravityColors.TextMuted,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

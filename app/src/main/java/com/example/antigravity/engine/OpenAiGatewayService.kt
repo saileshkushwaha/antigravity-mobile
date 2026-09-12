@@ -2,6 +2,8 @@ package com.example.antigravity.engine
 
 import com.example.antigravity.model.ChatMessage
 import com.example.antigravity.model.MessageSender
+import com.example.antigravity.model.ModelGateway
+import com.example.antigravity.model.ModelInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -102,6 +104,106 @@ class OpenAiGatewayService {
             }
 
             Result.success("No response content received from model gateway.")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchModels(
+        baseUrl: String,
+        apiKey: String,
+        gateway: ModelGateway
+    ): Result<List<ModelInfo>> = withContext(Dispatchers.IO) {
+        try {
+            val cleanBase = baseUrl.trimEnd('/')
+            val endpointUrl = if (cleanBase.endsWith("/models")) cleanBase else "$cleanBase/models"
+
+            val requestBuilder = Request.Builder()
+                .url(endpointUrl)
+                .get()
+                .addHeader("Accept", "application/json")
+
+            if (apiKey.isNotBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $apiKey")
+            }
+
+            if (endpointUrl.contains("openrouter", ignoreCase = true)) {
+                requestBuilder.addHeader("HTTP-Referer", "https://github.com/saileshkushwaha/antigravity-mobile")
+                requestBuilder.addHeader("X-Title", "Antigravity Mobile")
+            } else if (endpointUrl.contains("kilo", ignoreCase = true)) {
+                requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")
+            } else if (endpointUrl.contains("opencode", ignoreCase = true)) {
+                requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(Exception("Gateway Error (${response.code}) fetching models from $endpointUrl"))
+            }
+
+            val respString = response.body?.string() ?: ""
+            val json = JSONObject(respString)
+            val dataArray = json.optJSONArray("data") ?: json.optJSONArray("models") ?: JSONArray()
+            val list = mutableListOf<ModelInfo>()
+
+            for (i in 0 until dataArray.length()) {
+                val item = dataArray.getJSONObject(i)
+                val id = item.optString("id", item.optString("name", ""))
+                if (id.isBlank()) continue
+
+                val rawName = item.optString("name", id)
+                val displayName = if (rawName.isBlank() || rawName == id) {
+                    id.substringAfterLast("/").replace("-", " ").replace("_", " ")
+                        .split(" ")
+                        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                } else rawName
+
+                val contextLength = item.optInt("context_length", 0)
+                val contextWindow = if (contextLength > 0) {
+                    if (contextLength >= 1000000) "${contextLength / 1000000}M"
+                    else "${contextLength / 1024}k"
+                } else when {
+                    id.contains("128k", ignoreCase = true) -> "128k"
+                    id.contains("32k", ignoreCase = true) -> "32k"
+                    id.contains("64k", ignoreCase = true) -> "64k"
+                    id.contains("16k", ignoreCase = true) -> "16k"
+                    id.contains("1m", ignoreCase = true) -> "1M"
+                    id.contains("200k", ignoreCase = true) -> "200k"
+                    else -> "128k"
+                }
+
+                val isFree = id.contains(":free", ignoreCase = true) ||
+                        id.contains("free", ignoreCase = true) ||
+                        gateway == ModelGateway.KILOCODE ||
+                        gateway == ModelGateway.OPENCODE ||
+                        gateway == ModelGateway.OLLAMA
+
+                val description = item.optString("description", "High-performance model served via ${gateway.displayName}.")
+                val tags = mutableListOf<String>()
+                if (isFree) tags.add("free")
+                tags.add(gateway.name.lowercase())
+
+                val lowerId = id.lowercase()
+                if (lowerId.contains("code") || lowerId.contains("coder") || lowerId.contains("starcoder")) tags.add("coding")
+                if (lowerId.contains("r1") || lowerId.contains("reasoning") || lowerId.contains("o1") || lowerId.contains("o3") || lowerId.contains("phi")) tags.add("reasoning")
+                if (lowerId.contains("flash") || lowerId.contains("instant") || lowerId.contains("mini") || lowerId.contains("lite")) tags.add("fast")
+                if (lowerId.contains("vision") || lowerId.contains("omni") || lowerId.contains("multimodal") || lowerId.contains("4o")) tags.add("multimodal")
+                if (gateway == ModelGateway.OLLAMA) tags.add("local")
+
+                list.add(
+                    ModelInfo(
+                        id = id,
+                        name = displayName,
+                        gateway = gateway,
+                        isFree = isFree,
+                        contextWindow = contextWindow,
+                        description = description,
+                        tags = tags
+                    )
+                )
+            }
+
+            Result.success(list)
         } catch (e: Exception) {
             Result.failure(e)
         }

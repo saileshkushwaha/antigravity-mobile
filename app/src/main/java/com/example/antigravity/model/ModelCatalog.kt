@@ -299,7 +299,29 @@ object ModelCatalog {
         )
     )
 
-    fun findModel(id: String): ModelInfo? {
-        return allModels.find { it.id.equals(id, ignoreCase = true) || it.name.equals(id, ignoreCase = true) }
+    fun mergeModels(liveModels: List<ModelInfo>): List<ModelInfo> {
+        val result = allModels.toMutableList()
+        for (live in liveModels) {
+            val existingIndex = result.indexOfFirst { 
+                it.id.equals(live.id, ignoreCase = true) && it.gateway == live.gateway 
+            }
+            if (existingIndex >= 0) {
+                val existing = result[existingIndex]
+                val mergedTags = (existing.tags + live.tags).distinct()
+                result[existingIndex] = existing.copy(
+                    tags = mergedTags,
+                    contextWindow = if (live.contextWindow.isNotBlank() && live.contextWindow != "128k") live.contextWindow else existing.contextWindow
+                )
+            } else {
+                result.add(live)
+            }
+        }
+        return result
+    }
+
+    fun findModel(id: String, customList: List<ModelInfo>? = null): ModelInfo? {
+        val pool = customList ?: allModels
+        return pool.find { it.id.equals(id, ignoreCase = true) || it.name.equals(id, ignoreCase = true) }
+            ?: allModels.find { it.id.equals(id, ignoreCase = true) || it.name.equals(id, ignoreCase = true) }
     }
 }

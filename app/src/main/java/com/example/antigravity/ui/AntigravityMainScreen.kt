@@ -64,11 +64,17 @@ fun AntigravityMainScreen(
     val mcpServers by repository.mcpServers.collectAsState()
     val terminalLogs by repository.terminalLogs.collectAsState()
     val artifacts by repository.artifacts.collectAsState()
+    val models by repository.models.collectAsState()
+    val isFetchingModels by repository.isFetchingModels.collectAsState()
 
     val agentState by agentEngine.agentState.collectAsState()
     val activePersona by agentEngine.activePersona.collectAsState()
     val personas by repository.personas.collectAsState()
     val prompts by repository.prompts.collectAsState()
+
+    LaunchedEffect(Unit) {
+        repository.refreshModelsFromGateways()
+    }
 
     // Modal Utility Dialog states (for non-screen modals only)
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -320,16 +326,19 @@ fun AntigravityMainScreen(
     }
 
     // Model Selection Dialog (with Search & Free Filters)
+    // Model Selection Dialog (with Search, Free, Gateway & Capability Filters)
     if (showModelSelectionDialog) {
         ModelSelectionDialog(
+            models = models,
             selectedModelId = settings.activeModelId.ifBlank { settings.activeModel },
+            isRefreshing = isFetchingModels,
+            onRefresh = {
+                coroutineScope.launch {
+                    repository.refreshModelsFromGateways()
+                }
+            },
             onSelectModel = { selectedModel ->
-                repository.updateSettings(
-                    settings.copy(
-                        activeModel = selectedModel.name,
-                        activeModelId = selectedModel.id
-                    )
-                )
+                repository.selectModel(selectedModel)
                 showModelSelectionDialog = false
             },
             onOpenApiKeys = {
@@ -344,7 +353,13 @@ fun AntigravityMainScreen(
     if (showSettingsDialog) {
         SettingsDialog(
             settings = settings,
-            onSave = { repository.updateSettings(it) },
+            models = models,
+            onSave = { 
+                repository.updateSettings(it)
+                coroutineScope.launch {
+                    repository.refreshModelsFromGateways()
+                }
+            },
             onDismiss = { showSettingsDialog = false }
         )
     }
