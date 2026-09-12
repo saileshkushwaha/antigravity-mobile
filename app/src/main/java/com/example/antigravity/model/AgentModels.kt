@@ -173,14 +173,21 @@ data class SkillItem(
     val name: String,
     val description: String,
     val category: String,
-    var isEnabled: Boolean = true
+    var isEnabled: Boolean = true,
+    val instructions: String = "",
+    val tags: List<String> = emptyList(),
+    val isCustom: Boolean = false,
+    val systemPromptSnippet: String = ""
 )
 
 @Serializable
 data class McpServerItem(
     val name: String,
-    val status: String,
-    val tools: List<String>
+    val status: String = "Connected",
+    val tools: List<String> = emptyList(),
+    val urlOrCommand: String = "",
+    val isCustom: Boolean = false,
+    val isEnabled: Boolean = true
 )
 
 @Serializable
@@ -226,7 +233,19 @@ data class AppSettings(
     val isDarkTheme: Boolean = true,
     val githubToken: String = "",
     val githubOwner: String = "saileshkushwaha",
-    val githubRepo: String = "antigravity-mobile"
+    val githubRepo: String = "antigravity-mobile",
+    val targetBranch: String = "main",
+    val temperature: Float = 0.7f,
+    val topP: Float = 0.95f,
+    val maxOutputTokens: Int = 4096,
+    val showThinkingBlock: Boolean = true,
+    val streamResponses: Boolean = true,
+    val maxAutonomousSteps: Int = 25,
+    val autoApproveReadOnlyTools: Boolean = true,
+    val codeFontFamily: String = "JetBrains Mono",
+    val codeFontSize: Int = 12,
+    val hapticFeedback: Boolean = true,
+    val autoScrollChat: Boolean = true
 )
 
 data class SlashCommand(

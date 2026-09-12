@@ -301,6 +301,16 @@ fun AntigravityMainScreen(
                             skills = skills,
                             mcpServers = mcpServers,
                             onToggleSkill = { repository.toggleSkill(it) },
+                            onAddSkill = { repository.addSkill(it) },
+                            onUpdateSkill = { repository.updateSkill(it) },
+                            onDeleteSkill = { repository.deleteSkill(it) },
+                            onCloneSkill = { repository.cloneSkill(it) },
+                            onResetSkills = { repository.resetSkillsToDefault() },
+                            onAddMcpServer = { repository.addMcpServer(it) },
+                            onUpdateMcpServer = { repository.updateMcpServer(it) },
+                            onDeleteMcpServer = { repository.deleteMcpServer(it) },
+                            onToggleMcpServer = { repository.toggleMcpServer(it) },
+                            onResetMcpServers = { repository.resetMcpServersToDefault() },
                             onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
                             onClose = { currentScreen = AntigravityAppScreen.CHAT },
                             modifier = Modifier.fillMaxSize()
@@ -360,6 +370,12 @@ fun AntigravityMainScreen(
                     repository.refreshModelsFromGateways()
                 }
             },
+            onClearChatHistory = { repository.clearActiveConversationMessages() },
+            onResetPersonas = { repository.resetPersonasToDefault() },
+            onResetPrompts = { repository.resetPromptsToDefault() },
+            onResetSkills = { repository.resetSkillsToDefault() },
+            onResetMcp = { repository.resetMcpServersToDefault() },
+            onFactoryResetAll = { repository.resetAllDataToDefaults() },
             onDismiss = { showSettingsDialog = false }
         )
     }

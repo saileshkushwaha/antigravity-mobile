@@ -527,4 +527,117 @@ class AppRepository {
     fun resetPromptsToDefault() {
         _prompts.value = PromptLibrary.allPrompts
     }
+
+    // Skill CRUD
+    fun addSkill(skill: SkillItem) {
+        val current = _skills.value.toMutableList()
+        val index = current.indexOfFirst { it.name.equals(skill.name, ignoreCase = true) }
+        if (index >= 0) {
+            current[index] = skill
+        } else {
+            current.add(0, skill)
+        }
+        _skills.value = current
+    }
+
+    fun updateSkill(skill: SkillItem) {
+        val current = _skills.value.toMutableList()
+        val index = current.indexOfFirst { it.name.equals(skill.name, ignoreCase = true) }
+        if (index >= 0) {
+            current[index] = skill
+            _skills.value = current
+        } else {
+            addSkill(skill)
+        }
+    }
+
+    fun deleteSkill(skillName: String) {
+        _skills.value = _skills.value.filterNot { it.name.equals(skillName, ignoreCase = true) }
+    }
+
+    fun cloneSkill(skillName: String) {
+        val original = _skills.value.find { it.name.equals(skillName, ignoreCase = true) } ?: return
+        val copyName = "${original.name}-copy"
+        val cloned = original.copy(
+            name = copyName,
+            isCustom = true,
+            description = "${original.description} (Cloned)"
+        )
+        addSkill(cloned)
+    }
+
+    fun resetSkillsToDefault() {
+        _skills.value = SkillsCatalog.allDesktopSkills
+    }
+
+    // MCP Server CRUD
+    fun addMcpServer(server: McpServerItem) {
+        val current = _mcpServers.value.toMutableList()
+        val index = current.indexOfFirst { it.name.equals(server.name, ignoreCase = true) }
+        if (index >= 0) {
+            current[index] = server
+        } else {
+            current.add(0, server)
+        }
+        _mcpServers.value = current
+    }
+
+    fun updateMcpServer(server: McpServerItem) {
+        val current = _mcpServers.value.toMutableList()
+        val index = current.indexOfFirst { it.name.equals(server.name, ignoreCase = true) }
+        if (index >= 0) {
+            current[index] = server
+            _mcpServers.value = current
+        } else {
+            addMcpServer(server)
+        }
+    }
+
+    fun deleteMcpServer(serverName: String) {
+        _mcpServers.value = _mcpServers.value.filterNot { it.name.equals(serverName, ignoreCase = true) }
+    }
+
+    fun toggleMcpServer(serverName: String) {
+        _mcpServers.value = _mcpServers.value.map {
+            if (it.name.equals(serverName, ignoreCase = true)) {
+                val newStatus = if (it.status == "Connected") "Disconnected" else "Connected"
+                it.copy(status = newStatus, isEnabled = newStatus == "Connected")
+            } else it
+        }
+    }
+
+    fun resetMcpServersToDefault() {
+        _mcpServers.value = listOf(
+            McpServerItem("gemini-api-docs", "Connected", listOf("gemini_search_docs", "gemini_get_doc")),
+            McpServerItem("terminal-controller", "Connected", listOf("run_command", "manage_task")),
+            McpServerItem("workspace-filesystem", "Connected", listOf("view_file", "write_to_file", "replace_file_content", "grep_search", "find_by_name")),
+            McpServerItem("git-inspector", "Connected", listOf("git_status", "git_diff", "git_commit"))
+        )
+    }
+
+    // Clear Active Conversation History
+    fun clearActiveConversationMessages() {
+        val activeId = _activeConversationId.value
+        _conversations.value = _conversations.value.map { conv ->
+            if (conv.id == activeId) {
+                conv.copy(messages = mutableListOf(
+                    ChatMessage(
+                        id = java.util.UUID.randomUUID().toString(),
+                        sender = MessageSender.SYSTEM,
+                        text = "Session history cleared. Ready for instructions.",
+                        timestamp = System.currentTimeMillis()
+                    )
+                ))
+            } else conv
+        }
+    }
+
+    fun resetAllDataToDefaults() {
+        resetPersonasToDefault()
+        resetPromptsToDefault()
+        resetSkillsToDefault()
+        resetMcpServersToDefault()
+        clearActiveConversationMessages()
+        _settings.value = AppSettings()
+    }
 }

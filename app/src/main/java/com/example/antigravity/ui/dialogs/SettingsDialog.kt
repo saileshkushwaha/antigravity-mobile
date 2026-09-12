@@ -3,23 +3,28 @@ package com.example.antigravity.ui.dialogs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.antigravity.model.AppSettings
 import com.example.antigravity.model.ModelCatalog
 import com.example.antigravity.model.ModelInfo
@@ -31,8 +36,17 @@ fun SettingsDialog(
     settings: AppSettings,
     models: List<ModelInfo> = ModelCatalog.allModels,
     onSave: (AppSettings) -> Unit,
+    onClearChatHistory: () -> Unit = {},
+    onResetPersonas: () -> Unit = {},
+    onResetPrompts: () -> Unit = {},
+    onResetSkills: () -> Unit = {},
+    onResetMcp: () -> Unit = {},
+    onFactoryResetAll: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
+    var selectedTab by remember { mutableStateOf(0) } // 0: Models & Gateways, 1: Autonomy, 2: DevOps, 3: Editor, 4: Data & Reset
+
+    // Gateways & Model Parameters
     var apiKey by remember { mutableStateOf(settings.apiKey) }
     var openAiKey by remember { mutableStateOf(settings.openAiApiKey) }
     var openRouterKey by remember { mutableStateOf(settings.openRouterApiKey) }
@@ -43,373 +57,972 @@ fun SettingsDialog(
     var customGatewayUrl by remember { mutableStateOf(settings.customGatewayUrl) }
     var selectedModel by remember { mutableStateOf(settings.activeModel) }
     var selectedModelId by remember { mutableStateOf(settings.activeModelId) }
+    var temperature by remember { mutableStateOf(settings.temperature) }
+    var topP by remember { mutableStateOf(settings.topP) }
+    var maxOutputTokens by remember { mutableStateOf(settings.maxOutputTokens.toFloat()) }
+    var showThinkingBlock by remember { mutableStateOf(settings.showThinkingBlock) }
+    var streamResponses by remember { mutableStateOf(settings.streamResponses) }
+
+    // Autonomy & Safety
     var executionPolicy by remember { mutableStateOf(settings.toolExecutionPolicy) }
     var sandboxEnabled by remember { mutableStateOf(settings.terminalSandbox) }
     var offlineDemoMode by remember { mutableStateOf(settings.isOfflineDemoMode) }
+    var maxSteps by remember { mutableStateOf(settings.maxAutonomousSteps.toFloat()) }
+    var autoApproveReadOnly by remember { mutableStateOf(settings.autoApproveReadOnlyTools) }
+
+    // DevOps & GitHub
     var githubToken by remember { mutableStateOf(settings.githubToken) }
     var githubOwner by remember { mutableStateOf(settings.githubOwner) }
     var githubRepo by remember { mutableStateOf(settings.githubRepo) }
-    var showModelPicker by remember { mutableStateOf(false) }
+    var targetBranch by remember { mutableStateOf(settings.targetBranch) }
+    var showGithubToken by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    // UI & Editor Preferences
+    var codeFontFamily by remember { mutableStateOf(settings.codeFontFamily) }
+    var codeFontSize by remember { mutableStateOf(settings.codeFontSize.toFloat()) }
+    var hapticFeedback by remember { mutableStateOf(settings.hapticFeedback) }
+    var autoScrollChat by remember { mutableStateOf(settings.autoScrollChat) }
+
+    // Dialog state
+    var showModelPicker by remember { mutableStateOf(false) }
+    var confirmResetType by remember { mutableStateOf<String?>(null) } // "history", "personas", "prompts", "skills", "mcp", "all"
+    var showSavedToast by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(16.dp),
             color = AntigravityColors.SurfaceDark,
             border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.9f)
+                .fillMaxWidth(0.96f)
+                .fillMaxHeight(0.94f)
                 .padding(4.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .background(AntigravityColors.SurfaceDark)
             ) {
-                Column(
+                // Top Header with Product Branding
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .fillMaxWidth()
+                        .background(AntigravityColors.SurfaceElevated)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Header
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
                         ) {
                             Icon(
                                 Icons.Default.Settings,
                                 contentDescription = null,
                                 tint = AntigravityColors.ElectricCyan,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Settings & Gateways",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AntigravityColors.TextPrimary
+                                modifier = Modifier
+                                    .padding(6.dp)
+                                    .size(20.dp)
                             )
                         }
-                        IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
-                        }
-                    }
-
-                    HorizontalDivider(color = AntigravityColors.DividerColor)
-
-                    // Mode Toggle: Offline Autonomous vs Live API Gateways
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Autonomous Demo Mode", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
-                            Text("Simulates complete multi-step agent reasoning without requiring live API keys", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                        }
-                        Switch(
-                            checked = offlineDemoMode,
-                            onCheckedChange = { offlineDemoMode = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
-                        )
-                    }
-
-                    // Active Model Picker Button
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Active Model & Gateway", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.ElectricCyan)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = AntigravityColors.SurfaceElevated,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showModelPicker = true }
-                        ) {
+                        Column {
                             Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Default.Dns, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(18.dp))
-                                    Column {
-                                        Text(selectedModel, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
-                                        Text(selectedModelId, fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                                    }
-                                }
-                                Button(
-                                    onClick = { showModelPicker = true },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan.copy(alpha = 0.2f)),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(28.dp)
-                                ) {
-                                    Text("Browse Models", fontSize = 10.sp, color = AntigravityColors.ElectricCyan)
-                                }
-                            }
-                        }
-                    }
-
-                    // Gateway Credentials (shown when live API mode enabled)
-                    if (!offlineDemoMode) {
-                        Text("Open Model Gateways & API Keys", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
-
-                        // Google Gemini API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Google Gemini API Key", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                            OutlinedTextField(
-                                value = apiKey,
-                                onValueChange = { apiKey = it },
-                                placeholder = { Text("AIzaSy...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // OpenAI API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("OpenAI API Key (GPT-4o, o3-mini)", fontSize = 11.sp, color = Color(0xFF10A37F))
-                            OutlinedTextField(
-                                value = openAiKey,
-                                onValueChange = { openAiKey = it },
-                                placeholder = { Text("sk-proj-...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // OpenRouter API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("OpenRouter API Key (Free & Open Models)", fontSize = 11.sp, color = AntigravityColors.NeonViolet)
-                            OutlinedTextField(
-                                value = openRouterKey,
-                                onValueChange = { openRouterKey = it },
-                                placeholder = { Text("sk-or-v1-...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // Groq API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Groq API Key (Free Ultra-Fast LPU)", fontSize = 11.sp, color = Color(0xFFFF9100))
-                            OutlinedTextField(
-                                value = groqKey,
-                                onValueChange = { groqKey = it },
-                                placeholder = { Text("gsk_...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // KiloCode API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("KiloCode API Key (Free Developer Models)", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
-                            OutlinedTextField(
-                                value = kiloCodeKey,
-                                onValueChange = { kiloCodeKey = it },
-                                placeholder = { Text("kilo_live_...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // OpenCode API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("OpenCode API Key (Free Coding & Logic Models)", fontSize = 11.sp, color = Color(0xFF38BDF8))
-                            OutlinedTextField(
-                                value = openCodeKey,
-                                onValueChange = { openCodeKey = it },
-                                placeholder = { Text("opencode_live_...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // Hugging Face API Key
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Hugging Face API Token", fontSize = 11.sp, color = Color(0xFFFFD21E))
-                            OutlinedTextField(
-                                value = huggingFaceKey,
-                                onValueChange = { huggingFaceKey = it },
-                                placeholder = { Text("hf_...", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // Custom Gateway / Ollama Endpoint URL
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Ollama / Local Gateway URL", fontSize = 11.sp, color = Color(0xFF10B981))
-                            OutlinedTextField(
-                                value = customGatewayUrl,
-                                onValueChange = { customGatewayUrl = it },
-                                placeholder = { Text("http://localhost:11434/v1", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-
-                    // Tool Execution Policy
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Tool Execution Policy", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("always-proceed", "request-review", "strict").forEach { policy ->
-                                val isSelected = executionPolicy == policy
+                                Text(
+                                    text = "Studio Configuration",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AntigravityColors.TextPrimary
+                                )
                                 Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (isSelected) AntigravityColors.NeonViolet.copy(alpha = 0.2f) else AntigravityColors.CardBackground,
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (offlineDemoMode) AntigravityColors.NeonViolet.copy(alpha = 0.15f)
+                                    else AntigravityColors.StatusSuccess.copy(alpha = 0.15f),
                                     border = androidx.compose.foundation.BorderStroke(
                                         1.dp,
-                                        if (isSelected) AntigravityColors.NeonViolet else AntigravityColors.CardBorder
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { executionPolicy = policy }
+                                        if (offlineDemoMode) AntigravityColors.NeonViolet.copy(alpha = 0.4f)
+                                        else AntigravityColors.StatusSuccess.copy(alpha = 0.4f)
+                                    )
                                 ) {
                                     Text(
-                                        text = policy,
-                                        fontSize = 10.sp,
-                                        color = if (isSelected) AntigravityColors.NeonViolet else AntigravityColors.TextSecondary,
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        text = if (offlineDemoMode) "AUTONOMOUS DEMO" else "LIVE GATEWAYS",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (offlineDemoMode) AntigravityColors.NeonViolet else AntigravityColors.StatusSuccess,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
-                        }
-                    }
-
-                    // GitHub Integration & SDLC Credentials
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text("GitHub & DevOps Integration", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.ElectricCyan)
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = if (githubToken.isNotBlank()) "AUTHENTICATED" else "READ-ONLY",
-                                    color = AntigravityColors.ElectricCyan,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("GitHub Personal Access Token (PAT)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                            OutlinedTextField(
-                                value = githubToken,
-                                onValueChange = { githubToken = it },
-                                placeholder = { Text("ghp_... (Required for PR create/merge & CI dispatch)", fontSize = 12.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
+                            Text(
+                                text = "Fine-tune models, safety policies, DevOps credentials, and workspace preferences",
+                                fontSize = 11.sp,
+                                color = AntigravityColors.TextSecondary
                             )
                         }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Repo Owner", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                                OutlinedTextField(
-                                    value = githubOwner,
-                                    onValueChange = { githubOwner = it },
-                                    placeholder = { Text("saileshkushwaha", fontSize = 12.sp) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Repository Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                                OutlinedTextField(
-                                    value = githubRepo,
-                                    onValueChange = { githubRepo = it },
-                                    placeholder = { Text("antigravity-mobile", fontSize = 12.sp) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
                     }
-
-                    // Terminal Sandboxing
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Terminal Sandboxing", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
-                            Text("Runs agent shell commands inside isolated sandbox container", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-                        }
-                        Switch(
-                            checked = sandboxEnabled,
-                            onCheckedChange = { sandboxEnabled = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
-                        )
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
                     }
                 }
 
-                // Save Action Button
-                Button(
-                    onClick = {
-                        val updated = settings.copy(
-                            apiKey = apiKey,
-                            openAiApiKey = openAiKey,
-                            openRouterApiKey = openRouterKey,
-                            groqApiKey = groqKey,
-                            kiloCodeApiKey = kiloCodeKey,
-                            openCodeApiKey = openCodeKey,
-                            huggingFaceApiKey = huggingFaceKey,
-                            customGatewayUrl = customGatewayUrl,
-                            activeModel = selectedModel,
-                            activeModelId = selectedModelId,
-                            toolExecutionPolicy = executionPolicy,
-                            terminalSandbox = sandboxEnabled,
-                            isOfflineDemoMode = offlineDemoMode,
-                            githubToken = githubToken,
-                            githubOwner = githubOwner,
-                            githubRepo = githubRepo
-                        )
-                        com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig { cfg ->
-                            cfg.copy(
-                                githubToken = githubToken,
-                                repositoryOwner = githubOwner,
-                                projectName = githubRepo
-                            )
+                // Categorized Tab Switcher
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = AntigravityColors.CardBackground,
+                    contentColor = AntigravityColors.ElectricCyan,
+                    edgePadding = 8.dp
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Text("Models & Gateways", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
-                        onSave(updated)
-                        onDismiss()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Text("Autonomy & Safety", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Text("DevOps & GitHub", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Text("UI & Editor", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Text("Data & Reset", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    )
+                }
+
+                // Scrollable Content Area
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(14.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    when (selectedTab) {
+                        0 -> {
+                            // ==================== TAB 0: MODELS & GATEWAYS ====================
+                            // 1. Active Model Banner
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Active Primary Model", fontSize = 11.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.SemiBold)
+                                            Text(selectedModel, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                            Text(selectedModelId, fontSize = 11.sp, color = AntigravityColors.TextSecondary, fontFamily = FontFamily.Monospace)
+                                        }
+                                        Button(
+                                            onClick = { showModelPicker = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.Explore, contentDescription = null, tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Change Model", color = Color(0xFF00363D), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Inference Hyper-parameters
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("Inference Parameters", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+
+                                    // Temperature Slider
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Temperature (Creativity)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            Text(String.format("%.2f", temperature), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                        }
+                                        Slider(
+                                            value = temperature,
+                                            onValueChange = { temperature = it },
+                                            valueRange = 0.0f..2.0f,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = AntigravityColors.ElectricCyan,
+                                                activeTrackColor = AntigravityColors.ElectricCyan
+                                            )
+                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Precise (0.2)", fontSize = 9.sp, color = AntigravityColors.TextMuted, modifier = Modifier.clickable { temperature = 0.2f })
+                                            Text("Balanced (0.7)", fontSize = 9.sp, color = AntigravityColors.TextMuted, modifier = Modifier.clickable { temperature = 0.7f })
+                                            Text("Creative (1.2)", fontSize = 9.sp, color = AntigravityColors.TextMuted, modifier = Modifier.clickable { temperature = 1.2f })
+                                        }
+                                    }
+
+                                    // Top P Slider
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Top P (Nucleus Sampling)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            Text(String.format("%.2f", topP), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                        }
+                                        Slider(
+                                            value = topP,
+                                            onValueChange = { topP = it },
+                                            valueRange = 0.1f..1.0f,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = AntigravityColors.ElectricCyan,
+                                                activeTrackColor = AntigravityColors.ElectricCyan
+                                            )
+                                        )
+                                    }
+
+                                    // Max Tokens Slider
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Max Output Tokens", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            Text("${maxOutputTokens.toInt()} tokens", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                        }
+                                        Slider(
+                                            value = maxOutputTokens,
+                                            onValueChange = { maxOutputTokens = it },
+                                            valueRange = 1024f..32768f,
+                                            steps = 30,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = AntigravityColors.ElectricCyan,
+                                                activeTrackColor = AntigravityColors.ElectricCyan
+                                            )
+                                        )
+                                    }
+
+                                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                    // Streaming & Thinking Block Toggles
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Stream Token Responses", fontSize = 12.sp, color = AntigravityColors.TextPrimary)
+                                            Text("Stream live token chunks as the LLM generates them", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = streamResponses,
+                                            onCheckedChange = { streamResponses = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Show <think> Reasoning Blocks", fontSize = 12.sp, color = AntigravityColors.TextPrimary)
+                                            Text("Display internal chain-of-thought blocks for reasoning models", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = showThinkingBlock,
+                                            onCheckedChange = { showThinkingBlock = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 3. Gateway API Keys (8 Gateways)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Model Gateways & API Credentials", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+
+                                    // Google Gemini
+                                    GatewayKeyField(
+                                        label = "Google Gemini API Key",
+                                        value = apiKey,
+                                        placeholder = "AIzaSy...",
+                                        badge = "DEFAULT",
+                                        badgeColor = AntigravityColors.ElectricCyan,
+                                        onValueChange = { apiKey = it }
+                                    )
+
+                                    // OpenAI
+                                    GatewayKeyField(
+                                        label = "OpenAI API Key (GPT-4o, o3-mini)",
+                                        value = openAiKey,
+                                        placeholder = "sk-proj-...",
+                                        badge = "OPENAI",
+                                        badgeColor = Color(0xFF10A37F),
+                                        onValueChange = { openAiKey = it }
+                                    )
+
+                                    // Groq
+                                    GatewayKeyField(
+                                        label = "Groq API Key (Free Ultra-Fast LPU)",
+                                        value = groqKey,
+                                        placeholder = "gsk_...",
+                                        badge = "FREE TIER",
+                                        badgeColor = Color(0xFFFF9100),
+                                        onValueChange = { groqKey = it }
+                                    )
+
+                                    // KiloCode
+                                    GatewayKeyField(
+                                        label = "KiloCode API Key (Free Open LLMs)",
+                                        value = kiloCodeKey,
+                                        placeholder = "kilo_live_...",
+                                        badge = "FREE",
+                                        badgeColor = AntigravityColors.ElectricCyan,
+                                        onValueChange = { kiloCodeKey = it }
+                                    )
+
+                                    // OpenCode
+                                    GatewayKeyField(
+                                        label = "OpenCode API Key (Free Coding Gateways)",
+                                        value = openCodeKey,
+                                        placeholder = "opencode_live_...",
+                                        badge = "FREE",
+                                        badgeColor = Color(0xFF38BDF8),
+                                        onValueChange = { openCodeKey = it }
+                                    )
+
+                                    // OpenRouter
+                                    GatewayKeyField(
+                                        label = "OpenRouter API Key (100+ Free & Paid Models)",
+                                        value = openRouterKey,
+                                        placeholder = "sk-or-v1-...",
+                                        badge = "MULTI-PROVIDER",
+                                        badgeColor = AntigravityColors.NeonViolet,
+                                        onValueChange = { openRouterKey = it }
+                                    )
+
+                                    // Hugging Face
+                                    GatewayKeyField(
+                                        label = "Hugging Face API Token",
+                                        value = huggingFaceKey,
+                                        placeholder = "hf_...",
+                                        badge = "COMMUNITY",
+                                        badgeColor = Color(0xFFFFD21E),
+                                        onValueChange = { huggingFaceKey = it }
+                                    )
+
+                                    // Custom Gateway / Ollama
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("Ollama / Local Gateway URL", fontSize = 11.sp, color = Color(0xFF10B981))
+                                        OutlinedTextField(
+                                            value = customGatewayUrl,
+                                            onValueChange = { customGatewayUrl = it },
+                                            placeholder = { Text("http://localhost:11434/v1", fontSize = 12.sp) },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedTextColor = AntigravityColors.TextPrimary,
+                                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                                focusedBorderColor = Color(0xFF10B981),
+                                                unfocusedBorderColor = AntigravityColors.CardBorder
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        1 -> {
+                            // ==================== TAB 1: AUTONOMY & SAFETY ====================
+                            // 1. Tool Execution Policy
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Tool Execution Policy", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                    Text("Determines whether tools execute automatically or require user confirmation.", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+
+                                    val policies = listOf(
+                                        Triple("always-proceed", "Full Autonomy", "Executes shell commands, file edits, and MCP tools automatically without stopping."),
+                                        Triple("request-review", "Interactive Approval", "Pauses before write operations or terminal commands to request user permission."),
+                                        Triple("strict", "Strict Read-Only", "Allows only read operations. Refuses all file writes or destructive shell commands.")
+                                    )
+
+                                    policies.forEach { (key, title, desc) ->
+                                        val isSelected = executionPolicy == key
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) AntigravityColors.ElectricCyan.copy(alpha = 0.12f) else AntigravityColors.SurfaceElevated,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.CardBorder
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { executionPolicy = key }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                RadioButton(
+                                                    selected = isSelected,
+                                                    onClick = { executionPolicy = key },
+                                                    colors = RadioButtonDefaults.colors(selectedColor = AntigravityColors.ElectricCyan)
+                                                )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                                    Text(desc, fontSize = 10.sp, color = AntigravityColors.TextSecondary, lineHeight = 14.sp)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Safety Controls & Sandboxing
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("Safety Limits & Environment", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+
+                                    // Autonomous Steps Slider
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Max Autonomous Steps Per Goal", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            Text("${maxSteps.toInt()} steps", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                        }
+                                        Slider(
+                                            value = maxSteps,
+                                            onValueChange = { maxSteps = it },
+                                            valueRange = 5f..50f,
+                                            steps = 9,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = AntigravityColors.ElectricCyan,
+                                                activeTrackColor = AntigravityColors.ElectricCyan
+                                            )
+                                        )
+                                    }
+
+                                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                    // Sandboxing Switch
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Terminal Sandboxing", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
+                                            Text("Executes agent commands inside restricted container environment", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = sandboxEnabled,
+                                            onCheckedChange = { sandboxEnabled = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+
+                                    // Auto-Approve Read-Only Tools
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Auto-Approve Read-Only Tools", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
+                                            Text("Allows fast grep, view_file, and directory list without pausing", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = autoApproveReadOnly,
+                                            onCheckedChange = { autoApproveReadOnly = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+
+                                    // Autonomous Demo Mode
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Autonomous Demo Mode", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
+                                            Text("Simulates realistic multi-step agent workflows when working offline", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = offlineDemoMode,
+                                            onCheckedChange = { offlineDemoMode = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        2 -> {
+                            // ==================== TAB 2: DEVOPS & GITHUB ====================
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("GitHub Repository Integration", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = if (githubToken.isNotBlank()) AntigravityColors.StatusSuccess.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.2f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (githubToken.isNotBlank()) AntigravityColors.StatusSuccess.copy(alpha = 0.4f) else Color.Gray)
+                                        ) {
+                                            Text(
+                                                text = if (githubToken.isNotBlank()) "AUTHENTICATED" else "READ-ONLY",
+                                                color = if (githubToken.isNotBlank()) AntigravityColors.StatusSuccess else Color.Gray,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // GitHub Token Field
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("Personal Access Token (PAT) *", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
+                                        OutlinedTextField(
+                                            value = githubToken,
+                                            onValueChange = { githubToken = it },
+                                            placeholder = { Text("ghp_... (repo, workflow, read:org scopes)", fontSize = 12.sp) },
+                                            singleLine = true,
+                                            visualTransformation = if (showGithubToken) VisualTransformation.None else PasswordVisualTransformation(),
+                                            trailingIcon = {
+                                                IconButton(onClick = { showGithubToken = !showGithubToken }) {
+                                                    Icon(
+                                                        if (showGithubToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                                        contentDescription = null,
+                                                        tint = AntigravityColors.TextSecondary
+                                                    )
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedTextColor = AntigravityColors.TextPrimary,
+                                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                unfocusedBorderColor = AntigravityColors.CardBorder
+                                            )
+                                        )
+                                    }
+
+                                    // Owner and Repo
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("Repository Owner / Org", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            OutlinedTextField(
+                                                value = githubOwner,
+                                                onValueChange = { githubOwner = it },
+                                                placeholder = { Text("saileshkushwaha", fontSize = 12.sp) },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedTextColor = AntigravityColors.TextPrimary,
+                                                    unfocusedTextColor = AntigravityColors.TextPrimary,
+                                                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                    unfocusedBorderColor = AntigravityColors.CardBorder
+                                                )
+                                            )
+                                        }
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("Repository Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            OutlinedTextField(
+                                                value = githubRepo,
+                                                onValueChange = { githubRepo = it },
+                                                placeholder = { Text("antigravity-mobile", fontSize = 12.sp) },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedTextColor = AntigravityColors.TextPrimary,
+                                                    unfocusedTextColor = AntigravityColors.TextPrimary,
+                                                    focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                    unfocusedBorderColor = AntigravityColors.CardBorder
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    // Target Branch
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("Target Git Branch", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                        OutlinedTextField(
+                                            value = targetBranch,
+                                            onValueChange = { targetBranch = it },
+                                            placeholder = { Text("main", fontSize = 12.sp) },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedTextColor = AntigravityColors.TextPrimary,
+                                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                unfocusedBorderColor = AntigravityColors.CardBorder
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        3 -> {
+                            // ==================== TAB 3: UI & EDITOR ====================
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("Code Typography & Font", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+
+                                    // Code Font Selection
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("Monospace Font Family", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            listOf("JetBrains Mono", "Fira Code", "Monospace").forEach { font ->
+                                                val isSelected = codeFontFamily == font
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (isSelected) AntigravityColors.ElectricCyan.copy(alpha = 0.2f) else AntigravityColors.SurfaceElevated,
+                                                    border = androidx.compose.foundation.BorderStroke(
+                                                        1.dp,
+                                                        if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.CardBorder
+                                                    ),
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clickable { codeFontFamily = font }
+                                                ) {
+                                                    Text(
+                                                        text = font,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
+                                                        modifier = Modifier.padding(vertical = 8.dp),
+                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Font Size Slider
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Code Font Size", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                                            Text("${codeFontSize.toInt()} sp", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                        }
+                                        Slider(
+                                            value = codeFontSize,
+                                            onValueChange = { codeFontSize = it },
+                                            valueRange = 10f..18f,
+                                            steps = 8,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = AntigravityColors.ElectricCyan,
+                                                activeTrackColor = AntigravityColors.ElectricCyan
+                                            )
+                                        )
+                                    }
+
+                                    // Preview snippet
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AntigravityColors.SurfaceDark,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "fun executeAgentGoal(input: String): StepResult {\n    val plan = planner.solve(input)\n    return runner.dispatch(plan)\n}",
+                                            fontSize = codeFontSize.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = AntigravityColors.ElectricCyan,
+                                            modifier = Modifier.padding(8.dp)
+                                        )
+                                    }
+
+                                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                    // Chat Auto-Scroll Toggle
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Auto-Scroll Chat", fontSize = 12.sp, color = AntigravityColors.TextPrimary)
+                                            Text("Automatically scrolls viewport to new incoming messages", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = autoScrollChat,
+                                            onCheckedChange = { autoScrollChat = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+
+                                    // Haptic Feedback Toggle
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Haptic Feedback", fontSize = 12.sp, color = AntigravityColors.TextPrimary)
+                                            Text("Provide gentle vibrational feedback on key interactions", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = hapticFeedback,
+                                            onCheckedChange = { hapticFeedback = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        4 -> {
+                            // ==================== TAB 4: DATA & FACTORY RESET ====================
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Granular Workspace Resets", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                    Text("Reset individual components back to factory state without losing overall settings.", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+
+                                    // Reset Option 1: Clear Chat Messages
+                                    ResetItemRow(
+                                        title = "Clear Active Conversation History",
+                                        description = "Removes all chat messages in current active session.",
+                                        buttonText = "Clear Chat",
+                                        buttonColor = Color(0xFFFF9100),
+                                        onClick = { confirmResetType = "history" }
+                                    )
+
+                                    // Reset Option 2: Personas
+                                    ResetItemRow(
+                                        title = "Reset Personas to Default",
+                                        description = "Restores built-in personas (Full-Stack, Security, Architect, etc.) and discards custom personas.",
+                                        buttonText = "Reset Personas",
+                                        buttonColor = AntigravityColors.ElectricCyan,
+                                        onClick = { confirmResetType = "personas" }
+                                    )
+
+                                    // Reset Option 3: Prompts
+                                    ResetItemRow(
+                                        title = "Reset Prompt Library to Default",
+                                        description = "Restores all standard workflow templates and removes custom templates.",
+                                        buttonText = "Reset Prompts",
+                                        buttonColor = AntigravityColors.ElectricCyan,
+                                        onClick = { confirmResetType = "prompts" }
+                                    )
+
+                                    // Reset Option 4: Skills
+                                    ResetItemRow(
+                                        title = "Reset Domain Skills to Default",
+                                        description = "Restores all 40+ built-in desktop skills and wipes custom skills.",
+                                        buttonText = "Reset Skills",
+                                        buttonColor = AntigravityColors.ElectricCyan,
+                                        onClick = { confirmResetType = "skills" }
+                                    )
+
+                                    // Reset Option 5: MCP Servers
+                                    ResetItemRow(
+                                        title = "Reset MCP Servers to Default",
+                                        description = "Restores standard core MCP tool servers (filesystem, terminal, docs, git).",
+                                        buttonText = "Reset MCP",
+                                        buttonColor = AntigravityColors.ElectricCyan,
+                                        onClick = { confirmResetType = "mcp" }
+                                    )
+
+                                    HorizontalDivider(color = Color(0xFFFF5252).copy(alpha = 0.3f))
+
+                                    // Factory Reset All
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("Factory Reset Entire Application", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5252))
+                                        Text("Completely wipes all conversation histories, custom personas, prompt templates, custom skills, custom MCP servers, and resets all configurations to defaults.", fontSize = 11.sp, color = AntigravityColors.TextSecondary, lineHeight = 15.sp)
+                                        Button(
+                                            onClick = { confirmResetType = "all" },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color.White)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Factory Reset Workspace", color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Bottom Action Bar (Apply & Save)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp)
+                        .background(AntigravityColors.SurfaceElevated)
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Save Settings", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.TextSecondary),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder)
+                    ) {
+                        Text("Cancel")
+                    }
+
+                    Button(
+                        onClick = {
+                            val updated = settings.copy(
+                                apiKey = apiKey.trim(),
+                                openAiApiKey = openAiKey.trim(),
+                                openRouterApiKey = openRouterKey.trim(),
+                                groqApiKey = groqKey.trim(),
+                                kiloCodeApiKey = kiloCodeKey.trim(),
+                                openCodeApiKey = openCodeKey.trim(),
+                                huggingFaceApiKey = huggingFaceKey.trim(),
+                                customGatewayUrl = customGatewayUrl.trim(),
+                                activeModel = selectedModel,
+                                activeModelId = selectedModelId,
+                                toolExecutionPolicy = executionPolicy,
+                                terminalSandbox = sandboxEnabled,
+                                isOfflineDemoMode = offlineDemoMode,
+                                githubToken = githubToken.trim(),
+                                githubOwner = githubOwner.trim(),
+                                githubRepo = githubRepo.trim(),
+                                targetBranch = targetBranch.trim().ifBlank { "main" },
+                                temperature = temperature,
+                                topP = topP,
+                                maxOutputTokens = maxOutputTokens.toInt(),
+                                showThinkingBlock = showThinkingBlock,
+                                streamResponses = streamResponses,
+                                maxAutonomousSteps = maxSteps.toInt(),
+                                autoApproveReadOnlyTools = autoApproveReadOnly,
+                                codeFontFamily = codeFontFamily,
+                                codeFontSize = codeFontSize.toInt(),
+                                hapticFeedback = hapticFeedback,
+                                autoScrollChat = autoScrollChat
+                            )
+                            com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig { cfg ->
+                                cfg.copy(
+                                    githubToken = githubToken.trim(),
+                                    repositoryOwner = githubOwner.trim(),
+                                    projectName = githubRepo.trim()
+                                )
+                            }
+                            onSave(updated)
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
+                        modifier = Modifier.weight(2f)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF00363D), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Apply & Save Settings", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
     }
 
+    // Model Browser Modal
     if (showModelPicker) {
         ModelSelectionDialog(
             models = models,
@@ -422,4 +1035,161 @@ fun SettingsDialog(
             onDismiss = { showModelPicker = false }
         )
     }
+
+    // Reset Confirmation Dialogs
+    if (confirmResetType != null) {
+        val title = when (confirmResetType) {
+            "history" -> "Clear Conversation History"
+            "personas" -> "Reset Personas to Default"
+            "prompts" -> "Reset Prompt Templates to Default"
+            "skills" -> "Reset Skills to Default"
+            "mcp" -> "Reset MCP Servers to Default"
+            "all" -> "Factory Reset Entire Application"
+            else -> "Confirm Reset"
+        }
+
+        val message = when (confirmResetType) {
+            "history" -> "Are you sure you want to clear all messages in this conversation?"
+            "personas" -> "This will restore standard default personas and delete any custom personas."
+            "prompts" -> "This will restore standard prompt templates and delete any custom prompts."
+            "skills" -> "This will restore standard domain skills and remove custom skills."
+            "mcp" -> "This will restore core MCP servers and remove custom MCP servers."
+            "all" -> "CRITICAL: This will factory reset all settings, chat history, personas, prompts, skills, and MCP tools back to their fresh install defaults. Continue?"
+            else -> "Are you sure you want to proceed?"
+        }
+
+        AlertDialog(
+            onDismissRequest = { confirmResetType = null },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Text(title, color = AntigravityColors.TextPrimary, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(message, color = AntigravityColors.TextSecondary)
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when (confirmResetType) {
+                            "history" -> onClearChatHistory()
+                            "personas" -> onResetPersonas()
+                            "prompts" -> onResetPrompts()
+                            "skills" -> onResetSkills()
+                            "mcp" -> onResetMcp()
+                            "all" -> {
+                                onFactoryResetAll()
+                                onDismiss()
+                            }
+                        }
+                        confirmResetType = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (confirmResetType == "all") Color(0xFFFF5252) else AntigravityColors.ElectricCyan
+                    )
+                ) {
+                    Text(
+                        text = "Confirm Reset",
+                        color = if (confirmResetType == "all") Color.White else Color(0xFF00363D),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmResetType = null }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
+    }
 }
+
+@Composable
+private fun GatewayKeyField(
+    label: String,
+    value: String,
+    placeholder: String,
+    badge: String,
+    badgeColor: Color,
+    onValueChange: (String) -> Unit
+) {
+    var showPassword by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = badgeColor.copy(alpha = 0.15f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.3f))
+            ) {
+                Text(
+                    text = badge,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = badgeColor,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                )
+            }
+        }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder, fontSize = 12.sp) },
+            singleLine = true,
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(
+                        if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = AntigravityColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = AntigravityColors.TextPrimary,
+                unfocusedTextColor = AntigravityColors.TextPrimary,
+                focusedBorderColor = badgeColor,
+                unfocusedBorderColor = AntigravityColors.CardBorder
+            )
+        )
+    }
+}
+
+@Composable
+private fun ResetItemRow(
+    title: String,
+    description: String,
+    buttonText: String,
+    buttonColor: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
+            Text(description, fontSize = 10.sp, color = AntigravityColors.TextSecondary, lineHeight = 14.sp)
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Button(
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors(containerColor = buttonColor.copy(alpha = 0.15f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, buttonColor.copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(6.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.height(30.dp)
+        ) {
+            Text(buttonText, fontSize = 10.sp, color = buttonColor, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
