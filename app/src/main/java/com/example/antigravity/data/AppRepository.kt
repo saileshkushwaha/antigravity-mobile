@@ -33,31 +33,58 @@ class AppRepository {
     )
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private val _workspaces = MutableStateFlow(
-        listOf(
-            ProjectWorkspace(
-                id = "ws-1",
-                name = "magical-bose",
-                path = System.getProperty("user.dir") ?: "c:\\workspace\\magical-bose",
-                branch = "main",
-                customRules = listOf("user_rules.md", "guidelines.md")
-            ),
-            ProjectWorkspace(
-                id = "ws-2",
-                name = "mobile-client",
-                path = "c:\\Projects\\mobile\\mobile-client",
-                branch = "feature/agent-engine",
-                customRules = listOf("compose-best-practices.md")
-            ),
-            ProjectWorkspace(
-                id = "ws-3",
-                name = "cloud-pipeline",
-                path = "c:\\Workspace\\cloud-pipeline",
-                branch = "develop",
-                customRules = listOf("security-audit.md")
+    companion object {
+        fun resolveBaseWorkspaceDir(): String {
+            return try {
+                val userDir = System.getProperty("user.dir")
+                val userHome = System.getProperty("user.home")
+                when {
+                    !userDir.isNullOrBlank() -> java.io.File(userDir).canonicalPath
+                    !userHome.isNullOrBlank() -> java.io.File(userHome, "workspaces").canonicalPath
+                    else -> java.io.File(".").canonicalPath
+                }
+            } catch (_: Exception) {
+                java.io.File(".").absolutePath
+            }
+        }
+
+        fun resolveWorkspacePath(relativePath: String): String {
+            val base = java.io.File(resolveBaseWorkspaceDir())
+            return if (relativePath.isBlank() || relativePath == "." || relativePath == base.name) {
+                base.path
+            } else {
+                java.io.File(base.parentFile ?: base, relativePath).path
+            }
+        }
+
+        fun createDefaultWorkspaces(): List<ProjectWorkspace> {
+            return listOf(
+                ProjectWorkspace(
+                    id = "ws-1",
+                    name = "magical-bose",
+                    path = resolveBaseWorkspaceDir(),
+                    branch = "main",
+                    customRules = listOf("user_rules.md", "guidelines.md")
+                ),
+                ProjectWorkspace(
+                    id = "ws-2",
+                    name = "mobile-client",
+                    path = resolveWorkspacePath("mobile-client"),
+                    branch = "feature/agent-engine",
+                    customRules = listOf("compose-best-practices.md")
+                ),
+                ProjectWorkspace(
+                    id = "ws-3",
+                    name = "cloud-pipeline",
+                    path = resolveWorkspacePath("cloud-pipeline"),
+                    branch = "develop",
+                    customRules = listOf("security-audit.md")
+                )
             )
-        )
-    )
+        }
+    }
+
+    private val _workspaces = MutableStateFlow(createDefaultWorkspaces())
     val workspaces: StateFlow<List<ProjectWorkspace>> = _workspaces.asStateFlow()
 
     private val _activeWorkspace = MutableStateFlow(_workspaces.value.first())
@@ -356,6 +383,44 @@ class AppRepository {
 
     fun switchWorkspace(workspace: ProjectWorkspace) {
         _activeWorkspace.value = workspace
+    }
+
+    fun addWorkspace(
+        name: String,
+        path: String = "",
+        branch: String = "main",
+        customRules: List<String> = listOf("user_rules.md", "architecture.md")
+    ): ProjectWorkspace {
+        val safeName = name.trim().ifBlank { "workspace-${_workspaces.value.size + 1}" }
+        val safePath = path.trim().ifBlank { resolveWorkspacePath(safeName.lowercase().replace("\\s+".toRegex(), "-")) }
+        val newWorkspace = ProjectWorkspace(
+            id = "ws-${System.currentTimeMillis()}",
+            name = safeName,
+            path = safePath,
+            branch = branch.trim().ifBlank { "main" },
+            customRules = customRules
+        )
+        _workspaces.value = _workspaces.value + newWorkspace
+        _activeWorkspace.value = newWorkspace
+        return newWorkspace
+    }
+
+    fun updateWorkspace(workspace: ProjectWorkspace) {
+        _workspaces.value = _workspaces.value.map {
+            if (it.id == workspace.id) workspace else it
+        }
+        if (_activeWorkspace.value.id == workspace.id) {
+            _activeWorkspace.value = workspace
+        }
+    }
+
+    fun deleteWorkspace(workspaceId: String) {
+        if (_workspaces.value.size <= 1) return // Keep at least one active workspace
+        val remaining = _workspaces.value.filter { it.id != workspaceId }
+        _workspaces.value = remaining
+        if (_activeWorkspace.value.id == workspaceId) {
+            _activeWorkspace.value = remaining.first()
+        }
     }
 
     fun addBackgroundTask(task: BackgroundTaskItem) {

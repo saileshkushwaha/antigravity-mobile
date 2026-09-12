@@ -44,9 +44,15 @@ fun SidebarDrawerContent(
     onOpenSdlcHub: () -> Unit = {},
     onOpenPersonas: () -> Unit = {},
     onOpenPrompts: () -> Unit = {},
+    onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
+    onDeleteWorkspace: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
+    var showAddWorkspaceDialog by remember { mutableStateOf(false) }
+    var newWsName by remember { mutableStateOf("") }
+    var newWsPath by remember { mutableStateOf("") }
+    var newWsBranch by remember { mutableStateOf("main") }
 
     Column(
         modifier = modifier
@@ -176,11 +182,45 @@ fun SidebarDrawerContent(
                     modifier = Modifier.background(AntigravityColors.CardBackground)
                 ) {
                     workspaces.forEach { ws ->
+                        val isSelected = ws.id == activeWorkspace.id
                         DropdownMenuItem(
                             text = {
-                                Column {
-                                    Text(ws.name, color = AntigravityColors.TextPrimary, fontWeight = FontWeight.SemiBold)
-                                    Text(ws.path, fontSize = 10.sp, color = AntigravityColors.TextMuted)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                ws.name,
+                                                color = if (isSelected) AntigravityColors.ElectricCyan else AntigravityColors.TextPrimary,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                                            )
+                                            if (isSelected) {
+                                                Text("• Active", fontSize = 10.sp, color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Text(ws.path, fontSize = 10.sp, color = AntigravityColors.TextMuted)
+                                    }
+                                    if (workspaces.size > 1 && !isSelected) {
+                                        IconButton(
+                                            onClick = {
+                                                onDeleteWorkspace(ws.id)
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Remove workspace",
+                                                tint = AntigravityColors.TextMuted,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             },
                             onClick = {
@@ -189,6 +229,27 @@ fun SidebarDrawerContent(
                             }
                         )
                     }
+
+                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                Text("Add Custom Workspace...", color = AntigravityColors.ElectricCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        },
+                        onClick = {
+                            showWorkspaceMenu = false
+                            newWsName = ""
+                            newWsPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath("my-project")
+                            newWsBranch = "main"
+                            showAddWorkspaceDialog = true
+                        }
+                    )
                 }
             }
 
@@ -346,6 +407,100 @@ fun SidebarDrawerContent(
                 onClick = onOpenSettings
             )
         }
+    }
+
+    if (showAddWorkspaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddWorkspaceDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Folder, contentDescription = null, tint = AntigravityColors.ElectricCyan)
+                    Text("Add Project Workspace", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Configure a local or virtual project workspace for Antigravity agents.", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Workspace Name", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                        OutlinedTextField(
+                            value = newWsName,
+                            onValueChange = {
+                                newWsName = it
+                                if (newWsPath.isBlank() || newWsPath.endsWith("my-project")) {
+                                    newWsPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath(it.trim().lowercase().replace("\\s+".toRegex(), "-"))
+                                }
+                            },
+                            placeholder = { Text("e.g. backend-api", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Workspace Directory Path (Dynamic)", fontSize = 11.sp, color = AntigravityColors.ElectricCyan)
+                        OutlinedTextField(
+                            value = newWsPath,
+                            onValueChange = { newWsPath = it },
+                            placeholder = { Text(com.example.antigravity.data.AppRepository.resolveBaseWorkspaceDir(), fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Default Git Branch", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                        OutlinedTextField(
+                            value = newWsBranch,
+                            onValueChange = { newWsBranch = it },
+                            placeholder = { Text("main", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val finalName = newWsName.trim().ifBlank { "workspace-${workspaces.size + 1}" }
+                        val finalPath = newWsPath.trim().ifBlank {
+                            com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
+                        }
+                        onAddWorkspace(finalName, finalPath, newWsBranch.trim().ifBlank { "main" })
+                        showAddWorkspaceDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
+                ) {
+                    Text("Add Workspace", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddWorkspaceDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
     }
 }
 

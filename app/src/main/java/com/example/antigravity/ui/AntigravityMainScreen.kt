@@ -107,6 +107,13 @@ fun AntigravityMainScreen(
                         repository.switchWorkspace(it)
                         coroutineScope.launch { drawerState.close() }
                     },
+                    onAddWorkspace = { name, path, branch ->
+                        repository.addWorkspace(name, path, branch)
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onDeleteWorkspace = { wsId ->
+                        repository.deleteWorkspace(wsId)
+                    },
                     onSelectConversation = {
                         repository.switchConversation(it)
                         currentScreen = AntigravityAppScreen.CHAT

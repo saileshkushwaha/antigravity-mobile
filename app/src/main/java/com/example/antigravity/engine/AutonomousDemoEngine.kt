@@ -46,7 +46,7 @@ class AutonomousDemoEngine(private val repository: AppRepository) {
             name = if (lower.contains("test")) "grep_search" else "view_file",
             toolSummary = "Analyze project workspace",
             toolAction = "Reading repository structure",
-            arguments = mapOf("Path" to "${repository.activeWorkspace.value.path}\\build.gradle.kts"),
+            arguments = mapOf("Path" to java.io.File(repository.activeWorkspace.value.path, "build.gradle.kts").path),
             status = ToolStatus.RUNNING
         )
         message.toolCalls.add(tool1)
@@ -147,12 +147,15 @@ class AutonomousDemoEngine(private val repository: AppRepository) {
         repository.updateSubagentState(subagent.conversationId, SubagentState.DONE, subagent.lastAction)
 
         // Tool Step 3: run_command
+        val isWin = System.getProperty("os.name")?.lowercase()?.contains("win") == true
+        val compileCmd = if (isWin) ".\\gradlew.bat compileDebugKotlin" else "./gradlew compileDebugKotlin"
+
         val tool3 = ToolCallItem(
             id = "tool-${UUID.randomUUID()}",
             name = "run_command",
             toolSummary = "Run verification build",
             toolAction = "Executing build verification",
-            arguments = mapOf("CommandLine" to ".\\gradlew.bat compileDebugKotlin"),
+            arguments = mapOf("CommandLine" to compileCmd),
             status = ToolStatus.RUNNING
         )
         message.toolCalls.add(tool3)
@@ -161,7 +164,7 @@ class AutonomousDemoEngine(private val repository: AppRepository) {
         // Also add to background tasks
         val bgTask = BackgroundTaskItem(
             taskId = "task-verify-${UUID.randomUUID().toString().take(6)}",
-            commandLine = ".\\gradlew.bat compileDebugKotlin",
+            commandLine = compileCmd,
             cwd = repository.activeWorkspace.value.path,
             status = TaskStatus.RUNNING,
             logs = mutableListOf("Starting verification build...")

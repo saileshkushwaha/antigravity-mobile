@@ -36,6 +36,39 @@ class AntigravityAppTest {
         val activeConv = repository.getActiveConversation()
         assertNotNull("Expected active conversation", activeConv)
         assertEquals("magical-bose", repository.activeWorkspace.value.name)
+        assertTrue("Workspace path should be dynamically resolved and not blank", repository.activeWorkspace.value.path.isNotBlank())
+    }
+
+    @Test
+    fun testDynamicWorkspaceResolutionAndLifecycle() {
+        val baseDir = com.example.antigravity.data.AppRepository.resolveBaseWorkspaceDir()
+        assertTrue("Base directory must be resolved", baseDir.isNotBlank())
+
+        val dynamicPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath("dynamic-module")
+        assertTrue("Dynamic path must contain dynamic-module", dynamicPath.contains("dynamic-module"))
+
+        val initialCount = repository.workspaces.value.size
+
+        // Add workspace
+        val created = repository.addWorkspace(
+            name = "feature-experiments",
+            path = "",
+            branch = "experiment/agent-flow"
+        )
+        assertEquals("feature-experiments", created.name)
+        assertTrue("Path should be dynamically auto-resolved", created.path.contains("feature-experiments"))
+        assertEquals(created.id, repository.activeWorkspace.value.id)
+        assertEquals(initialCount + 1, repository.workspaces.value.size)
+
+        // Switch workspace
+        val defaultWs = repository.workspaces.value.first()
+        repository.switchWorkspace(defaultWs)
+        assertEquals(defaultWs.id, repository.activeWorkspace.value.id)
+
+        // Delete created workspace
+        repository.deleteWorkspace(created.id)
+        assertEquals(initialCount, repository.workspaces.value.size)
+        assertFalse(repository.workspaces.value.any { it.id == created.id })
     }
 
     @Test
@@ -197,10 +230,11 @@ class AntigravityAppTest {
         assertTrue("Masked key should preserve suffix", masked.endsWith("_xyz"))
 
         // Test workspace path confinement
-        val isSafe = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath("c:/magical-bose", "app/build.gradle")
+        val activePath = repository.activeWorkspace.value.path
+        val isSafe = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath(activePath, "app/build.gradle")
         assertTrue(isSafe)
 
-        val isEscape = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath("c:/magical-bose", "../../windows/system32")
+        val isEscape = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath(activePath, "../../system32")
         assertFalse(isEscape)
     }
 
