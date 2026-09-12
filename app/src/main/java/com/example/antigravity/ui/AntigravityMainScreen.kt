@@ -8,14 +8,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import com.example.antigravity.data.AppRepository
 import com.example.antigravity.engine.AgentRunState
 import com.example.antigravity.engine.AntigravityAgentEngine
 import com.example.antigravity.model.AgentPersona
 import com.example.antigravity.model.ScheduledTask
+import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.theme.AntigravityColors
 import com.example.antigravity.ui.auxiliary.AuxiliaryPane
 import com.example.antigravity.ui.chat.ChatCanvas
@@ -23,6 +26,7 @@ import com.example.antigravity.ui.chat.ChatInputBar
 import com.example.antigravity.ui.dialogs.*
 import com.example.antigravity.ui.landing.LandingScreen
 import com.example.antigravity.ui.personas.PersonasAndPromptsContent
+import com.example.antigravity.ui.security.BiometricLockScreen
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
 
@@ -42,10 +46,15 @@ enum class AntigravityAppScreen(
 fun AntigravityMainScreen(
     repository: AppRepository,
     agentEngine: AntigravityAgentEngine,
+    fragmentActivity: FragmentActivity? = null,
+    isBiometricLocked: Boolean = false,
+    onBiometricUnlock: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var biometricErrorMessage by remember { mutableStateOf<String?>(null) }
 
     // Current primary destination screen
     var currentScreen by remember { mutableStateOf(AntigravityAppScreen.CHAT) }
@@ -95,7 +104,36 @@ fun AntigravityMainScreen(
     val auxiliaryActiveCount = subagents.count { it.state == com.example.antigravity.model.SubagentState.RUNNING } +
             backgroundTasks.count { it.status == com.example.antigravity.model.TaskStatus.RUNNING }
 
-    if (showLandingScreen) {
+    if (isBiometricLocked) {
+        val hardwareStatus = remember { BiometricAuthManager.checkBiometricAvailability(context) }
+        BiometricLockScreen(
+            hardwareStatus = hardwareStatus,
+            errorMessage = biometricErrorMessage,
+            onTriggerBiometric = {
+                if (fragmentActivity != null) {
+                    BiometricAuthManager.authenticate(
+                        activity = fragmentActivity,
+                        title = "Unlock Antigravity Studio",
+                        subtitle = "Verify biometric identity to access workspaces",
+                        onSuccess = {
+                            biometricErrorMessage = null
+                            onBiometricUnlock()
+                        },
+                        onError = { err ->
+                            biometricErrorMessage = err
+                        },
+                        onCancel = {
+                            biometricErrorMessage = "Authentication cancelled"
+                        }
+                    )
+                } else {
+                    onBiometricUnlock()
+                }
+            },
+            onUnlock = onBiometricUnlock,
+            modifier = modifier.fillMaxSize()
+        )
+    } else if (showLandingScreen) {
         BackHandler {
             showLandingScreen = false
         }
@@ -106,6 +144,7 @@ fun AntigravityMainScreen(
             skillsCount = skills.count { it.isEnabled },
             mcpCount = mcpServers.count { it.isEnabled },
             showOnStartup = settings.showLandingOnStartup,
+            isBiometricEnabled = settings.biometricLockEnabled,
             onToggleShowOnStartup = { enabled ->
                 repository.updateSettings { it.copy(showLandingOnStartup = enabled) }
             },
@@ -231,6 +270,7 @@ fun AntigravityMainScreen(
                             slashCommands = agentEngine.slashCommands,
                             mentionItems = agentEngine.mentionItems,
                             activePersonaName = activePersona.name,
+                            workspaceName = activeWorkspace.name,
                             onOpenPersonaSelection = {
                                 showChatPersonaDialog = true
                             },

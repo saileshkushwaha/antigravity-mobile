@@ -51,6 +51,7 @@ fun LandingScreen(
     skillsCount: Int,
     mcpCount: Int,
     showOnStartup: Boolean,
+    isBiometricEnabled: Boolean = false,
     onToggleShowOnStartup: (Boolean) -> Unit,
     onLaunchStudio: () -> Unit,
     onConfigureGateways: () -> Unit,
@@ -611,6 +612,15 @@ fun LandingScreen(
                         Column {
                             Text("MCP & Skills", fontSize = 9.sp, color = AntigravityColors.TextMuted)
                             Text("${skillsCount + mcpCount} Loaded", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                        }
+                        Column {
+                            Text("Security", fontSize = 9.sp, color = AntigravityColors.TextMuted)
+                            Text(
+                                if (isBiometricEnabled) "Biometric" else "Standard",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isBiometricEnabled) AntigravityColors.StatusSuccess else AntigravityColors.TextSecondary
+                            )
                         }
                     }
                 }

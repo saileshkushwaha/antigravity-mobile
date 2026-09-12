@@ -34,12 +34,14 @@ fun ChatInputBar(
     slashCommands: List<SlashCommand>,
     mentionItems: List<MentionItem>,
     activePersonaName: String? = null,
+    workspaceName: String? = null,
     onOpenPersonaSelection: () -> Unit = {},
     onOpenPromptLibrary: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showSlashMenu by remember { mutableStateOf(false) }
     var showMentionMenu by remember { mutableStateOf(false) }
+    var showOptimizerDialog by remember { mutableStateOf(false) }
     var attachedFile by remember { mutableStateOf<String?>(null) }
 
     // Auto-detect triggers in text
@@ -263,6 +265,35 @@ fun ChatInputBar(
                 }
             }
 
+            // Prompt Optimizer Trigger Chip
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = AntigravityColors.CardBackground,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.8f)),
+                    modifier = Modifier.clickable { showOptimizerDialog = true }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AutoFixHigh,
+                            contentDescription = null,
+                            tint = AntigravityColors.ElectricCyan,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Optimize",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AntigravityColors.ElectricCyan
+                        )
+                    }
+                }
+            }
+
             items(listOf("/goal", "/schedule", "/grill-me", "/boost", "@files")) { chip ->
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -343,34 +374,78 @@ fun ChatInputBar(
                     )
                 }
             } else {
-                IconButton(
-                    onClick = {
-                        if (inputText.isNotBlank()) {
-                            val promptToSend = if (attachedFile != null) {
-                                "$inputText [Attached: $attachedFile]"
-                            } else {
-                                inputText
-                            }
-                            onSend(promptToSend)
-                            attachedFile = null
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Quick Sparkle Optimizer Button
+                    if (inputText.isNotBlank()) {
+                        IconButton(
+                            onClick = { showOptimizerDialog = true },
+                            modifier = Modifier
+                                .padding(end = 6.dp)
+                                .size(34.dp)
+                                .background(AntigravityColors.ElectricCyan.copy(alpha = 0.15f), CircleShape)
+                                .border(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = "Optimize Prompt",
+                                tint = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
-                    },
-                    enabled = inputText.isNotBlank(),
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            if (inputText.isNotBlank()) AntigravityColors.ElectricCyan else AntigravityColors.CardBackground,
-                            CircleShape
+                    }
+
+                    IconButton(
+                        onClick = {
+                            if (inputText.isNotBlank()) {
+                                val promptToSend = if (attachedFile != null) {
+                                    "$inputText [Attached: $attachedFile]"
+                                } else {
+                                    inputText
+                                }
+                                onSend(promptToSend)
+                                attachedFile = null
+                            }
+                        },
+                        enabled = inputText.isNotBlank(),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                if (inputText.isNotBlank()) AntigravityColors.ElectricCyan else AntigravityColors.CardBackground,
+                                CircleShape
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.ArrowUpward,
+                            contentDescription = "Send prompt",
+                            tint = if (inputText.isNotBlank()) Color(0xFF00363D) else AntigravityColors.TextMuted,
+                            modifier = Modifier.size(18.dp)
                         )
-                ) {
-                    Icon(
-                        Icons.Default.ArrowUpward,
-                        contentDescription = "Send prompt",
-                        tint = if (inputText.isNotBlank()) Color(0xFF00363D) else AntigravityColors.TextMuted,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    }
                 }
             }
+        }
+
+        // Prompt Optimizer Studio Modal
+        if (showOptimizerDialog) {
+            PromptOptimizerDialog(
+                initialPrompt = inputText,
+                activePersonaName = activePersonaName,
+                workspaceName = workspaceName,
+                onApply = { optimized ->
+                    onInputChange(optimized)
+                },
+                onOptimizeAndSend = { optimized ->
+                    val promptToSend = if (attachedFile != null) {
+                        "$optimized [Attached: $attachedFile]"
+                    } else {
+                        optimized
+                    }
+                    onSend(promptToSend)
+                    onInputChange("")
+                    attachedFile = null
+                },
+                onDismiss = { showOptimizerDialog = false }
+            )
         }
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,6 +31,7 @@ import com.example.antigravity.model.AppSettings
 import com.example.antigravity.model.CustomProviderConfig
 import com.example.antigravity.model.ModelCatalog
 import com.example.antigravity.model.ModelInfo
+import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.theme.AntigravityColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +49,8 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val biometricStatus = remember { BiometricAuthManager.checkBiometricAvailability(context) }
     var selectedTab by remember { mutableStateOf(0) } // 0: Models & Gateways, 1: Autonomy, 2: DevOps, 3: Editor, 4: Data & Reset
 
     // Gateways & Model Parameters
@@ -75,6 +79,8 @@ fun SettingsDialog(
     var offlineDemoMode by remember { mutableStateOf(settings.isOfflineDemoMode) }
     var maxSteps by remember { mutableStateOf(settings.maxAutonomousSteps.toFloat()) }
     var autoApproveReadOnly by remember { mutableStateOf(settings.autoApproveReadOnlyTools) }
+    var biometricLockEnabled by remember { mutableStateOf(settings.biometricLockEnabled) }
+    var requireBiometricOnResume by remember { mutableStateOf(settings.requireBiometricOnResume) }
 
     // DevOps & GitHub
     var githubToken by remember { mutableStateOf(settings.githubToken) }
@@ -785,6 +791,117 @@ fun SettingsDialog(
                                     }
                                 }
                             }
+
+                            // 3. Enterprise Security & Biometrics
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Fingerprint,
+                                                contentDescription = null,
+                                                tint = AntigravityColors.ElectricCyan,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text("Enterprise Security & Biometrics", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = if (biometricStatus.isUsable) AntigravityColors.StatusSuccess.copy(alpha = 0.15f) else AntigravityColors.NeonViolet.copy(alpha = 0.15f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (biometricStatus.isUsable) AntigravityColors.StatusSuccess.copy(alpha = 0.4f) else AntigravityColors.NeonViolet.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = if (biometricStatus.isUsable) "HARDWARE READY" else "PIN FALLBACK",
+                                                color = if (biometricStatus.isUsable) AntigravityColors.StatusSuccess else AntigravityColors.NeonViolet,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "Protects code workspaces, live gateway API keys, and repository credentials with biometric hardware or device PIN.",
+                                        fontSize = 11.sp,
+                                        color = AntigravityColors.TextSecondary
+                                    )
+
+                                    // Hardware Status Note
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AntigravityColors.SurfaceElevated,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Shield,
+                                                contentDescription = null,
+                                                tint = AntigravityColors.ElectricCyan,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "Sensor: ${biometricStatus.displayName}",
+                                                fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = AntigravityColors.ElectricCyan
+                                            )
+                                        }
+                                    }
+
+                                    HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                    // Biometric Lock on Startup Toggle
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text("Biometric Studio Lock", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
+                                            Text("Requires biometric authentication to open the studio and access code repositories", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = biometricLockEnabled,
+                                            onCheckedChange = { biometricLockEnabled = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+
+                                    // Re-lock on Resume Toggle
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text("Re-Lock on App Resume", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityColors.TextPrimary)
+                                            Text("Automatically locks workspace whenever returning from other background apps", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Switch(
+                                            checked = requireBiometricOnResume,
+                                            enabled = biometricLockEnabled,
+                                            onCheckedChange = { requireBiometricOnResume = it },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = AntigravityColors.ElectricCyan)
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         2 -> {
@@ -1337,6 +1454,8 @@ fun SettingsDialog(
                                 hapticFeedback = hapticFeedback,
                                 autoScrollChat = autoScrollChat,
                                 showLandingOnStartup = showLandingOnStartup,
+                                biometricLockEnabled = biometricLockEnabled,
+                                requireBiometricOnResume = requireBiometricOnResume,
                                 customProviders = customProviders
                             )
                             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig { cfg ->

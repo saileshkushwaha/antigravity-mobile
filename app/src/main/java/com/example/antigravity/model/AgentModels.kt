@@ -258,7 +258,9 @@ data class AppSettings(
     val codeFontSize: Int = 12,
     val hapticFeedback: Boolean = true,
     val autoScrollChat: Boolean = true,
-    val showLandingOnStartup: Boolean = true
+    val showLandingOnStartup: Boolean = true,
+    val biometricLockEnabled: Boolean = false,
+    val requireBiometricOnResume: Boolean = true
 )
 
 data class SlashCommand(
