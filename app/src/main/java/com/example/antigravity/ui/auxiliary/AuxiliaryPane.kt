@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -127,7 +128,7 @@ fun AuxiliaryPane(
             containerColor = AntigravityColors.SurfaceDark,
             contentColor = AntigravityColors.ElectricCyan,
             edgePadding = 8.dp,
-            divider = { Divider(color = AntigravityColors.DividerColor) }
+            divider = { HorizontalDivider(color = AntigravityColors.DividerColor) }
         ) {
             AuxiliaryTab.values().forEach { tab ->
                 val badgeCount = when (tab) {
@@ -356,7 +357,7 @@ fun ArtifactsTabContent(artifacts: List<ArtifactItem>) {
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.padding(bottom = 8.dp)
                         ) {
-                            Icon(Icons.Default.Article, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
                             Text(artifact.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AntigravityColors.TextPrimary)
                         }
                         MarkdownRenderer(text = artifact.content)

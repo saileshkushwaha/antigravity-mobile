@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -138,7 +139,7 @@ fun ResearchHubScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.MenuBook,
+                            imageVector = Icons.AutoMirrored.Filled.MenuBook,
                             contentDescription = "Research Hub",
                             tint = Color(0xFF38BDF8),
                             modifier = Modifier.size(24.dp)
@@ -161,7 +162,7 @@ fun ResearchHubScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
@@ -176,7 +177,7 @@ fun ResearchHubScreen(
                     ) {
                         IconButton(onClick = { showMatrixDialog = true }) {
                             Icon(
-                                Icons.Default.CompareArrows,
+                                Icons.AutoMirrored.Filled.CompareArrows,
                                 contentDescription = "Citation Matrix",
                                 tint = if (matrixPapers.isNotEmpty()) Color(0xFF38BDF8) else Color.White
                             )
@@ -208,7 +209,7 @@ fun ResearchHubScreen(
                 },
                 trailingIcon = {
                     IconButton(onClick = { performSearch(searchQuery) }) {
-                        Icon(Icons.Default.Send, contentDescription = "Search", tint = Color(0xFF38BDF8))
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Search", tint = Color(0xFF38BDF8))
                     }
                 },
                 shape = RoundedCornerShape(12.dp),
@@ -492,7 +493,7 @@ fun ResearchHubScreen(
                                             }
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.OpenInNew,
+                                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                                 contentDescription = "Open External Link",
                                                 tint = Color.White
                                             )
@@ -513,7 +514,7 @@ fun ResearchHubScreen(
             onDismissRequest = { showMatrixDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CompareArrows, contentDescription = null, tint = Color(0xFF38BDF8))
+                    Icon(Icons.AutoMirrored.Filled.CompareArrows, contentDescription = null, tint = Color(0xFF38BDF8))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Comparative Literature Matrix", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -613,7 +614,7 @@ fun ResearchHubScreen(
             onDismissRequest = { showFullTextDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Article, contentDescription = null, tint = Color(0xFF10B981))
+                    Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null, tint = Color(0xFF10B981))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Deep Literature Full-Text", color = Color.White, fontWeight = FontWeight.Bold)
                 }

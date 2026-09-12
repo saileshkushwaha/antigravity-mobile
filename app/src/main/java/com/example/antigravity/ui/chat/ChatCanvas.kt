@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -1037,7 +1038,7 @@ fun PlanReviewCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    Icons.Default.Assignment,
+                    Icons.AutoMirrored.Filled.Assignment,
                     contentDescription = null,
                     tint = AntigravityColors.StatusWarning,
                     modifier = Modifier.size(18.dp)

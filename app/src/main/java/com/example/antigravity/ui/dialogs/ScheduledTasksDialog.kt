@@ -78,7 +78,7 @@ fun ScheduledTasksDialog(
                     }
                 }
 
-                Divider(color = AntigravityColors.DividerColor)
+                HorizontalDivider(color = AntigravityColors.DividerColor)
 
                 // Add Task Form or Button
                 if (showAddForm) {

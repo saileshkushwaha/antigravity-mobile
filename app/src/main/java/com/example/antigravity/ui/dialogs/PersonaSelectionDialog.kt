@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -295,7 +296,7 @@ fun PersonaCard(
                                 PersonaCategory.DATA_AI -> Icons.Default.AutoGraph
                                 PersonaCategory.QA_TESTING -> Icons.Default.BugReport
                                 PersonaCategory.UI_UX -> Icons.Default.Palette
-                                PersonaCategory.MANAGEMENT -> Icons.Default.MenuBook
+                                PersonaCategory.MANAGEMENT -> Icons.AutoMirrored.Filled.MenuBook
                                 else -> Icons.Default.Terminal
                             },
                             contentDescription = null,

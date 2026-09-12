@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -229,7 +230,7 @@ fun ApiStudioScreen(
                         CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
                             Text("Send", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
@@ -374,7 +375,7 @@ fun ApiStudioScreen(
                     }
                 }
 
-                Divider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
 
                 if (responseResult == null) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

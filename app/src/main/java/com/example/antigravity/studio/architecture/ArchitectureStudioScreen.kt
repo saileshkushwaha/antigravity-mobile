@@ -204,7 +204,7 @@ fun ArchitectureStudioScreen(
                                 }
                             }
 
-                            Divider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 6.dp))
+                            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 6.dp))
 
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 item {
