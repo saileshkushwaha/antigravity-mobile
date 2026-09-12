@@ -557,4 +557,124 @@ class AntigravityAppTest {
         assertTrue("Should extract text from Tj operator", extracted.contains("Quantum Computing in 2026"))
         assertTrue("Should extract text from TJ operator", extracted.contains("Advances in Multimodal AI Agents"))
     }
+
+    @Test
+    fun testCodeSyntaxHighlighter() {
+        val kotlinCode = """
+            package com.example.test
+            // Line comment
+            fun calculateTotal(value: Int): String {
+                val message = "Result: ${'$'}value"
+                return message
+            }
+        """.trimIndent()
+
+        val highlighted = com.example.antigravity.studio.code.CodeSyntaxHighlighter.highlight(kotlinCode, "kt")
+        assertEquals(kotlinCode, highlighted.text)
+        assertTrue("Highlighted text should contain span styles for tokens", highlighted.spanStyles.isNotEmpty())
+
+        val pythonCode = "def compute(x):\n    # comment\n    return x * 2"
+        val pyHighlight = com.example.antigravity.studio.code.CodeSyntaxHighlighter.highlight(pythonCode, "py")
+        assertTrue(pyHighlight.spanStyles.isNotEmpty())
+    }
+
+    @Test
+    fun testCodeDiagnosticsEngine() {
+        // Test unclosed bracket detection
+        val invalidBracketCode = "fun test() { val list = listOf(1, 2, 3 "
+        val bracketIssues = com.example.antigravity.studio.code.CodeDiagnosticsEngine.analyzeCode(invalidBracketCode, "kt")
+        assertTrue("Should catch unclosed brace/paren issue", bracketIssues.any { it.message.contains("Unclosed") || it.message.contains("bracket") })
+
+        // Test unclosed string literal
+        val invalidStringCode = "val greeting = \"Hello World without closing"
+        val stringIssues = com.example.antigravity.studio.code.CodeDiagnosticsEngine.analyzeCode(invalidStringCode, "kt")
+        assertTrue("Should catch unclosed string literal", stringIssues.any { it.message.contains("Unclosed string") })
+
+        // Test code smell detection
+        val smellCode = "fun process() {\n    // TODO: optimize query\n    println(\"debug\")\n}"
+        val smellIssues = com.example.antigravity.studio.code.CodeDiagnosticsEngine.analyzeCode(smellCode, "kt")
+        assertTrue("Should report TODO diagnostic", smellIssues.any { it.message.contains("TODO") })
+        assertTrue("Should report println diagnostic", smellIssues.any { it.message.contains("println") })
+    }
+
+    @Test
+    fun testDesignTokensW3cDtcgSerialization() {
+        val initialTokens = com.example.antigravity.studio.design.DesignTokens(
+            primaryColorHex = "#FF5722",
+            secondaryColorHex = "#00BCD4",
+            cornerRadiusDp = 18,
+            elevationDp = 6,
+            headerFontSizeSp = 24,
+            bodyFontSizeSp = 15
+        )
+
+        // 1. Serialize to W3C DTCG Standard JSON
+        val dtcgJson = initialTokens.generateW3cDtcgJson()
+        assertTrue("DTCG format must contain color tokens", dtcgJson.contains("\"color\""))
+        assertTrue("DTCG format must contain dimension tokens", dtcgJson.contains("\"dimension\""))
+        assertTrue("DTCG format must contain #FF5722", dtcgJson.contains("#FF5722"))
+
+        // 2. Parse back from W3C DTCG Standard JSON
+        val parsedResult = com.example.antigravity.studio.design.DesignTokens.parseW3cDtcgJson(dtcgJson)
+        assertTrue("DTCG JSON parsing should succeed", parsedResult.isSuccess)
+        val parsedTokens = parsedResult.getOrNull()
+        assertNotNull(parsedTokens)
+        assertEquals("#FF5722", parsedTokens!!.primaryColorHex)
+        assertEquals("#00BCD4", parsedTokens.secondaryColorHex)
+        assertEquals(18, parsedTokens.cornerRadiusDp)
+        assertEquals(6, parsedTokens.elevationDp)
+
+        // 3. Verify Tailwind & CSS Variables generation
+        val tailwindConfig = initialTokens.generateTailwindConfig()
+        assertTrue(tailwindConfig.contains("module.exports"))
+        assertTrue(tailwindConfig.contains("#FF5722"))
+
+        val cssVariables = initialTokens.generateCssVariables()
+        assertTrue(cssVariables.contains(":root {"))
+        assertTrue(cssVariables.contains("--color-primary: #FF5722;"))
+    }
+
+    @Test
+    fun testFigmaConnectorServiceColorParsing() {
+        val hexWhite = com.example.antigravity.studio.design.FigmaConnectorService.figmaColorToHex(1.0, 1.0, 1.0)
+        assertEquals("#FFFFFF", hexWhite)
+
+        val hexBlack = com.example.antigravity.studio.design.FigmaConnectorService.figmaColorToHex(0.0, 0.0, 0.0)
+        assertEquals("#000000", hexBlack)
+
+        val hexCyan = com.example.antigravity.studio.design.FigmaConnectorService.figmaColorToHex(0.0, 0.898, 1.0)
+        assertTrue(hexCyan.startsWith("#00E"))
+    }
+
+    @Test
+    fun testDesignToPrPipelineExecution() = kotlinx.coroutines.runBlocking {
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "antigravity_test_ws_${System.currentTimeMillis()}")
+        tempDir.mkdirs()
+
+        try {
+            val tokens = com.example.antigravity.studio.design.DesignTokens(
+                primaryColorHex = "#7C4DFF",
+                secondaryColorHex = "#00E5FF",
+                cornerRadiusDp = 12
+            )
+
+            val result = com.example.antigravity.sdlc.DesignToPrPipeline.execute(
+                workspaceDir = tempDir,
+                tokens = tokens,
+                sourceBranchName = "feature/test-tokens"
+            )
+
+            assertTrue(result.success)
+            assertEquals("feature/test-tokens", result.branchName)
+            assertTrue("Should write Compose file", java.io.File(tempDir, "AppDesignTokens.kt").exists())
+            assertTrue("Should write W3C DTCG tokens.json", java.io.File(tempDir, "tokens.json").exists())
+            assertTrue("Should write tailwind config", java.io.File(tempDir, "tailwind.tokens.js").exists())
+            assertTrue("Should write CSS properties", java.io.File(tempDir, "design-tokens.css").exists())
+
+            val writtenDtcg = java.io.File(tempDir, "tokens.json").readText()
+            assertTrue(writtenDtcg.contains("#7C4DFF"))
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
 }

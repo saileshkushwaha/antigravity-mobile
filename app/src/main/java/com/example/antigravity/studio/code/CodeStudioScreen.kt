@@ -67,6 +67,22 @@ fun CodeStudioScreen(
     var showTerminalDrawer by remember { mutableStateOf(false) }
     var terminalInput by remember { mutableStateOf("") }
     var showFileTreePane by remember { mutableStateOf(true) }
+    var activeStudioView by remember { mutableStateOf(0) } // 0: Editor, 1: Test Explorer
+    var showDiagnosticsDrawer by remember { mutableStateOf(false) }
+
+    val fileExtension = selectedFile?.extension?.lowercase() ?: ""
+    val syntaxTransformation = remember(fileExtension) {
+        androidx.compose.ui.text.input.VisualTransformation { text ->
+            androidx.compose.ui.text.input.TransformedText(
+                CodeSyntaxHighlighter.highlight(text.text, fileExtension),
+                androidx.compose.ui.text.input.OffsetMapping.Identity
+            )
+        }
+    }
+
+    val diagnostics = remember(fileContent, fileExtension) {
+        CodeDiagnosticsEngine.analyzeCode(fileContent, fileExtension)
+    }
 
     // Auto-select first readable file if none selected
     LaunchedEffect(fileTree) {
@@ -213,6 +229,19 @@ fun CodeStudioScreen(
                         )
                     }
 
+                    // Visual Test Explorer Button
+                    IconButton(
+                        onClick = { activeStudioView = if (activeStudioView == 0) 1 else 0 },
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (activeStudioView == 1) Icons.Default.Code else Icons.Default.CheckCircle,
+                            contentDescription = "Test Explorer",
+                            tint = if (activeStudioView == 1) AntigravityColors.ElectricCyan else Color(0xFF10B981),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+
                     // Save Button
                     Button(
                         onClick = {
@@ -241,107 +270,208 @@ fun CodeStudioScreen(
             }
         }
 
-        // Main Studio Body: File Tree (Collapsible Overlay Drawer) + Code Editor
+        // Main Studio Body: File Tree (Collapsible Overlay Drawer) + Code Editor / Test Runner
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            // Code Editor Canvas (Full Width)
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(AntigravityColors.BackgroundDark)
-            ) {
-                // File Tab & Line Stats Bar
-                Row(
+            if (activeStudioView == 1) {
+                VisualTestRunnerView(
+                    onRunTests = { onExecuteCommand(it) },
+                    isRunning = false,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Code Editor Canvas (Full Width)
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(AntigravityColors.SurfaceElevated)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .background(AntigravityColors.BackgroundDark)
                 ) {
-                    Text(
-                        text = selectedFile?.name ?: "No file open",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AntigravityColors.ElectricCyan
-                    )
-                    Text(
-                        text = "Lines: ${fileContent.lines().size} | Chars: ${fileContent.length}",
-                        fontSize = 10.sp,
-                        color = AntigravityColors.TextMuted
-                    )
-                }
-
-                // Code TextField Editor
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = fileContent,
-                        onValueChange = {
-                            fileContent = it
-                            isDirty = true
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            color = AntigravityColors.TextPrimary,
-                            lineHeight = 18.sp
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent
-                        )
-                    )
-                    
-                    // ✨ Cursor-style Inline AI Copilot Actions
-                    if (selectedFile != null) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(bottom = 16.dp, end = 16.dp)
+                    // File Tab & Line Stats Bar with Diagnostics Status Pill
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(AntigravityColors.SurfaceElevated)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFF131C2E).copy(alpha = 0.9f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.NeonViolet.copy(alpha = 0.5f)),
-                            shadowElevation = 8.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Text(
+                                text = selectedFile?.name ?: "No file open",
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AntigravityColors.ElectricCyan
+                            )
+                            // Diagnostics Pill
+                            val errorCount = diagnostics.count { it.severity == DiagnosticSeverity.ERROR }
+                            val warnCount = diagnostics.count { it.severity == DiagnosticSeverity.WARNING }
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (errorCount > 0) Color(0x33EF4444) else if (warnCount > 0) Color(0x33F59E0B) else Color(0x2210B981),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (errorCount > 0) Color(0xFFEF4444) else if (warnCount > 0) Color(0xFFF59E0B) else Color(0xFF10B981)
+                                ),
+                                modifier = Modifier.clickable { showDiagnosticsDrawer = !showDiagnosticsDrawer }
                             ) {
-                                IconButton(onClick = { /* TODO: Explain */ }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
-                                }
-                                IconButton(onClick = { /* TODO: Optimize */ }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Bolt, contentDescription = "Optimize", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
-                                }
-                                Button(
-                                    onClick = { /* TODO: Prompt / Refactor */ },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.NeonViolet),
-                                    shape = RoundedCornerShape(16.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(28.dp)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
-                                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Refactor (Ctrl+K)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Icon(
+                                        imageVector = if (errorCount > 0) Icons.Default.Cancel else if (warnCount > 0) Icons.Default.Warning else Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = if (errorCount > 0) Color(0xFFEF4444) else if (warnCount > 0) Color(0xFFF59E0B) else Color(0xFF10B981),
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Text(
+                                        text = if (errorCount == 0 && warnCount == 0) "0 Issues" else "$errorCount err, $warnCount warn",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (errorCount > 0) Color(0xFFEF4444) else if (warnCount > 0) Color(0xFFF59E0B) else Color(0xFF10B981)
+                                    )
                                 }
                             }
                         }
+                        Text(
+                            text = "Lines: ${fileContent.lines().size} | Chars: ${fileContent.length}",
+                            fontSize = 10.sp,
+                            color = AntigravityColors.TextMuted
+                        )
+                    }
+
+                    // Code Editor with Line Numbers Gutter
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        val lineCount = fileContent.lines().size.coerceAtLeast(1)
+                        val lineNumbers = (1..lineCount).joinToString("\n")
+                        Text(
+                            text = lineNumbers,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = AntigravityColors.TextMuted.copy(alpha = 0.6f),
+                            lineHeight = 18.sp,
+                            modifier = Modifier
+                                .padding(start = 6.dp, end = 4.dp, top = 8.dp)
+                        )
+                        Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(AntigravityColors.DividerColor))
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = fileContent,
+                                onValueChange = {
+                                    fileContent = it
+                                    isDirty = true
+                                },
+                                visualTransformation = syntaxTransformation,
+                                modifier = Modifier.fillMaxSize(),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    color = AntigravityColors.TextPrimary,
+                                    lineHeight = 18.sp
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent
+                                )
+                            )
+                            
+                            // ✨ Cursor-style Inline AI Copilot Actions
+                            if (selectedFile != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(bottom = 16.dp, end = 16.dp)
+                                ) {
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = Color(0xFF131C2E).copy(alpha = 0.9f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.NeonViolet.copy(alpha = 0.5f)),
+                                    shadowElevation = 8.dp
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(onClick = { /* Explain */ }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
+                                        }
+                                        IconButton(onClick = { /* Optimize */ }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.Bolt, contentDescription = "Optimize", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                        }
+                                        Button(
+                                            onClick = { /* Prompt / Refactor */ },
+                                            colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.NeonViolet),
+                                            shape = RoundedCornerShape(16.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Refactor (Ctrl+K)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        }
+                                    }
+                                }
+                                }
+                            }
                         }
                     }
-                }
 
-                // Bottom Terminal Runner Strip
+                    // Problems / Diagnostics Drawer
+                    if (showDiagnosticsDrawer && diagnostics.isNotEmpty()) {
+                        Surface(
+                            color = AntigravityColors.SurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.DividerColor),
+                            modifier = Modifier.fillMaxWidth().height(110.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("PROBLEMS (${diagnostics.size})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
+                                    IconButton(onClick = { showDiagnosticsDrawer = false }, modifier = Modifier.size(16.dp)) {
+                                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                                LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    items(diagnostics) { diag ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (diag.severity == DiagnosticSeverity.ERROR) Icons.Default.Cancel else Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = if (diag.severity == DiagnosticSeverity.ERROR) Color(0xFFEF4444) else Color(0xFFF59E0B),
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Text("Ln ${diag.line}, Col ${diag.column}: ${diag.message}", fontSize = 11.sp, color = Color.White, fontFamily = FontFamily.Monospace)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Bottom Terminal Runner Strip
                 Surface(
                     color = AntigravityColors.SurfaceElevated,
                     border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
@@ -415,6 +545,7 @@ fun CodeStudioScreen(
                     }
                 }
             }
+        }
 
             // File Tree Overlay Drawer
             if (showFileTreePane) {
