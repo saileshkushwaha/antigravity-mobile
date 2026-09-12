@@ -211,10 +211,22 @@ class AntigravityAgentEngine(
                             )
                         }
                         ModelGateway.CUSTOM -> {
+                            val matchedCustomProvider = settings.customProviders.find { cp ->
+                                cp.isEnabled && (
+                                    modelInfo?.providerName.equals(cp.name, ignoreCase = true) ||
+                                    modelInfo?.tags?.contains(cp.id) == true ||
+                                    modelInfo?.tags?.contains(cp.name.lowercase().replace("\\s+".toRegex(), "-")) == true
+                                )
+                            }
+                            val resolvedBaseUrl = matchedCustomProvider?.baseUrl?.ifBlank { settings.customGatewayUrl }
+                                ?: settings.customGatewayUrl
+                            val resolvedApiKey = matchedCustomProvider?.apiKey?.ifBlank { settings.customGatewayApiKey }
+                                ?: settings.customGatewayApiKey
+
                             openAiGatewayService.generateChatCompletion(
-                                baseUrl = settings.customGatewayUrl,
-                                apiKey = settings.customGatewayApiKey,
-                                modelId = settings.activeModelId,
+                                baseUrl = resolvedBaseUrl,
+                                apiKey = resolvedApiKey,
+                                modelId = modelInfo?.id ?: settings.activeModelId,
                                 prompt = trimmed,
                                 systemInstruction = sysInstruction,
                                 history = previousMessages

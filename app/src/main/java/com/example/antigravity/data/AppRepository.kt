@@ -290,22 +290,46 @@ class AppRepository {
                     ).getOrDefault(emptyList())
                 })
 
-                // 3. KiloCode Free Models
+                // 3. KiloCode Free Models (with fallback mirror resolution)
                 deferreds.add(async {
-                    openAiGatewayService.fetchModels(
-                        baseUrl = ModelGateway.KILOCODE.defaultBaseUrl,
-                        apiKey = currentSettings.kiloCodeApiKey,
-                        gateway = ModelGateway.KILOCODE
-                    ).getOrDefault(emptyList())
+                    val mirrors = listOf(
+                        ModelGateway.KILOCODE.defaultBaseUrl,
+                        "https://api.kilocode.ai/v1",
+                        "https://api.kilo.ai/v1"
+                    )
+                    for (url in mirrors) {
+                        val res = openAiGatewayService.fetchModels(
+                            baseUrl = url,
+                            apiKey = currentSettings.kiloCodeApiKey,
+                            gateway = ModelGateway.KILOCODE,
+                            providerName = "KiloCode"
+                        )
+                        if (res.isSuccess && res.getOrNull()?.isNotEmpty() == true) {
+                            return@async res.getOrDefault(emptyList())
+                        }
+                    }
+                    emptyList()
                 })
 
-                // 4. OpenCode Free Models
+                // 4. OpenCode Free Models (with fallback mirror resolution)
                 deferreds.add(async {
-                    openAiGatewayService.fetchModels(
-                        baseUrl = ModelGateway.OPENCODE.defaultBaseUrl,
-                        apiKey = currentSettings.openCodeApiKey,
-                        gateway = ModelGateway.OPENCODE
-                    ).getOrDefault(emptyList())
+                    val mirrors = listOf(
+                        ModelGateway.OPENCODE.defaultBaseUrl,
+                        "https://api.opencode.ai/v1",
+                        "https://models.opencode.ai/v1"
+                    )
+                    for (url in mirrors) {
+                        val res = openAiGatewayService.fetchModels(
+                            baseUrl = url,
+                            apiKey = currentSettings.openCodeApiKey,
+                            gateway = ModelGateway.OPENCODE,
+                            providerName = "OpenCode"
+                        )
+                        if (res.isSuccess && res.getOrNull()?.isNotEmpty() == true) {
+                            return@async res.getOrDefault(emptyList())
+                        }
+                    }
+                    emptyList()
                 })
 
                 // 5. OpenAI
@@ -314,7 +338,8 @@ class AppRepository {
                         openAiGatewayService.fetchModels(
                             baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
                             apiKey = currentSettings.openAiApiKey,
-                            gateway = ModelGateway.OPENAI
+                            gateway = ModelGateway.OPENAI,
+                            providerName = "OpenAI"
                         ).getOrDefault(emptyList())
                     })
                 }
@@ -325,7 +350,8 @@ class AppRepository {
                         openAiGatewayService.fetchModels(
                             baseUrl = ModelGateway.GROQ.defaultBaseUrl,
                             apiKey = currentSettings.groqApiKey,
-                            gateway = ModelGateway.GROQ
+                            gateway = ModelGateway.GROQ,
+                            providerName = "Groq"
                         ).getOrDefault(emptyList())
                     })
                 }
@@ -335,7 +361,8 @@ class AppRepository {
                     openAiGatewayService.fetchModels(
                         baseUrl = ModelGateway.OLLAMA.defaultBaseUrl,
                         apiKey = "",
-                        gateway = ModelGateway.OLLAMA
+                        gateway = ModelGateway.OLLAMA,
+                        providerName = "Ollama Local"
                     ).getOrDefault(emptyList())
                 })
 
@@ -345,19 +372,39 @@ class AppRepository {
                         openAiGatewayService.fetchModels(
                             baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
                             apiKey = currentSettings.huggingFaceApiKey,
-                            gateway = ModelGateway.HUGGINGFACE
+                            gateway = ModelGateway.HUGGINGFACE,
+                            providerName = "Hugging Face"
                         ).getOrDefault(emptyList())
                     })
                 }
 
-                // 9. Custom Gateway
+                // 9. Legacy Custom Gateway URL (if configured)
                 if (currentSettings.customGatewayUrl.isNotBlank()) {
                     deferreds.add(async {
                         openAiGatewayService.fetchModels(
                             baseUrl = currentSettings.customGatewayUrl,
                             apiKey = currentSettings.customGatewayApiKey,
-                            gateway = ModelGateway.CUSTOM
+                            gateway = ModelGateway.CUSTOM,
+                            providerName = "Custom Gateway"
                         ).getOrDefault(emptyList())
+                    })
+                }
+
+                // 10. Dynamic User-Configured Custom Providers
+                for (customProvider in currentSettings.customProviders.filter { it.isEnabled }) {
+                    deferreds.add(async {
+                        val res = openAiGatewayService.fetchModels(
+                            baseUrl = customProvider.baseUrl,
+                            apiKey = customProvider.apiKey,
+                            gateway = ModelGateway.CUSTOM,
+                            providerName = customProvider.name,
+                            modelsEndpoint = customProvider.modelsEndpoint
+                        )
+                        res.getOrDefault(emptyList()).map { model ->
+                            // Ensure provider ID tag is present
+                            val tags = (model.tags + customProvider.id).distinct()
+                            model.copy(tags = tags, providerName = customProvider.name)
+                        }
                     })
                 }
 
@@ -725,6 +772,48 @@ class AppRepository {
 
     fun updateSettings(transform: (AppSettings) -> AppSettings) {
         _settings.update(transform)
+    }
+
+    // Custom Providers CRUD
+    fun addCustomProvider(provider: CustomProviderConfig) {
+        _settings.update { s ->
+            val updated = s.customProviders.filterNot { it.id == provider.id } + provider
+            s.copy(customProviders = updated)
+        }
+    }
+
+    fun updateCustomProvider(provider: CustomProviderConfig) {
+        _settings.update { s ->
+            val updated = s.customProviders.map { if (it.id == provider.id) provider else it }
+            s.copy(customProviders = updated)
+        }
+    }
+
+    fun deleteCustomProvider(providerId: String) {
+        _settings.update { s ->
+            s.copy(customProviders = s.customProviders.filterNot { it.id == providerId })
+        }
+        _models.update { list ->
+            list.filterNot { it.gateway == ModelGateway.CUSTOM && it.tags.contains(providerId) }
+        }
+    }
+
+    fun toggleCustomProvider(providerId: String) {
+        _settings.update { s ->
+            val updated = s.customProviders.map {
+                if (it.id == providerId) it.copy(isEnabled = !it.isEnabled) else it
+            }
+            s.copy(customProviders = updated)
+        }
+    }
+
+    suspend fun testCustomProvider(
+        baseUrl: String,
+        apiKey: String = "",
+        modelsEndpoint: String? = null,
+        name: String = "Custom Provider"
+    ): Result<List<ModelInfo>> {
+        return openAiGatewayService.testProviderConnection(baseUrl, apiKey, modelsEndpoint, name)
     }
 
     fun resetAllDataToDefaults() {

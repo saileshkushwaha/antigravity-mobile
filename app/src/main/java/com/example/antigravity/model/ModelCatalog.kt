@@ -5,6 +5,15 @@ object ModelCatalog {
     val allModels: List<ModelInfo> = listOf(
         // --- KiloCode Free Models ---
         ModelInfo(
+            id = "kilo/deepseek-r1",
+            name = "DeepSeek R1 (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Full frontier open reasoning model with chain-of-thought verification served free on KiloCode.",
+            tags = listOf("free", "kilocode", "deepseek", "reasoning", "r1", "cot")
+        ),
+        ModelInfo(
             id = "kilo/deepseek-r1-distill-qwen-32b",
             name = "DeepSeek R1 Distill Qwen 32B (KiloCode)",
             gateway = ModelGateway.KILOCODE,
@@ -12,6 +21,24 @@ object ModelCatalog {
             contextWindow = "64k",
             description = "High-efficiency distillation of DeepSeek R1 reasoning architecture provided free on KiloCode gateway.",
             tags = listOf("free", "kilocode", "deepseek", "reasoning", "r1", "cot")
+        ),
+        ModelInfo(
+            id = "kilo/deepseek-r1-distill-llama-70b",
+            name = "DeepSeek R1 Distill Llama 70B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Massive 70B parameter reasoning distillation on Llama architecture served free on KiloCode.",
+            tags = listOf("free", "kilocode", "deepseek", "llama", "reasoning", "r1")
+        ),
+        ModelInfo(
+            id = "kilo/deepseek-v3",
+            name = "DeepSeek V3 671B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "State-of-the-art general intelligence 671B MoE architecture available at zero cost on KiloCode.",
+            tags = listOf("free", "kilocode", "deepseek", "moe", "v3", "general")
         ),
         ModelInfo(
             id = "kilo/qwen-2.5-coder-32b",
@@ -23,6 +50,24 @@ object ModelCatalog {
             tags = listOf("free", "kilocode", "qwen", "coder", "coding", "programming")
         ),
         ModelInfo(
+            id = "kilo/qwen-2.5-coder-14b",
+            name = "Qwen 2.5 Coder 14B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Balanced high-performance code assistant on KiloCode gateway.",
+            tags = listOf("free", "kilocode", "qwen", "coder", "coding")
+        ),
+        ModelInfo(
+            id = "kilo/qwen-2.5-coder-7b",
+            name = "Qwen 2.5 Coder 7B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Ultra-fast low-latency code generation model on KiloCode.",
+            tags = listOf("free", "kilocode", "qwen", "coder", "fast")
+        ),
+        ModelInfo(
             id = "kilo/llama-3.3-70b-instruct",
             name = "Llama 3.3 70B Instruct (KiloCode)",
             gateway = ModelGateway.KILOCODE,
@@ -32,16 +77,70 @@ object ModelCatalog {
             tags = listOf("free", "kilocode", "llama", "meta", "instruct")
         ),
         ModelInfo(
+            id = "kilo/llama-3.1-8b-instruct",
+            name = "Llama 3.1 8B Instruct (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Swift and agile open model for fast multi-turn completions on KiloCode.",
+            tags = listOf("free", "kilocode", "llama", "meta", "fast")
+        ),
+        ModelInfo(
             id = "kilo/phi-4",
-            name = "Microsoft Phi-4 (KiloCode)",
+            name = "Microsoft Phi-4 14B (KiloCode)",
             gateway = ModelGateway.KILOCODE,
             isFree = true,
             contextWindow = "16k",
             description = "Microsoft's 14B state-of-the-art synthetic reasoning model available for free on KiloCode.",
             tags = listOf("free", "kilocode", "microsoft", "phi", "math", "reasoning")
         ),
+        ModelInfo(
+            id = "kilo/mistral-small-3",
+            name = "Mistral Small 3 24B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "European frontier open weights model with premier function calling on KiloCode.",
+            tags = listOf("free", "kilocode", "mistral", "fast")
+        ),
+        ModelInfo(
+            id = "kilo/codestral-22b",
+            name = "Mistral Codestral 22B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Mistral's dedicated code generation and fill-in-the-middle model on KiloCode.",
+            tags = listOf("free", "kilocode", "mistral", "codestral", "coding")
+        ),
+        ModelInfo(
+            id = "kilo/gemma-2-27b",
+            name = "Google Gemma 2 27B (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "8k",
+            description = "Google DeepMind open model with high benchmark scores on KiloCode free gateway.",
+            tags = listOf("free", "kilocode", "google", "gemma")
+        ),
+        ModelInfo(
+            id = "kilo/glm-4-9b",
+            name = "GLM-4 9B Chat (KiloCode)",
+            gateway = ModelGateway.KILOCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Zhipu AI bilingual reasoning and agent model served free on KiloCode.",
+            tags = listOf("free", "kilocode", "glm", "multilingual")
+        ),
 
         // --- OpenCode Free Models ---
+        ModelInfo(
+            id = "opencode/deepseek-coder-v2-instruct",
+            name = "DeepSeek Coder V2 236B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "128k",
+            description = "Flagship 236B MoE software engineering powerhouse matching closed models on OpenCode.",
+            tags = listOf("free", "opencode", "deepseek", "coder", "coding", "software", "moe")
+        ),
         ModelInfo(
             id = "opencode/deepseek-coder-v2-lite",
             name = "DeepSeek Coder V2 Lite (OpenCode)",
@@ -50,6 +149,24 @@ object ModelCatalog {
             contextWindow = "64k",
             description = "Specialized software engineering model supporting 300+ programming languages on OpenCode.",
             tags = listOf("free", "opencode", "deepseek", "coder", "coding", "software")
+        ),
+        ModelInfo(
+            id = "opencode/qwen-2.5-coder-32b",
+            name = "Qwen 2.5 Coder 32B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Leading open programming intelligence model for complex refactors on OpenCode.",
+            tags = listOf("free", "opencode", "qwen", "coder", "coding")
+        ),
+        ModelInfo(
+            id = "opencode/qwen-2.5-coder-14b",
+            name = "Qwen 2.5 Coder 14B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "32k",
+            description = "Versatile intermediate code generation model on OpenCode gateway.",
+            tags = listOf("free", "opencode", "qwen", "coder", "coding")
         ),
         ModelInfo(
             id = "opencode/qwen-2.5-coder-7b",
@@ -61,6 +178,42 @@ object ModelCatalog {
             tags = listOf("free", "opencode", "qwen", "coder", "fast", "low-latency")
         ),
         ModelInfo(
+            id = "opencode/starcoder2-15b",
+            name = "StarCoder2 15B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "16k",
+            description = "BigCode alliance model trained on 600+ languages from GitHub on OpenCode gateway.",
+            tags = listOf("free", "opencode", "starcoder", "bigcode", "github", "coding")
+        ),
+        ModelInfo(
+            id = "opencode/starcoder2-7b",
+            name = "StarCoder2 7B (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "16k",
+            description = "Efficient code syntax and snippet synthesis engine on OpenCode.",
+            tags = listOf("free", "opencode", "starcoder", "coding")
+        ),
+        ModelInfo(
+            id = "opencode/codellama-70b-instruct",
+            name = "CodeLlama 70B Instruct (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "100k",
+            description = "Meta's highest parameter specialized code model available on OpenCode gateway.",
+            tags = listOf("free", "opencode", "codellama", "meta", "coding")
+        ),
+        ModelInfo(
+            id = "opencode/codellama-34b-instruct",
+            name = "CodeLlama 34B Instruct (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "100k",
+            description = "Fast Python and multi-language syntax specialist on OpenCode.",
+            tags = listOf("free", "opencode", "codellama", "coding")
+        ),
+        ModelInfo(
             id = "opencode/glm-4-flash-free",
             name = "GLM-4 Flash (OpenCode)",
             gateway = ModelGateway.OPENCODE,
@@ -70,13 +223,22 @@ object ModelCatalog {
             tags = listOf("free", "opencode", "glm", "flash", "reasoning", "multilingual")
         ),
         ModelInfo(
-            id = "opencode/starcoder2-15b",
-            name = "StarCoder2 15B (OpenCode)",
+            id = "opencode/wizardcoder-python-34b",
+            name = "WizardCoder Python 34B (OpenCode)",
             gateway = ModelGateway.OPENCODE,
             isFree = true,
-            contextWindow = "16k",
-            description = "BigCode alliance model trained on 600+ languages from GitHub on OpenCode gateway.",
-            tags = listOf("free", "opencode", "starcoder", "bigcode", "github", "coding")
+            contextWindow = "32k",
+            description = "Complex algorithmic problem solving and unit test generator on OpenCode.",
+            tags = listOf("free", "opencode", "wizardcoder", "python", "coding")
+        ),
+        ModelInfo(
+            id = "opencode/devvinci-code-instruct",
+            name = "DevVinci Code Specialist (OpenCode)",
+            gateway = ModelGateway.OPENCODE,
+            isFree = true,
+            contextWindow = "64k",
+            description = "Specialized multi-file architectural refactoring model on OpenCode.",
+            tags = listOf("free", "opencode", "devvinci", "architecture", "coding")
         ),
 
         // --- OpenRouter Free Models ---
@@ -303,14 +465,18 @@ object ModelCatalog {
         val result = allModels.toMutableList()
         for (live in liveModels) {
             val existingIndex = result.indexOfFirst { 
-                it.id.equals(live.id, ignoreCase = true) && it.gateway == live.gateway 
+                it.id.equals(live.id, ignoreCase = true) && 
+                    (it.gateway == live.gateway && (it.gateway != ModelGateway.CUSTOM || it.providerName.equals(live.providerName, ignoreCase = true)))
             }
             if (existingIndex >= 0) {
                 val existing = result[existingIndex]
                 val mergedTags = (existing.tags + live.tags).distinct()
                 result[existingIndex] = existing.copy(
+                    name = if (existing.name.isBlank() || existing.name == existing.id) live.name else existing.name,
                     tags = mergedTags,
-                    contextWindow = if (live.contextWindow.isNotBlank() && live.contextWindow != "128k") live.contextWindow else existing.contextWindow
+                    contextWindow = if (live.contextWindow.isNotBlank() && live.contextWindow != "128k") live.contextWindow else existing.contextWindow,
+                    providerName = if (live.providerName.isNotBlank()) live.providerName else existing.providerName,
+                    isFree = existing.isFree || live.isFree
                 )
             } else {
                 result.add(live)

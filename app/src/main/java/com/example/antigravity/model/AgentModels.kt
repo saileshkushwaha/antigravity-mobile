@@ -191,6 +191,16 @@ data class McpServerItem(
 )
 
 @Serializable
+data class CustomProviderConfig(
+    val id: String = "provider-${System.currentTimeMillis()}",
+    val name: String,
+    val baseUrl: String,
+    val apiKey: String = "",
+    val isEnabled: Boolean = true,
+    val modelsEndpoint: String = "/models"
+)
+
+@Serializable
 enum class ModelGateway(val displayName: String, val defaultBaseUrl: String) {
     GEMINI("Google Gemini", "https://generativelanguage.googleapis.com/v1beta"),
     OPENAI("OpenAI", "https://api.openai.com/v1"),
@@ -211,7 +221,8 @@ data class ModelInfo(
     val isFree: Boolean = false,
     val contextWindow: String = "128k",
     val description: String = "",
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val providerName: String = gateway.displayName
 )
 
 @Serializable
@@ -225,6 +236,7 @@ data class AppSettings(
     val huggingFaceApiKey: String = "",
     val customGatewayUrl: String = "http://localhost:11434/v1",
     val customGatewayApiKey: String = "",
+    val customProviders: List<CustomProviderConfig> = emptyList(),
     val activeModel: String = "Gemini 2.5 Flash",
     val activeModelId: String = "gemini-2.5-flash",
     val toolExecutionPolicy: String = "request-review", // "always-proceed", "request-review", "strict"

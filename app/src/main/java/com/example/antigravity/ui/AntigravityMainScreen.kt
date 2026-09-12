@@ -363,6 +363,12 @@ fun AntigravityMainScreen(
                 showModelSelectionDialog = false
                 showSettingsDialog = true
             },
+            onAddCustomProvider = { newProvider ->
+                repository.addCustomProvider(newProvider)
+                coroutineScope.launch {
+                    repository.refreshModelsFromGateways()
+                }
+            },
             onDismiss = { showModelSelectionDialog = false }
         )
     }

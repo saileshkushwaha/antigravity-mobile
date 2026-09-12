@@ -27,6 +27,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import com.example.antigravity.model.AppSettings
+import com.example.antigravity.model.CustomProviderConfig
 import com.example.antigravity.model.ModelCatalog
 import com.example.antigravity.model.ModelInfo
 import com.example.antigravity.theme.AntigravityColors
@@ -57,6 +58,9 @@ fun SettingsDialog(
     var openCodeKey by remember { mutableStateOf(settings.openCodeApiKey) }
     var huggingFaceKey by remember { mutableStateOf(settings.huggingFaceApiKey) }
     var customGatewayUrl by remember { mutableStateOf(settings.customGatewayUrl) }
+    var customProviders by remember { mutableStateOf(settings.customProviders) }
+    var editingProvider by remember { mutableStateOf<CustomProviderConfig?>(null) }
+    var showAddProviderModal by remember { mutableStateOf(false) }
     var selectedModel by remember { mutableStateOf(settings.activeModel) }
     var selectedModelId by remember { mutableStateOf(settings.activeModelId) }
     var temperature by remember { mutableStateOf(settings.temperature) }
@@ -498,6 +502,146 @@ fun SettingsDialog(
                                                 unfocusedBorderColor = AntigravityColors.CardBorder
                                             )
                                         )
+                                    }
+                                }
+                            }
+
+                            // 4. Custom LLM Providers & Gateways
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AntigravityColors.CardBackground,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Custom LLM Providers & Gateways", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextPrimary)
+                                            Text("Connect private vLLM, LM Studio, Ollama, or proprietary endpoints", fontSize = 10.sp, color = AntigravityColors.TextSecondary)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                editingProvider = null
+                                                showAddProviderModal = true
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF10B981),
+                                                contentColor = Color.White
+                                            ),
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Add Provider", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    if (customProviders.isEmpty()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = AntigravityColors.SurfaceElevated,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = "No custom providers added yet. Tap 'Add Provider' to connect any OpenAI-compatible API endpoint with live discovery.",
+                                                fontSize = 11.sp,
+                                                color = AntigravityColors.TextMuted,
+                                                modifier = Modifier.padding(12.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            customProviders.forEach { provider ->
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = AntigravityColors.SurfaceElevated,
+                                                    border = androidx.compose.foundation.BorderStroke(
+                                                        1.dp,
+                                                        if (provider.isEnabled) Color(0xFF10B981).copy(alpha = 0.4f) else AntigravityColors.CardBorder
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(10.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                                Text(
+                                                                    text = provider.name,
+                                                                    fontSize = 12.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = if (provider.isEnabled) AntigravityColors.TextPrimary else AntigravityColors.TextMuted
+                                                                )
+                                                                Surface(
+                                                                    shape = RoundedCornerShape(4.dp),
+                                                                    color = if (provider.isEnabled) Color(0xFF10B981).copy(alpha = 0.15f) else AntigravityColors.SurfaceDark
+                                                                ) {
+                                                                    Text(
+                                                                        text = if (provider.isEnabled) "ACTIVE" else "DISABLED",
+                                                                        fontSize = 9.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        color = if (provider.isEnabled) Color(0xFF10B981) else AntigravityColors.TextMuted,
+                                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                            Text(
+                                                                text = provider.baseUrl,
+                                                                fontSize = 10.sp,
+                                                                fontFamily = FontFamily.Monospace,
+                                                                color = AntigravityColors.TextSecondary
+                                                            )
+                                                            if (provider.apiKey.isNotBlank()) {
+                                                                Text(
+                                                                    text = "Key: ••••••••${provider.apiKey.takeLast(4)}",
+                                                                    fontSize = 9.sp,
+                                                                    color = AntigravityColors.TextMuted
+                                                                )
+                                                            }
+                                                        }
+
+                                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                            IconButton(
+                                                                onClick = {
+                                                                    editingProvider = provider
+                                                                    showAddProviderModal = true
+                                                                },
+                                                                modifier = Modifier.size(28.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
+                                                            }
+
+                                                            IconButton(
+                                                                onClick = {
+                                                                    customProviders = customProviders.filterNot { it.id == provider.id }
+                                                                },
+                                                                modifier = Modifier.size(28.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = AntigravityColors.StatusError, modifier = Modifier.size(16.dp))
+                                                            }
+
+                                                            Switch(
+                                                                checked = provider.isEnabled,
+                                                                onCheckedChange = { checked ->
+                                                                    customProviders = customProviders.map {
+                                                                        if (it.id == provider.id) it.copy(isEnabled = checked) else it
+                                                                    }
+                                                                },
+                                                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF10B981))
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1171,7 +1315,8 @@ fun SettingsDialog(
                                 codeFontFamily = codeFontFamily,
                                 codeFontSize = codeFontSize.toInt(),
                                 hapticFeedback = hapticFeedback,
-                                autoScrollChat = autoScrollChat
+                                autoScrollChat = autoScrollChat,
+                                customProviders = customProviders
                             )
                             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig { cfg ->
                                 cfg.copy(
@@ -1216,7 +1361,33 @@ fun SettingsDialog(
                 selectedModelId = model.id
                 showModelPicker = false
             },
+            onAddCustomProvider = { newProvider ->
+                customProviders = customProviders.filterNot { it.id == newProvider.id } + newProvider
+            },
             onDismiss = { showModelPicker = false }
+        )
+    }
+
+    // Custom Provider Configuration Modal
+    if (showAddProviderModal) {
+        AddCustomProviderModal(
+            initialConfig = editingProvider,
+            onSave = { savedProvider ->
+                val index = customProviders.indexOfFirst { it.id == savedProvider.id }
+                if (index >= 0) {
+                    val list = customProviders.toMutableList()
+                    list[index] = savedProvider
+                    customProviders = list
+                } else {
+                    customProviders = customProviders + savedProvider
+                }
+                showAddProviderModal = false
+                editingProvider = null
+            },
+            onDismiss = {
+                showAddProviderModal = false
+                editingProvider = null
+            }
         )
     }
 

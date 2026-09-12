@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.antigravity.model.CustomProviderConfig
 import com.example.antigravity.model.ModelCatalog
 import com.example.antigravity.model.ModelGateway
 import com.example.antigravity.model.ModelInfo
@@ -36,7 +37,8 @@ enum class ModelFilterCategory(val label: String) {
     GEMINI("Google Gemini"),
     OPENAI("OpenAI"),
     OLLAMA("Ollama Local"),
-    HUGGINGFACE("Hugging Face")
+    HUGGINGFACE("Hugging Face"),
+    CUSTOM("Custom Providers")
 }
 
 enum class ModelCapabilityFilter(val label: String) {
@@ -62,12 +64,14 @@ fun ModelSelectionDialog(
     onRefresh: (() -> Unit)? = null,
     onSelectModel: (ModelInfo) -> Unit,
     onOpenApiKeys: (() -> Unit)? = null,
+    onAddCustomProvider: ((CustomProviderConfig) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(ModelFilterCategory.ALL) }
     var selectedCapability by remember { mutableStateOf(ModelCapabilityFilter.ALL) }
     var selectedContext by remember { mutableStateOf(ContextFilter.ALL) }
+    var showAddCustomProviderModal by remember { mutableStateOf(false) }
 
     fun parseContextK(raw: String): Int {
         val clean = raw.trim().lowercase()
@@ -92,6 +96,7 @@ fun ModelSelectionDialog(
                 ModelFilterCategory.OPENAI -> model.gateway == ModelGateway.OPENAI
                 ModelFilterCategory.OLLAMA -> model.gateway == ModelGateway.OLLAMA
                 ModelFilterCategory.HUGGINGFACE -> model.gateway == ModelGateway.HUGGINGFACE
+                ModelFilterCategory.CUSTOM -> model.gateway == ModelGateway.CUSTOM
             }
 
             // 2. Capability / Domain Filter
@@ -138,6 +143,7 @@ fun ModelSelectionDialog(
                     model.name.lowercase().contains(q) ||
                     model.id.lowercase().contains(q) ||
                     model.description.lowercase().contains(q) ||
+                    model.providerName.lowercase().contains(q) ||
                     model.tags.any { it.lowercase().contains(q) } ||
                     model.gateway.displayName.lowercase().contains(q)
 
@@ -213,6 +219,20 @@ fun ModelSelectionDialog(
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
+                            }
+                        }
+
+                        if (onAddCustomProvider != null) {
+                            OutlinedButton(
+                                onClick = { showAddCustomProviderModal = true },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF10B981)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f)),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Provider", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
 
@@ -348,10 +368,31 @@ fun ModelSelectionDialog(
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             Icon(Icons.Default.SearchOff, contentDescription = null, tint = AntigravityColors.TextMuted, modifier = Modifier.size(36.dp))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("No matching models found", fontSize = 13.sp, color = AntigravityColors.TextSecondary)
+                            Text(
+                                if (selectedCategory == ModelFilterCategory.CUSTOM) "No custom provider models registered yet"
+                                else "No matching models found",
+                                fontSize = 13.sp,
+                                color = AntigravityColors.TextSecondary
+                            )
+                            if (selectedCategory == ModelFilterCategory.CUSTOM && onAddCustomProvider != null) {
+                                Button(
+                                    onClick = { showAddCustomProviderModal = true },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF10B981),
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.AddCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Add Custom Provider", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 } else {
@@ -379,6 +420,16 @@ fun ModelSelectionDialog(
             }
         }
     }
+
+    if (showAddCustomProviderModal && onAddCustomProvider != null) {
+        AddCustomProviderModal(
+            onSave = { newProvider ->
+                onAddCustomProvider(newProvider)
+                showAddCustomProviderModal = false
+            },
+            onDismiss = { showAddCustomProviderModal = false }
+        )
+    }
 }
 
 @Composable
@@ -396,7 +447,7 @@ fun ModelItemCard(
         ModelGateway.OPENAI -> Color(0xFF10A37F)
         ModelGateway.OLLAMA -> Color(0xFF10B981)
         ModelGateway.HUGGINGFACE -> Color(0xFFFFD21E)
-        ModelGateway.CUSTOM -> AntigravityColors.TextSecondary
+        ModelGateway.CUSTOM -> Color(0xFF10B981)
     }
 
     Surface(
@@ -463,13 +514,19 @@ fun ModelItemCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Gateway Chip
+                    val badgeText = if (model.providerName.isNotBlank() && model.providerName != model.gateway.displayName) {
+                        "${model.providerName} (${model.gateway.displayName})"
+                    } else {
+                        model.gateway.displayName
+                    }
+
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = gatewayColor.copy(alpha = 0.15f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, gatewayColor.copy(alpha = 0.5f))
                     ) {
                         Text(
-                            text = model.gateway.displayName,
+                            text = badgeText,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = gatewayColor,
