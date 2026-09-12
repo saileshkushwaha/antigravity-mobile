@@ -132,6 +132,32 @@ Antigravity Mobile connects seamlessly to frontier and open-source models:
 
 ---
 
+## 🔑 API Key Portability & CSV System
+
+Antigravity includes a robust, RFC-4180 compliant credential export and import engine powered by `ApiKeyCsvManager`:
+
+- **1-Tap Bulk Export**: Export all configured gateway keys (Gemini, OpenAI, Groq, OpenRouter, KiloCode, OpenCode, Hugging Face, Custom Proxies, and GitHub Tokens) into a clean CSV format.
+- **Secure Handling & Masking**: Preview keys with privacy masking, copy directly to clipboard, save to `antigravity_api_keys.csv` in workspace, or share via Android share intents.
+- **Flexible & Lenient Importer**: Automatically parses full 5-column CSV files or 2-column shorthand (`provider,api_key`), handles escaped quotes and commas, and validates credentials before applying.
+- **Safe Merge Protection**: Guarantees that blank entries in imported CSVs do not inadvertently overwrite existing configured keys unless explicitly requested.
+- **Instant Gateway Sync**: Importing credentials automatically triggers a live catalog refresh across all provider endpoints.
+
+### CSV Schema
+```csv
+provider_id,provider_name,api_key,base_url,status,note
+gemini,Google Gemini,AIzaSy...,https://generativelanguage.googleapis.com/v1beta,active,Default Primary Engine
+openai,OpenAI,sk-proj-...,https://api.openai.com/v1,active,GPT-4o & o3-mini
+groq,Groq LPU,gsk_...,https://api.groq.com/openai/v1,active,Ultra-Fast LPU Inference
+openrouter,OpenRouter,sk-or-...,https://openrouter.ai/api/v1,active,Multi-Model Gateway
+kilocode,KiloCode,sk-...,https://api.kilo.ai/v1,active,Free Tier & Code Models
+opencode,OpenCode,sk-...,https://api.opencode.ai/v1,active,Free Open Source Models
+huggingface,Hugging Face,hf_...,https://api-inference.huggingface.co/v1,active,Inference API
+custom,Custom Gateway Proxy,sk-...,http://localhost:11434/v1,active,Local or Enterprise Proxy
+github,GitHub Personal Access Token,ghp_...,https://api.github.com,active,DevOps & Repository Sync
+```
+
+---
+
 ## 🛠 Tech Stack
 
 | Layer | Technologies |
