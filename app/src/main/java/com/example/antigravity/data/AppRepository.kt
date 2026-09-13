@@ -607,7 +607,7 @@ class AppRepository {
             val current = _conversations.value.toMutableList()
             val index = current.indexOfFirst { it.id == currentConv.id }
             if (index != -1) {
-                current[index] = currentConv.copy(activeModel = model.name, activeModelId = model.id)
+                current[index] = currentConv.copy(messages = currentConv.messages.toMutableList(), activeModel = model.name, activeModelId = model.id)
                 _conversations.value = current
             }
         }
@@ -800,6 +800,7 @@ class AppRepository {
         val currentConv = getActiveConversation()
         if (currentConv != null) {
             val updatedConv = currentConv.copy(
+                messages = currentConv.messages.toMutableList(),
                 workspaceId = workspace.id,
                 workspaceName = workspace.name,
                 githubOwner = workspace.githubOwner,
