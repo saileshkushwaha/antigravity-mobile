@@ -1,5 +1,6 @@
 package com.example.antigravity.ui.dialogs
 
+import android.content.ClipData
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,9 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -1269,7 +1270,8 @@ fun WorkflowRunCard(
 
 @Composable
 fun CommitCard(commit: GitHubCommitItem) {
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = AntigravityColors.SurfaceElevated),
@@ -1304,7 +1306,9 @@ fun CommitCard(commit: GitHubCommitItem) {
                 shape = RoundedCornerShape(4.dp),
                 color = AntigravityColors.SurfaceDark,
                 modifier = Modifier.clickable {
-                    clipboardManager.setText(AnnotatedString(commit.sha))
+                    coroutineScope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("commit_sha", commit.sha)))
+                        }
                 }
             ) {
                 Row(
@@ -1839,7 +1843,8 @@ fun ProjectConfigTab(
 ) {
     var viewMode by remember { mutableIntStateOf(0) } // 0: Visual Controls, 1: YAML Output
     val yamlContent = remember(config) { SdlcManager.exportYaml() }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1876,7 +1881,9 @@ fun ProjectConfigTab(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     IconButton(
                         onClick = {
-                            clipboardManager.setText(AnnotatedString(yamlContent))
+                            coroutineScope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("sdlc_yaml", yamlContent)))
+                        }
                             Toast.makeText(context, "Copied YAML to clipboard", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(30.dp)

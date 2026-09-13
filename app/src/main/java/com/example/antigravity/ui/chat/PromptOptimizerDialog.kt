@@ -1,5 +1,6 @@
 package com.example.antigravity.ui.chat
 
+import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,8 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.antigravity.engine.PromptOptimizationMode
 import com.example.antigravity.engine.PromptOptimizerEngine
 import com.example.antigravity.theme.AntigravityColors
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +53,8 @@ fun PromptOptimizerDialog(
         )
     }
 
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     var copiedToClipboard by remember { mutableStateOf(false) }
 
     Dialog(
@@ -277,7 +280,9 @@ fun PromptOptimizerDialog(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
                                         .clickable {
-                                            clipboardManager.setText(AnnotatedString(optimizedText))
+                                            coroutineScope.launch {
+                                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("optimized_prompt", optimizedText)))
+                                            }
                                             copiedToClipboard = true
                                         }
                                         .padding(horizontal = 6.dp, vertical = 2.dp)

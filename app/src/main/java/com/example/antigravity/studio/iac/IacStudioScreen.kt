@@ -1,5 +1,6 @@
 package com.example.antigravity.studio.iac
 
+import android.content.ClipData
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,15 +20,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.studio.code.CodeStudioManager
 import com.example.antigravity.theme.AntigravityColors
+import kotlinx.coroutines.launch
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +40,8 @@ fun IacStudioScreen(
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     var templates by remember(activeWorkspaceDir) { mutableStateOf(IacStudioManager.listWorkspaceTemplates(activeWorkspaceDir)) }
     var selectedTemplate by remember { mutableStateOf(templates.firstOrNull() ?: IacTemplateItem(id = "empty", name = "Empty", type = IacType.DOCKER_COMPOSE, description = "Empty template", content = "", targetFileName = "docker-compose.yml")) }
     var currentContent by remember { mutableStateOf(selectedTemplate.content) }
@@ -138,7 +141,9 @@ fun IacStudioScreen(
                     }
                     IconButton(
                         onClick = {
-                            clipboardManager.setText(AnnotatedString(currentContent))
+                            coroutineScope.launch {
+                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("iac_manifest", currentContent)))
+                            }
                             Toast.makeText(context, "Manifest copied to clipboard!", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(32.dp)

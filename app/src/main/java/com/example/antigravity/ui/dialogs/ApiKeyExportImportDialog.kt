@@ -1,5 +1,6 @@
 package com.example.antigravity.ui.dialogs
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -17,9 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ import com.example.antigravity.model.AppSettings
 import com.example.antigravity.security.ApiKeyCsvManager
 import com.example.antigravity.security.ApiKeyCsvRecord
 import com.example.antigravity.theme.AntigravityColors
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -40,7 +42,8 @@ fun ApiKeyExportImportDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Export, 1: Import
 
     // Export State
@@ -174,7 +177,9 @@ fun ApiKeyExportImportDialog(
                             context = context,
                             onToggleMask = { maskExportedKeys = it },
                             onCopy = {
-                                clipboardManager.setText(AnnotatedString(exportedCsv))
+                                coroutineScope.launch {
+                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("api_keys_csv", exportedCsv)))
+                                }
                                 Toast.makeText(context, "API keys CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
                             },
                             onSaveFile = {
@@ -206,12 +211,14 @@ fun ApiKeyExportImportDialog(
                             onTextChange = { importCsvText = it },
                             onTogglePreserve = { preserveExistingKeys = it },
                             onPasteClipboard = {
-                                val clip = clipboardManager.getText()
-                                if (clip != null && clip.text.isNotBlank()) {
-                                    importCsvText = clip.text
-                                    Toast.makeText(context, "Pasted from clipboard!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Clipboard is empty.", Toast.LENGTH_SHORT).show()
+                                coroutineScope.launch {
+                                    val clipText = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text?.toString()
+                                    if (!clipText.isNullOrBlank()) {
+                                        importCsvText = clipText
+                                        Toast.makeText(context, "Pasted from clipboard!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Clipboard is empty.", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             },
                             onLoadWorkspaceFile = {

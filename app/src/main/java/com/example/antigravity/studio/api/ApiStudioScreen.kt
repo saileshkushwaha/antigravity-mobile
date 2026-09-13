@@ -1,5 +1,6 @@
 package com.example.antigravity.studio.api
 
+import android.content.ClipData
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,9 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,7 +40,7 @@ fun ApiStudioScreen(
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val coroutineScope = rememberCoroutineScope()
 
     var requestsList by remember(activeWorkspaceDir) { mutableStateOf(ApiStudioManager.loadRequests(activeWorkspaceDir)) }
@@ -46,14 +48,22 @@ fun ApiStudioScreen(
     var responseResult by remember { mutableStateOf<ApiResponseResult?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
+    var queryParamRows by remember(activeRequest.id) {
+        mutableStateOf(activeRequest.queryParams.map { it.key to it.value }.toMutableStateList())
+    }
+
+    fun syncQueryParamsToRequest() {
+        activeRequest = activeRequest.copy(
+            queryParams = queryParamRows.filter { it.first.isNotBlank() }.associate { it.first to it.second }
+        )
+    }
+
     LaunchedEffect(requestsList) {
         ApiStudioManager.saveRequests(activeWorkspaceDir, requestsList)
     }
 
     // Sub-tabs: 0: Params, 1: Headers, 2: Body, 3: Auth
     var activeRequestTab by remember { mutableIntStateOf(0) }
-    // Response view tabs: 0: Body, 1: Headers
-    var activeResponseTab by remember { mutableIntStateOf(0) }
 
     var showCodeGenDialog by remember { mutableStateOf(false) }
     var selectedCodeGenTarget by remember { mutableStateOf(CodeTargetType.RETROFIT_KOTLIN) }
@@ -274,11 +284,84 @@ fun ApiStudioScreen(
             Box(modifier = Modifier.fillMaxSize().padding(6.dp)) {
                 when (activeRequestTab) {
                     0 -> { // Params
-                        Text(
-                            text = "Query parameters are automatically parsed from URL or appended to URL query string.",
-                            fontSize = 10.sp,
-                            color = AntigravityColors.TextSecondary
-                        )
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (queryParamRows.isEmpty()) "No query params — key/value pairs are appended to the URL on Send"
+                                    else "Query parameters (appended to URL on Send)",
+                                    fontSize = 9.sp,
+                                    color = AntigravityColors.TextMuted
+                                )
+                                TextButton(
+                                    onClick = {
+                                        queryParamRows.add("" to "")
+                                        syncQueryParamsToRequest()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(24.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(12.dp))
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("Add Param", fontSize = 9.sp, color = AntigravityColors.ElectricCyan)
+                                }
+                            }
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                itemsIndexed(queryParamRows) { index, row ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        OutlinedTextField(
+                                            value = row.first,
+                                            onValueChange = { newKey ->
+                                                queryParamRows[index] = newKey to row.second
+                                                syncQueryParamsToRequest()
+                                            },
+                                            placeholder = { Text("key", fontSize = 9.sp) },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f).height(34.dp),
+                                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = AntigravityColors.TextPrimary),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                unfocusedBorderColor = AntigravityColors.CardBorder
+                                            )
+                                        )
+                                        OutlinedTextField(
+                                            value = row.second,
+                                            onValueChange = { newVal ->
+                                                queryParamRows[index] = row.first to newVal
+                                                syncQueryParamsToRequest()
+                                            },
+                                            placeholder = { Text("value", fontSize = 9.sp) },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f).height(34.dp),
+                                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = AntigravityColors.TextPrimary),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                                unfocusedBorderColor = AntigravityColors.CardBorder
+                                            )
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                queryParamRows.removeAt(index)
+                                                syncQueryParamsToRequest()
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Close, contentDescription = "Remove Param", tint = Color(0xFFEF4444), modifier = Modifier.size(12.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     1 -> { // Headers
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -369,7 +452,9 @@ fun ApiStudioScreen(
                     if (responseResult != null) {
                         IconButton(
                             onClick = {
-                                clipboardManager.setText(AnnotatedString(responseResult!!.body))
+                                coroutineScope.launch {
+                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("api_response", responseResult!!.body)))
+                                }
                                 Toast.makeText(context, "Response copied to clipboard!", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.size(24.dp)
@@ -474,7 +559,9 @@ fun ApiStudioScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        clipboardManager.setText(AnnotatedString(generatedCode))
+                        coroutineScope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("generated_api_code", generatedCode)))
+                        }
                         Toast.makeText(context, "Code copied to clipboard!", Toast.LENGTH_SHORT).show()
                         showCodeGenDialog = false
                     },

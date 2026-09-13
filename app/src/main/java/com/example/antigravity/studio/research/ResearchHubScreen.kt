@@ -125,7 +125,7 @@ fun ResearchHubScreen(
                 papers = combinedList.sortedByDescending { paper ->
                     runCatching {
                         java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                            .parse(paper.publishedDate.take(10)).time
+                            .parse(paper.publishedDate.take(10))?.time ?: 0L
                     }.getOrDefault(0L)
                 }
             } else {
