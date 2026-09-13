@@ -306,47 +306,49 @@ fun SidebarDrawerContent(
 
         // 3. Active Model Indicator
         if (activeModelName.isNotBlank()) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = AntigravityColors.SurfaceElevated,
-                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenModelSelection() }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+            item {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AntigravityColors.SurfaceElevated,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenModelSelection() }
                 ) {
-                    Icon(
-                        Icons.Default.Dns,
-                        contentDescription = null,
-                        tint = AntigravityColors.ElectricCyan,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = activeModelName,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AntigravityColors.TextPrimary,
-                            maxLines = 1
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Dns,
+                            contentDescription = null,
+                            tint = AntigravityColors.ElectricCyan,
+                            modifier = Modifier.size(14.dp)
                         )
-                        if (activeModelGateway.isNotBlank()) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = activeModelGateway,
-                                fontSize = 9.sp,
-                                color = AntigravityColors.ElectricCyan
+                                text = activeModelName,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AntigravityColors.TextPrimary,
+                                maxLines = 1
                             )
+                            if (activeModelGateway.isNotBlank()) {
+                                Text(
+                                    text = activeModelGateway,
+                                    fontSize = 9.sp,
+                                    color = AntigravityColors.ElectricCyan
+                                )
+                            }
                         }
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = "Switch model",
+                            tint = AntigravityColors.TextSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
-                    Icon(
-                        Icons.Default.SwapHoriz,
-                        contentDescription = "Switch model",
-                        tint = AntigravityColors.TextSecondary,
-                        modifier = Modifier.size(14.dp)
-                    )
                 }
             }
         }
