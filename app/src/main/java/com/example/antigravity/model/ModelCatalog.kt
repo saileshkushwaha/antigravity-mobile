@@ -538,6 +538,10 @@ object ModelCatalog {
         } ?: allModels.find { 
             it.id.equals(id, ignoreCase = true) || 
             it.name.equals(id, ignoreCase = true)
+        } ?: pool.find {
+            it.id.endsWith("/$id", ignoreCase = true) || it.id.endsWith(id, ignoreCase = true)
+        } ?: allModels.find {
+            it.id.endsWith("/$id", ignoreCase = true) || it.id.endsWith(id, ignoreCase = true)
         }
     }
 }

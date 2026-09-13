@@ -38,8 +38,10 @@ object EnterpriseSecurityGuardrails {
 
     fun validateWorkspacePath(workspaceRoot: String, targetPath: String): Boolean {
         // Prevent path traversal outside workspace root
-        val normalizedTarget = java.io.File(targetPath).canonicalPath
-        val normalizedRoot = java.io.File(workspaceRoot).canonicalPath
+        val workspaceFile = java.io.File(workspaceRoot)
+        val targetFile = java.io.File(workspaceFile, targetPath)
+        val normalizedTarget = targetFile.canonicalPath
+        val normalizedRoot = workspaceFile.canonicalPath
         if (!normalizedTarget.startsWith(normalizedRoot)) {
             EnterpriseAuditLogger.log(
                 category = AuditCategory.SECURITY_POLICY,
