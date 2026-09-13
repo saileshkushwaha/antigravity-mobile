@@ -31,12 +31,11 @@ class AutonomousDemoEngine(private val repository: AppRepository) {
         delay(700)
 
         // 2. Deepen chain of thought
-        message = message.copy(
-            thinking = message.thinking?.copy(
-                content = message.thinking!!.content + "\n- Validating file system structure and reading project dependencies.\n- Preparing execution pipeline with verification gates.",
-                durationSeconds = 2
-            )
+        val validatedThinking = message.thinking?.copy(
+            content = (message.thinking?.content ?: "") + "\n- Validating file system structure and reading project dependencies.\n- Preparing execution pipeline with verification gates.",
+            durationSeconds = 2
         )
+        message = message.copy(thinking = validatedThinking)
         onUpdate(message)
         delay(800)
 

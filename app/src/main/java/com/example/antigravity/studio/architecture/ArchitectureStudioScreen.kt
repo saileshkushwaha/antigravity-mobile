@@ -41,7 +41,7 @@ fun ArchitectureStudioScreen(
 
     val diagrams = remember(activeWorkspaceDir) { ArchitectureStudioManager.scanAndGenerateMermaid(activeWorkspaceDir) }
     var selectedDiagramIndex by remember { mutableIntStateOf(0) }
-    val selectedDiagram = diagrams.getOrElse(selectedDiagramIndex) { diagrams.firstOrNull() } ?: diagrams.first()
+    val selectedDiagram = diagrams.getOrElse(selectedDiagramIndex) { diagrams.firstOrNull() } ?: diagrams.firstOrNull()
 
     var adrList by remember { mutableStateOf(ArchitectureStudioManager.listAdrs(activeWorkspaceDir)) }
     var showNewAdrDialog by remember { mutableStateOf(false) }
@@ -178,6 +178,7 @@ fun ArchitectureStudioScreen(
                     }
 
                     // Diagram Code & Action Bar
+                    val currentDiagram = selectedDiagram ?: MermaidDiagram(id = "empty", title = "No diagrams found", type = "Empty", code = "// No Mermaid diagrams were generated.\n// Add architecture annotations to your workspace to generate diagrams.")
                     Surface(
                         color = AntigravityColors.SurfaceElevated,
                         shape = RoundedCornerShape(8.dp),
@@ -189,10 +190,10 @@ fun ArchitectureStudioScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(selectedDiagram.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(currentDiagram.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 Button(
                                     onClick = {
-                                        clipboardManager.setText(AnnotatedString(selectedDiagram.code))
+                                        clipboardManager.setText(AnnotatedString(currentDiagram.code))
                                         Toast.makeText(context, "Mermaid code copied to clipboard!", Toast.LENGTH_SHORT).show()
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan),
@@ -210,7 +211,7 @@ fun ArchitectureStudioScreen(
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 item {
                                     Text(
-                                        text = selectedDiagram.code,
+                                        text = currentDiagram.code,
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace,
                                         color = Color(0xFF00E5FF),

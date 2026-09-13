@@ -33,7 +33,9 @@ import com.example.antigravity.sdlc.DesignToPrPipeline
 import com.example.antigravity.studio.code.CodeStudioManager
 import com.example.antigravity.studio.vision.VisionToCodeService
 import com.example.antigravity.studio.vision.A11ySeverity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -603,10 +605,14 @@ fun ProductDesignScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("Design Tokens", codeText)
-                            clipboard.setPrimaryClip(clip)
-                            Toast.makeText(context, "Code copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            if (clipboard != null) {
+                                val clip = ClipData.newPlainText("Design Tokens", codeText)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Code copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+                            }
                             showExportDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = tokens.getPrimaryColor())
@@ -942,6 +948,7 @@ fun WireframeAiAndA11yView(
     activeWorkspaceDir: File
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var wireframePrompt by remember { mutableStateOf("Sign in screen with email, password, and primary action button") }
     var synthesisResult by remember {
         mutableStateOf(VisionToCodeService.synthesizeWireframeToCode(wireframePrompt, tokens))
@@ -1101,9 +1108,20 @@ fun WireframeAiAndA11yView(
                     Text("Synthesized Jetpack Compose Code", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
                     Button(
                         onClick = {
-                            val targetFile = File(activeWorkspaceDir, "SynthesizedWireframeScreen.kt")
-                            targetFile.writeText(synthesisResult.composeCode)
-                            Toast.makeText(context, "Saved to SynthesizedWireframeScreen.kt!", Toast.LENGTH_SHORT).show()
+                            coroutineScope.launch {
+                                val targetFile = File(activeWorkspaceDir, "SynthesizedWireframeScreen.kt")
+                                val saved = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        targetFile.parentFile?.mkdirs()
+                                        targetFile.writeText(synthesisResult.composeCode)
+                                    }.isSuccess
+                                }
+                                Toast.makeText(
+                                    context,
+                                    if (saved) "Saved to SynthesizedWireframeScreen.kt!" else "Failed to save SynthesizedWireframeScreen.kt",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),

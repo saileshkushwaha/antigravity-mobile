@@ -27,6 +27,8 @@ class AntigravityAgentEngine(
     private val _agentState = MutableStateFlow(AgentRunState.IDLE)
     val agentState: StateFlow<AgentRunState> = _agentState.asStateFlow()
 
+    private var jobGeneration = 0L
+
     private val _activePersona = MutableStateFlow(PersonaCatalog.allPersonas.first())
     val activePersona: StateFlow<AgentPersona> = _activePersona.asStateFlow()
 
@@ -161,6 +163,7 @@ class AntigravityAgentEngine(
             ?: emptyList()
 
         currentJob?.cancel()
+        val myGeneration = ++jobGeneration
         currentJob = scope.launch {
             val requestStartTime = System.currentTimeMillis()
             _agentState.value = AgentRunState.THINKING
@@ -299,6 +302,20 @@ class AntigravityAgentEngine(
                             } catch (_: Exception) {}
                         }
                     }
+
+                    if (shouldContinue) {
+                        repository.updateMessage(agentMessageId) {
+                            val finalText = if (accumulatedToolCalls.isNotEmpty()) {
+                                it.text + "\n\n*(Reached the maximum autonomous step limit of ${settings.maxAutonomousSteps}; further tool cascades halted).*"
+                            } else {
+                                it.text
+                            }
+                            it.copy(
+                                text = finalText,
+                                isStreaming = false
+                            )
+                        }
+                    }
                 } else {
                     // Autonomous Demo Engine Execution
                     demoEngine.executeAutonomousWorkflow(trimmed, agentMessageId) { updated ->
@@ -329,7 +346,9 @@ class AntigravityAgentEngine(
                     )
                 }
             } finally {
-                _agentState.value = AgentRunState.IDLE
+                if (myGeneration == jobGeneration && _agentState.value != AgentRunState.AWAITING_REVIEW) {
+                    _agentState.value = AgentRunState.IDLE
+                }
             }
         }
     }
@@ -566,7 +585,7 @@ class AntigravityAgentEngine(
                     val filePath = tool.arguments["path"] ?: tool.arguments["file"] ?: ""
                     val target = if (java.io.File(filePath).isAbsolute) java.io.File(filePath) else java.io.File(wsDir, filePath)
                     val canonicalTarget = target.canonicalFile
-                    if (!canonicalTarget.path.startsWith(wsDir.canonicalPath) && !canonicalTarget.path.startsWith("/data/")) {
+                    if (!canonicalTarget.path.startsWith(wsDir.canonicalPath)) {
                         Result.failure(Exception("Access denied: path is outside workspace"))
                     } else if (canonicalTarget.exists() && canonicalTarget.isFile) {
                         val content = target.readLines().take(200).joinToString("\n")

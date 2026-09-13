@@ -42,7 +42,7 @@ fun ApiStudioScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var requestsList by remember { mutableStateOf(ApiStudioManager.getSampleRequests()) }
-    var activeRequest by remember { mutableStateOf(requestsList.first()) }
+    var activeRequest by remember { mutableStateOf(requestsList.firstOrNull() ?: ApiRequestItem()) }
     var responseResult by remember { mutableStateOf<ApiResponseResult?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 

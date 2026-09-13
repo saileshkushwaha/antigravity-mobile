@@ -1032,8 +1032,11 @@ fun CodeStudioScreen(
                     onClick = {
                         if (newFolderName.isNotBlank()) {
                             val newDir = File(workspaceDir, newFolderName.trim())
-                            newDir.mkdirs()
-                            fileTree = CodeStudioManager.buildFileTree(workspaceDir)
+                            val safePath = runCatching { newDir.canonicalFile.path.startsWith(workspaceDir.canonicalFile.path) }.getOrDefault(false)
+                            if (safePath) {
+                                newDir.mkdirs()
+                                fileTree = CodeStudioManager.buildFileTree(workspaceDir)
+                            }
                             showNewFolderDialog = false
                             newFolderName = ""
                         }

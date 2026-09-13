@@ -86,6 +86,9 @@ object CodeStudioManager {
         return try {
             parentDir.mkdirs()
             val newFile = File(parentDir, fileName)
+            if (!newFile.canonicalFile.path.startsWith(parentDir.canonicalFile.path)) {
+                return null
+            }
             if (!newFile.exists()) {
                 newFile.writeText(initialContent)
             }

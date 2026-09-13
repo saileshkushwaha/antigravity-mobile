@@ -197,11 +197,13 @@ class GeminiApiService {
                 val parts = content?.optJSONArray("parts")
                 if (parts != null && parts.length() > 0) {
                     val text = parts.getJSONObject(0).optString("text")
-                    return Result.success(text)
+                    if (text.isNotBlank()) {
+                        return Result.success(text)
+                    }
                 }
             }
 
-            return Result.success("No text candidates returned by Gemini.")
+            return Result.failure(Exception("Gemini returned no text content."))
         } catch (e: Exception) {
             return Result.failure(e)
         }

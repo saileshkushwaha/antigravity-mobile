@@ -548,10 +548,14 @@ object SdlcManager {
 
                 val resp = httpClient.newCall(req).execute()
                 if (resp.isSuccessful) {
+                    resp.close()
                     return@withContext Result.success("PR #$prNumber merged successfully on GitHub!")
                 }
+                val respBody = runCatching { resp.body?.string() ?: "" }.getOrDefault("")
+                resp.close()
+                return@withContext Result.failure(Exception("GitHub merge failed (HTTP ${resp.code}): ${respBody.take(200)}"))
             } catch (e: Exception) {
-                return@withContext Result.success("PR #$prNumber merged locally (GitHub Sync note: ${e.message})")
+                return@withContext Result.failure(e)
             }
         }
         localResult
@@ -607,7 +611,26 @@ object SdlcManager {
                     )
                     return@withContext issue
                 }
-            } catch (_: Exception) {}
+                val respBody = runCatching { resp.body?.string() ?: "" }.getOrDefault("")
+                resp.close()
+                EnterpriseAuditLogger.log(
+                    category = AuditCategory.SDLC_OPERATION,
+                    action = "CREATE_ISSUE_GITHUB_FAILED",
+                    details = "GitHub rejected issue creation (HTTP ${resp.code}): ${respBody.take(200)}"
+                )
+            } catch (e: Exception) {
+                EnterpriseAuditLogger.log(
+                    category = AuditCategory.SDLC_OPERATION,
+                    action = "CREATE_ISSUE_GITHUB_FAILED",
+                    details = "GitHub issue creation error: ${e.message}"
+                )
+            }
+        } else {
+            EnterpriseAuditLogger.log(
+                category = AuditCategory.SDLC_OPERATION,
+                action = "CREATE_ISSUE_LOCAL",
+                details = "Created issue locally (no GitHub credentials configured)"
+            )
         }
 
         // Local fallback
@@ -642,11 +665,8 @@ object SdlcManager {
         val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
-        _issues.update { list ->
-            list.map { if (it.number == issueNumber) it.copy(state = targetState) else it }
-        }
-
         if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
+            var remoteOk = false
             try {
                 val jsonPayload = org.json.JSONObject().apply {
                     put("state", if (targetState == IssueState.CLOSED) "closed" else "open")
@@ -658,8 +678,17 @@ object SdlcManager {
                     .header("User-Agent", "Antigravity-Mobile-App")
                     .patch(jsonPayload.toString().toRequestBody("application/json".toMediaType()))
                     .build()
-                httpClient.newCall(req).execute()
-            } catch (_: Exception) {}
+                val resp = httpClient.newCall(req).execute()
+                remoteOk = resp.isSuccessful
+                resp.close()
+            } catch (_: Exception) {
+                remoteOk = false
+            }
+            if (!remoteOk) return@withContext current?.state ?: targetState
+        }
+
+        _issues.update { list ->
+            list.map { if (it.number == issueNumber) it.copy(state = targetState) else it }
         }
         targetState
     }
@@ -1302,8 +1331,8 @@ environments:
                                     sourceBranch = sourceBranch,
                                     targetBranch = targetBranch,
                                     status = prStatus,
-                                    reviewStatus = if (prStatus == PrStatus.MERGED) PrReviewStatus.APPROVED else PrReviewStatus.APPROVED,
-                                    ciStatus = CiStatus.PASSING,
+                                    reviewStatus = if (prStatus == PrStatus.MERGED) PrReviewStatus.APPROVED else PrReviewStatus.REVIEW_REQUIRED,
+                                    ciStatus = CiStatus.RUNNING,
                                     additions = item.optInt("additions", 10),
                                     deletions = item.optInt("deletions", 2),
                                     createdAt = item.optString("created_at", "Recently"),

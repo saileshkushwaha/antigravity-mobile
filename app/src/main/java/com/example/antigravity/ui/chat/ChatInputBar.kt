@@ -55,12 +55,13 @@ fun ChatInputBar(
     val voiceManager = remember { VoiceProgrammingManager(context) }
     var isListening by remember { mutableStateOf(false) }
 
+    val currentInput by rememberUpdatedState(inputText)
     DisposableEffect(voiceManager) {
         voiceManager.onStateChanged = { state ->
             isListening = (state == VoiceState.LISTENING)
         }
         voiceManager.onSpeechRecognized = { res ->
-            val updated = if (inputText.isBlank()) res.parsedAction else "$inputText ${res.parsedAction}"
+            val updated = if (currentInput.isBlank()) res.parsedAction else "$currentInput ${res.parsedAction}"
             onInputChange(updated)
         }
         onDispose {

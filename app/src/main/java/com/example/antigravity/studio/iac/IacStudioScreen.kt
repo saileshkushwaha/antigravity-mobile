@@ -39,7 +39,7 @@ fun IacStudioScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val templates = remember { IacStudioManager.getPrebuiltTemplates() }
-    var selectedTemplate by remember { mutableStateOf(templates.first()) }
+    var selectedTemplate by remember { mutableStateOf(templates.firstOrNull() ?: IacTemplateItem(id = "empty", name = "Empty", type = IacType.DOCKER_COMPOSE, description = "Empty template", content = "", targetFileName = "docker-compose.yml")) }
     var currentContent by remember { mutableStateOf(selectedTemplate.content) }
 
     val violations = remember(currentContent, selectedTemplate.type) {
@@ -100,8 +100,12 @@ fun IacStudioScreen(
                     IconButton(
                         onClick = {
                             val targetFile = File(activeWorkspaceDir, selectedTemplate.targetFileName)
-                            CodeStudioManager.saveFileContent(targetFile, currentContent)
-                            Toast.makeText(context, "Saved to ${selectedTemplate.targetFileName}!", Toast.LENGTH_SHORT).show()
+                            val saved = CodeStudioManager.saveFileContent(targetFile, currentContent)
+                            Toast.makeText(
+                                context,
+                                if (saved) "Saved to ${selectedTemplate.targetFileName}!" else "Failed to save ${selectedTemplate.targetFileName}",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         },
                         modifier = Modifier.size(32.dp)
                     ) {

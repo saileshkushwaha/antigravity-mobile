@@ -28,7 +28,7 @@ class NetworkMonitor(context: Context) {
             }
 
             override fun onLost(network: Network) {
-                trySend(NetworkStatus.OFFLINE)
+                trySend(getCurrentNetworkStatus())
             }
 
             override fun onCapabilitiesChanged(
@@ -55,6 +55,7 @@ class NetworkMonitor(context: Context) {
         val cm = connectivityManager ?: return NetworkStatus.OFFLINE
         val activeNetwork = cm.activeNetwork ?: return NetworkStatus.OFFLINE
         val caps = cm.getNetworkCapabilities(activeNetwork) ?: return NetworkStatus.OFFLINE
+        if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return NetworkStatus.OFFLINE
 
         return when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkStatus.WIFI

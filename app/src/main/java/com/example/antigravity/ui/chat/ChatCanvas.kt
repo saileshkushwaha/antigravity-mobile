@@ -58,11 +58,16 @@ fun ChatCanvas(
     var modelSearchQuery by remember { mutableStateOf("") }
     var showWorkspaceDropdown by remember { mutableStateOf(false) }
 
-    // Auto-scroll to bottom when messages change or update
+    // Auto-scroll to bottom when messages change or update, but only if the
+    // user is already near the bottom (don't hijack while reading history).
     LaunchedEffect(conversation?.messages?.size, conversation?.messages?.lastOrNull()?.text) {
         val msgs = conversation?.messages
         if (!msgs.isNullOrEmpty()) {
-            listState.animateScrollToItem(msgs.size - 1)
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val shouldAutoScroll = lastVisible >= (listState.layoutInfo.totalItemsCount - 2)
+            if (shouldAutoScroll) {
+                listState.animateScrollToItem(msgs.size - 1)
+            }
         }
     }
 

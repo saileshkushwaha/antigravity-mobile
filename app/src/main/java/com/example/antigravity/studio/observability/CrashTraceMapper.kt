@@ -101,12 +101,18 @@ object CrashTraceMapper {
     }
 
     private fun findFileInWorkspace(dir: File, targetFileName: String): File? {
+        return findFileInWorkspace(dir, targetFileName, mutableSetOf())
+    }
+
+    private fun findFileInWorkspace(dir: File, targetFileName: String, visitedPaths: MutableSet<String>): File? {
         if (!dir.exists() || !dir.isDirectory) return null
+        val canonicalDir = runCatching { dir.canonicalFile }.getOrDefault(dir)
+        if (!visitedPaths.add(canonicalDir.path)) return null
         val files = dir.listFiles() ?: return null
         for (f in files) {
             if (f.isDirectory) {
                 if (!f.name.startsWith(".") && f.name != "build") {
-                    val found = findFileInWorkspace(f, targetFileName)
+                    val found = findFileInWorkspace(f, targetFileName, visitedPaths)
                     if (found != null) return found
                 }
             } else if (f.name.equals(targetFileName, ignoreCase = true)) {

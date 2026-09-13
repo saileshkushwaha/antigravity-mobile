@@ -124,10 +124,12 @@ class OpenAiGatewayService {
                 val firstChoice = choices.getJSONObject(0)
                 val msg = firstChoice.optJSONObject("message")
                 val content = msg?.optString("content") ?: ""
-                return@withContext Result.success(content)
+                if (content.isNotBlank()) {
+                    return@withContext Result.success(content)
+                }
             }
 
-            Result.success("No response content received from model gateway.")
+            Result.failure(Exception("Model gateway returned empty response content."))
         } catch (e: Exception) {
             Result.failure(e)
         }
