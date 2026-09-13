@@ -394,6 +394,7 @@ class AppRepository {
             id = initialConvId,
             title = "Main Agent Session",
             activeModel = _settings.value.activeModel,
+            activeModelId = _settings.value.activeModelId,
             workspaceName = ws.name,
             workspaceId = ws.id,
             githubOwner = ws.githubOwner,
@@ -424,10 +425,10 @@ class AppRepository {
         if (conv != null) {
             // 1. Sync Active Model
             if (conv.activeModel.isNotBlank()) {
-                val modelInfo = ModelCatalog.findModel(conv.activeModel, _models.value)
+                val modelInfo = ModelCatalog.findModel(conv.activeModelId.ifBlank { conv.activeModel }, _models.value)
                 _settings.value = _settings.value.copy(
                     activeModel = conv.activeModel,
-                    activeModelId = modelInfo?.id ?: _settings.value.activeModelId
+                    activeModelId = conv.activeModelId.ifBlank { modelInfo?.id ?: _settings.value.activeModelId }
                 )
             }
 
@@ -480,6 +481,7 @@ class AppRepository {
             id = newId,
             title = title,
             activeModel = _settings.value.activeModel,
+            activeModelId = _settings.value.activeModelId,
             workspaceName = targetWs.name,
             workspaceId = targetWs.id,
             githubOwner = safeOwner,
@@ -594,13 +596,13 @@ class AppRepository {
             activeModelId = model.id
         )
         updateSettings(newSettings)
-        // Also update active conversation activeModel
+        // Also update active conversation activeModel and activeModelId
         val currentConv = getActiveConversation()
         if (currentConv != null) {
             val current = _conversations.value.toMutableList()
             val index = current.indexOfFirst { it.id == currentConv.id }
             if (index != -1) {
-                current[index] = currentConv.copy(activeModel = model.name)
+                current[index] = currentConv.copy(activeModel = model.name, activeModelId = model.id)
                 _conversations.value = current
             }
         }

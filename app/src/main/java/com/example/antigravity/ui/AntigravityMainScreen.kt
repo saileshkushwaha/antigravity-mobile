@@ -282,6 +282,8 @@ fun AntigravityMainScreen(
                         activeWorkspace = activeWorkspace,
                         conversations = conversations,
                         activeConversationId = activeConversationId,
+                        activeModelName = settings.activeModel,
+                        activeModelGateway = com.example.antigravity.model.ModelCatalog.findModel(settings.activeModelId, models)?.gateway?.displayName ?: "",
                         onSelectWorkspace = {
                             repository.switchWorkspace(it)
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
@@ -457,6 +459,7 @@ fun AntigravityMainScreen(
                                         conversation = activeConversation,
                                         agentState = agentState,
                                         activeModel = activeConversation?.activeModel?.takeIf { it.isNotBlank() } ?: settings.activeModel,
+                                        activeModelId = activeConversation?.activeModelId?.takeIf { it.isNotBlank() } ?: settings.activeModelId,
                                         activePersona = activePersona,
                                         activeWorkspace = activeWorkspace,
                                         workspaces = workspaces,

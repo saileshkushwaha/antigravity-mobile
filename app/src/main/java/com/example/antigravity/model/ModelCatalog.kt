@@ -534,14 +534,10 @@ object ModelCatalog {
         val pool = customList ?: allModels
         return pool.find { 
             it.id.equals(id, ignoreCase = true) || 
-            it.name.equals(id, ignoreCase = true) ||
-            it.id.substringAfter("/").equals(id.substringAfter("/"), ignoreCase = true) ||
-            it.name.startsWith(id, ignoreCase = true)
+            it.name.equals(id, ignoreCase = true)
         } ?: allModels.find { 
             it.id.equals(id, ignoreCase = true) || 
-            it.name.equals(id, ignoreCase = true) ||
-            it.id.substringAfter("/").equals(id.substringAfter("/"), ignoreCase = true) ||
-            it.name.startsWith(id, ignoreCase = true)
+            it.name.equals(id, ignoreCase = true)
         }
     }
 }

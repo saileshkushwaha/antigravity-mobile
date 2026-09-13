@@ -395,7 +395,7 @@ class AntigravityAgentEngine(
                 if (key.isNotBlank()) {
                     geminiService.generateContent(
                         apiKey = key,
-                        modelName = modelInfo?.id ?: settings.activeModel,
+                        modelName = modelInfo?.id ?: settings.activeModelId.ifBlank { "gemini-2.0-flash" },
                         prompt = prompt,
                         systemInstruction = sysInstruction,
                         history = previousMessages

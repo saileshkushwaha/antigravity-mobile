@@ -146,6 +146,7 @@ data class Conversation(
     var updatedAt: Long = System.currentTimeMillis(),
     val messages: MutableList<ChatMessage> = mutableListOf(),
     var activeModel: String = "Gemini 2.0 Flash",
+    var activeModelId: String = "gemini-2.0-flash",
     var workspaceName: String = "",
     var workspaceId: String = "",
     var githubOwner: String = "",

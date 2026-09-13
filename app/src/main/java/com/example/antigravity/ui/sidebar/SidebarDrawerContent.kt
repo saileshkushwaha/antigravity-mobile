@@ -45,6 +45,8 @@ fun SidebarDrawerContent(
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
+    activeModelName: String = "",
+    activeModelGateway: String = "",
     onOpenLandingScreen: () -> Unit = {},
     onOpenCodeStudio: () -> Unit = {},
     onOpenDesignStudio: () -> Unit = {},
@@ -302,7 +304,54 @@ fun SidebarDrawerContent(
             }
         }
 
-        // 3. New Conversation Action Button
+        // 3. Active Model Indicator
+        if (activeModelName.isNotBlank()) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = AntigravityColors.SurfaceElevated,
+                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenModelSelection() }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Dns,
+                        contentDescription = null,
+                        tint = AntigravityColors.ElectricCyan,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = activeModelName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AntigravityColors.TextPrimary,
+                            maxLines = 1
+                        )
+                        if (activeModelGateway.isNotBlank()) {
+                            Text(
+                                text = activeModelGateway,
+                                fontSize = 9.sp,
+                                color = AntigravityColors.ElectricCyan
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.Default.SwapHoriz,
+                        contentDescription = "Switch model",
+                        tint = AntigravityColors.TextSecondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        // 4. New Conversation Action Button
         item {
             Button(
                 onClick = onNewConversation,
@@ -326,7 +375,7 @@ fun SidebarDrawerContent(
             }
         }
 
-        // 4. Section: CORE ENGINEERING STUDIOS (6 items)
+        // 5. Section: CORE ENGINEERING STUDIOS (6 items)
         item {
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
             Text(
@@ -394,7 +443,7 @@ fun SidebarDrawerContent(
             }
         }
 
-        // 5. Section: GOVERNANCE & DEVOPS HUBS (6 items)
+        // 6. Section: GOVERNANCE & DEVOPS HUBS (6 items)
         item {
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
             Text(
@@ -498,7 +547,7 @@ fun SidebarDrawerContent(
             }
         }
 
-        // 6. Section: MODELS & CREDENTIALS (3 items)
+        // 7. Section: MODELS & CREDENTIALS (3 items)
         item {
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
             Text(
@@ -535,7 +584,7 @@ fun SidebarDrawerContent(
             }
         }
 
-        // 7. Section: PREFERENCES & UTILITIES (4 items)
+        // 8. Section: PREFERENCES & UTILITIES (4 items)
         item {
             HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
             Text(
@@ -581,7 +630,7 @@ fun SidebarDrawerContent(
             }
         }
 
-        // 8. Section: RECENT CONVERSATIONS
+        // 9. Section: RECENT CONVERSATIONS
         if (conversations.isNotEmpty()) {
             item {
                 HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))

@@ -34,6 +34,7 @@ fun ChatCanvas(
     conversation: Conversation?,
     agentState: AgentRunState,
     activeModel: String,
+    activeModelId: String = "",
     onOpenModelPicker: () -> Unit,
     onOpenDrawer: () -> Unit,
     onToggleAuxiliary: () -> Unit,
@@ -161,7 +162,7 @@ fun ChatCanvas(
                                             border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder)
                                         ) {
                                             Text(
-                                                text = "${models.size} online",
+                                                text = "${models.count { it.isFree }} free / ${models.size} total",
                                                 fontSize = 9.sp,
                                                 color = AntigravityColors.TextSecondary,
                                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
@@ -222,14 +223,13 @@ fun ChatCanvas(
 
                                 HorizontalDivider(color = AntigravityColors.DividerColor)
 
-                                val filteredDropdownModels = remember(models, modelSearchQuery, activeModel) {
+                                val filteredDropdownModels = remember(models, modelSearchQuery, activeModelId) {
                                     val q = modelSearchQuery.trim().lowercase()
                                     if (q.isBlank()) {
                                         models.sortedWith(
                                             compareByDescending<ModelInfo> {
-                                                it.name.equals(activeModel, ignoreCase = true) ||
-                                                        it.id.equals(activeModel, ignoreCase = true) ||
-                                                        it.id.substringAfter("/").equals(activeModel.substringAfter("/"), ignoreCase = true)
+                                                it.id.equals(activeModelId, ignoreCase = true) ||
+                                                        it.name.equals(activeModel, ignoreCase = true)
                                             }
                                             .thenByDescending { it.isFree }
                                             .thenBy { it.gateway.name }
@@ -239,6 +239,7 @@ fun ChatCanvas(
                                             it.name.contains(q, ignoreCase = true) ||
                                                     it.id.contains(q, ignoreCase = true) ||
                                                     it.gateway.displayName.contains(q, ignoreCase = true) ||
+                                                    it.gateway.name.contains(q, ignoreCase = true) ||
                                                     it.providerName.contains(q, ignoreCase = true) ||
                                                     it.tags.any { tag -> tag.contains(q, ignoreCase = true) }
                                         }
@@ -266,10 +267,8 @@ fun ChatCanvas(
                                     } else {
                                         LazyColumn(modifier = Modifier.fillMaxWidth()) {
                                             items(filteredDropdownModels, key = { "${it.gateway.name}_${it.id}" }) { model ->
-                                                val isSelected = model.name.equals(activeModel, ignoreCase = true) ||
-                                                        model.id.equals(activeModel, ignoreCase = true) ||
-                                                        model.id.substringAfter("/").equals(activeModel.substringAfter("/"), ignoreCase = true) ||
-                                                        model.name.startsWith(activeModel, ignoreCase = true)
+                                                val isSelected = model.id.equals(activeModelId, ignoreCase = true) ||
+                                                        model.name.equals(activeModel, ignoreCase = true)
 
                                                 val gwColor = when (model.gateway) {
                                                     ModelGateway.KILOCODE -> Color(0xFF06B6D4)
