@@ -37,7 +37,7 @@ class AntigravityAgentEngine(
             action = "SET_PERSONA",
             details = "Switched active agent persona to ${persona.name} (${persona.roleTitle})"
         )
-        val safeName = persona.name.replace(Regex("[;&|`\$()]"), "")
+        val safeName = persona.name.replace(Regex("[;|`\$()]"), "")
         repository.executeTerminalCommand("echo Switched active persona to: $safeName")
     }
 
