@@ -28,6 +28,7 @@ class ResearchService {
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     /**
@@ -260,6 +261,11 @@ class ResearchService {
 
             val bytes = resp.body?.bytes() ?: return@withContext Result.failure(Exception("Empty PDF response"))
             val extracted = parsePdfStreamText(bytes)
+            if (extracted.isBlank()) {
+                return@withContext Result.failure(
+                    Exception("PDF contains no selectable text (scanned or vector-only document)")
+                )
+            }
             Result.success(extracted)
         } catch (e: Exception) {
             Result.failure(e)
@@ -327,7 +333,7 @@ class ResearchService {
             if (asciiBlocks.isNotEmpty()) {
                 asciiBlocks.joinToString("\n\n")
             } else {
-                "PDF structure parsed. Document stream contains vector/scanned raster graphics."
+                ""
             }
         }
     }

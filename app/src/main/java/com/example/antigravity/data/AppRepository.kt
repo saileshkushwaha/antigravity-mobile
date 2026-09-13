@@ -107,6 +107,48 @@ class AppRepository {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        // 5. Load workspace-scoped user data (personas, prompts, skills, MCP servers)
+        loadWorkspaceScopedConfig()
+    }
+
+    private fun antigravityConfigDir(): java.io.File =
+        java.io.File(java.io.File(_activeWorkspace.value.path), ".antigravity").apply { mkdirs() }
+
+    private inline fun <reified T> loadListFile(fileName: String): List<T>? {
+        return try {
+            val file = java.io.File(antigravityConfigDir(), fileName)
+            if (!file.exists()) return null
+            Json.decodeFromString(ListSerializer(kotlinx.serialization.serializer<T>()), file.readText())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private inline fun <reified T> persistListFile(fileName: String, list: List<T>) {
+        try {
+            java.io.File(antigravityConfigDir(), fileName).writeText(
+                Json.encodeToString(ListSerializer(kotlinx.serialization.serializer<T>()), list)
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadWorkspaceScopedConfig() {
+        loadListFile<AgentPersona>("personas.json")?.let {
+            if (it.isNotEmpty()) _personas.value = it
+        }
+        loadListFile<PromptTemplate>("prompts.json")?.let {
+            if (it.isNotEmpty()) _prompts.value = it
+        }
+        loadListFile<SkillItem>("skills.json")?.let {
+            if (it.isNotEmpty()) _skills.value = it
+        }
+        loadListFile<McpServerItem>("mcp_servers.json")?.let {
+            if (it.isNotEmpty()) _mcpServers.value = it
+        }
     }
 
     private fun saveWorkspacesToPrefs() {
@@ -814,6 +856,7 @@ class AppRepository {
                 _conversations.value = current
             }
         }
+        loadWorkspaceScopedConfig()
     }
 
     fun addWorkspace(
@@ -1013,6 +1056,7 @@ class AppRepository {
         _skills.value = _skills.value.map {
             if (it.name == name) it.copy(isEnabled = !it.isEnabled) else it
         }
+        persistListFile("skills.json", _skills.value)
     }
 
     fun executeTerminalCommand(input: String) {
@@ -1079,6 +1123,7 @@ class AppRepository {
             current.add(0, persona)
         }
         _personas.value = current
+        persistListFile("personas.json", _personas.value)
     }
 
     fun updatePersona(persona: AgentPersona) {
@@ -1087,6 +1132,7 @@ class AppRepository {
         if (index >= 0) {
             current[index] = persona
             _personas.value = current
+            persistListFile("personas.json", _personas.value)
         } else {
             addPersona(persona)
         }
@@ -1094,10 +1140,12 @@ class AppRepository {
 
     fun deletePersona(personaId: String) {
         _personas.value = _personas.value.filter { it.id != personaId }
+        persistListFile("personas.json", _personas.value)
     }
 
     fun resetPersonasToDefault() {
         _personas.value = PersonaCatalog.allPersonas
+        persistListFile("personas.json", _personas.value)
     }
 
     // Prompt Template CRUD
@@ -1110,6 +1158,7 @@ class AppRepository {
             current.add(0, prompt)
         }
         _prompts.value = current
+        persistListFile("prompts.json", _prompts.value)
     }
 
     fun updatePrompt(prompt: PromptTemplate) {
@@ -1118,6 +1167,7 @@ class AppRepository {
         if (index >= 0) {
             current[index] = prompt
             _prompts.value = current
+            persistListFile("prompts.json", _prompts.value)
         } else {
             addPrompt(prompt)
         }
@@ -1125,10 +1175,12 @@ class AppRepository {
 
     fun deletePrompt(promptId: String) {
         _prompts.value = _prompts.value.filter { it.id != promptId }
+        persistListFile("prompts.json", _prompts.value)
     }
 
     fun resetPromptsToDefault() {
         _prompts.value = PromptLibrary.allPrompts
+        persistListFile("prompts.json", _prompts.value)
     }
 
     // Skill CRUD
@@ -1141,6 +1193,7 @@ class AppRepository {
             current.add(0, skill)
         }
         _skills.value = current
+        persistListFile("skills.json", _skills.value)
     }
 
     fun updateSkill(skill: SkillItem) {
@@ -1149,6 +1202,7 @@ class AppRepository {
         if (index >= 0) {
             current[index] = skill
             _skills.value = current
+            persistListFile("skills.json", _skills.value)
         } else {
             addSkill(skill)
         }
@@ -1156,6 +1210,7 @@ class AppRepository {
 
     fun deleteSkill(skillName: String) {
         _skills.value = _skills.value.filterNot { it.name.equals(skillName, ignoreCase = true) }
+        persistListFile("skills.json", _skills.value)
     }
 
     fun cloneSkill(skillName: String) {
@@ -1171,6 +1226,7 @@ class AppRepository {
 
     fun resetSkillsToDefault() {
         _skills.value = SkillsCatalog.allDesktopSkills
+        persistListFile("skills.json", _skills.value)
     }
 
     // MCP Server CRUD
@@ -1183,6 +1239,7 @@ class AppRepository {
             current.add(0, server)
         }
         _mcpServers.value = current
+        persistListFile("mcp_servers.json", _mcpServers.value)
     }
 
     fun updateMcpServer(server: McpServerItem) {
@@ -1191,6 +1248,7 @@ class AppRepository {
         if (index >= 0) {
             current[index] = server
             _mcpServers.value = current
+            persistListFile("mcp_servers.json", _mcpServers.value)
         } else {
             addMcpServer(server)
         }
@@ -1198,6 +1256,7 @@ class AppRepository {
 
     fun deleteMcpServer(serverName: String) {
         _mcpServers.value = _mcpServers.value.filterNot { it.name.equals(serverName, ignoreCase = true) }
+        persistListFile("mcp_servers.json", _mcpServers.value)
     }
 
     fun toggleMcpServer(serverName: String) {
@@ -1207,6 +1266,7 @@ class AppRepository {
                 it.copy(status = newStatus, isEnabled = newStatus == "Connected")
             } else it
         }
+        persistListFile("mcp_servers.json", _mcpServers.value)
     }
 
     fun resetMcpServersToDefault() {
@@ -1216,6 +1276,7 @@ class AppRepository {
             McpServerItem("workspace-filesystem", "Connected", listOf("view_file", "write_to_file", "replace_file_content", "grep_search", "find_by_name")),
             McpServerItem("git-inspector", "Connected", listOf("git_status", "git_diff", "git_commit"))
         )
+        persistListFile("mcp_servers.json", _mcpServers.value)
     }
 
     // Clear Active Conversation History

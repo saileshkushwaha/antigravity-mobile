@@ -36,6 +36,7 @@ object FigmaConnectorService {
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     /**

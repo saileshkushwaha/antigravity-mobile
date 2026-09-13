@@ -23,6 +23,7 @@ class WebCrawlerService {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .followRedirects(true)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     /**

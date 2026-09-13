@@ -51,6 +51,7 @@ object ApiStudioManager {
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     fun getSampleRequests(): List<ApiRequestItem> {

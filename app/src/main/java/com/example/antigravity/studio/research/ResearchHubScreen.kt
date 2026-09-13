@@ -465,11 +465,19 @@ fun ResearchHubScreen(
                                                 }
                                             }
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Description,
-                                                contentDescription = "Extract Full Text",
-                                                tint = Color(0xFF10B981)
-                                            )
+                                            if (isExtractingText) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(16.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = Color(0xFF10B981)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.Description,
+                                                    contentDescription = "Extract Full Text",
+                                                    tint = Color(0xFF10B981)
+                                                )
+                                            }
                                         }
 
                                         IconButton(

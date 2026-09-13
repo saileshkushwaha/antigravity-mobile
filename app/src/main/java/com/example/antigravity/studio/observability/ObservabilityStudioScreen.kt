@@ -262,24 +262,33 @@ java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Stri
                                     onClick = {
                                         val report = crashReport!!
                                         coroutineScope.launch {
-                                            runCatching {
+                                            val reportFile = runCatching {
                                                 val reportsDir = File(activeWorkspaceDir, ".antigravity/crash-reports")
                                                 reportsDir.mkdirs()
-                                                val reportFile = File(reportsDir, "crash-${System.currentTimeMillis()}.md")
-                                                reportFile.writeText(
+                                                val f = File(reportsDir, "crash-${System.currentTimeMillis()}.md")
+                                                f.writeText(
                                                     "# ${report.exceptionType}: ${report.message}\n\n" +
                                                         "## Stack Trace Root Frame\n${report.rootFrame}\n\n" +
                                                         "## Suggested Fix\n${report.suggestedFix}\n"
                                                 )
-                                            }
-                                            val result = SdlcManager.createPullRequestReal(
+                                                f
+                                            }.getOrNull()
+                                            val branchFiles: List<Pair<String, String>> =
+                                                if (reportFile != null && reportFile.exists()) {
+                                                    listOf(reportFile.relativeTo(activeWorkspaceDir).path to (runCatching { reportFile.readText() }.getOrNull() ?: ""))
+                                                } else {
+                                                    emptyList()
+                                                }
+                                            val result = SdlcManager.createPullRequestWithBranch(
                                                 title = "fix(crash): address ${report.exceptionType}",
                                                 sourceBranch = "fix/crash-${System.currentTimeMillis() % 10000}",
                                                 targetBranch = "main",
                                                 body = "Auto-fix dispatched from Antigravity Observability Studio.\n\n" +
                                                     "**Exception**: ${report.exceptionType}: ${report.message}\n\n" +
                                                     "**Root frame**: ${report.rootFrame}\n\n" +
-                                                    "**Suggested fix**:\n${report.suggestedFix}\n"
+                                                    "**Suggested fix**:\n${report.suggestedFix}\n",
+                                                files = branchFiles,
+                                                branchCommitMessage = "docs(crash): commit crash report [skip ci]"
                                             )
                                             result.fold(
                                                 onSuccess = { pr -> Toast.makeText(context, "Bug-fix PR #${pr.number} created!", Toast.LENGTH_LONG).show() },

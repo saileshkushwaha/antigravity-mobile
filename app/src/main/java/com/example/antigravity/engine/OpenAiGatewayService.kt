@@ -20,6 +20,7 @@ class OpenAiGatewayService {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     suspend fun generateChatCompletion(

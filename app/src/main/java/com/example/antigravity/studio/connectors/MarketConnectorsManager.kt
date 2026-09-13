@@ -40,6 +40,7 @@ class MarketConnectorsManager {
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     fun getAvailableConnectors(): List<ConnectorItem> {

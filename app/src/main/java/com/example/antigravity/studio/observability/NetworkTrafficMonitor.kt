@@ -21,19 +21,8 @@ data class NetworkRequestLog(
  */
 object NetworkTrafficMonitor {
 
-    private val _logs = MutableStateFlow(getInitialLogs())
+    private val _logs = MutableStateFlow<List<NetworkRequestLog>>(emptyList())
     val logs: StateFlow<List<NetworkRequestLog>> = _logs.asStateFlow()
-
-    private fun getInitialLogs(): List<NetworkRequestLog> {
-        val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
-        return listOf(
-            NetworkRequestLog("net-1", now, "GET", "https://api.github.com/user/repos", 200, 142, 0, 4820),
-            NetworkRequestLog("net-2", now, "POST", "https://generativelanguage.googleapis.com/v1beta/models", 200, 310, 840, 2190),
-            NetworkRequestLog("net-3", now, "GET", "https://api.figma.com/v1/files/sample-design-file", 200, 89, 0, 15400),
-            NetworkRequestLog("net-4", now, "GET", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", 200, 210, 0, 1200),
-            NetworkRequestLog("net-5", now, "POST", "https://api.github.com/repos/owner/repo/pulls", 201, 195, 620, 1450)
-        )
-    }
 
     fun logEvent(
         method: String,

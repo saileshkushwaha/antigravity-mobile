@@ -157,6 +157,7 @@ object SdlcManager {
     private val httpClient = okhttp3.OkHttpClient.Builder()
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .addInterceptor(com.example.antigravity.studio.observability.NetworkTrafficInterceptor())
         .build()
 
     // --- Dynamic GitHub Discovery Operations ---
@@ -396,6 +397,171 @@ object SdlcManager {
             details = "Created PR #$nextNumber: '$title' from $sourceBranch to $targetBranch"
         )
         return newPr
+    }
+
+    suspend fun createPullRequestWithBranch(
+        title: String,
+        sourceBranch: String,
+        targetBranch: String = "main",
+        body: String = "",
+        files: List<Pair<String, String>> = emptyList(),
+        branchCommitMessage: String = "",
+        token: String = "",
+        owner: String = "",
+        repo: String = ""
+    ): Result<PullRequestItem> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
+        val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
+        val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
+
+        if (actualOwner.isBlank() || actualRepo.isBlank()) {
+            val pr = createPullRequest(title, sourceBranch, targetBranch)
+            return@withContext Result.success(pr)
+        }
+
+        if (actualToken.isNotBlank()) {
+            try {
+                val baseUrl = "https://api.github.com/repos/$actualOwner/$actualRepo"
+
+                // 1. Resolve the base branch's tip commit
+                val baseRefReq = okhttp3.Request.Builder()
+                    .url("$baseUrl/git/ref/heads/$targetBranch")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("Authorization", "Bearer $actualToken")
+                    .header("User-Agent", "Antigravity-Mobile-App")
+                    .get()
+                    .build()
+                val baseRefResp = httpClient.newCall(baseRefReq).execute()
+                if (!baseRefResp.isSuccessful) {
+                    val err = baseRefResp.body?.string() ?: "HTTP ${baseRefResp.code}"
+                    baseRefResp.close()
+                    return@withContext Result.failure(
+                        Exception("Could not resolve base branch '$targetBranch' (HTTP ${baseRefResp.code}): ${err.take(200)}")
+                    )
+                }
+                val baseRefJson = org.json.JSONObject(baseRefResp.body?.string() ?: "")
+                val baseCommitSha = baseRefJson.getJSONObject("object").getString("sha")
+
+                // 2. Get the base commit's tree so the new tree is built on top of it
+                val commitReq = okhttp3.Request.Builder()
+                    .url("$baseUrl/git/commits/$baseCommitSha")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("Authorization", "Bearer $actualToken")
+                    .header("User-Agent", "Antigravity-Mobile-App")
+                    .get()
+                    .build()
+                val commitResp = httpClient.newCall(commitReq).execute()
+                if (!commitResp.isSuccessful) {
+                    val err = commitResp.body?.string() ?: "HTTP ${commitResp.code}"
+                    commitResp.close()
+                    return@withContext Result.failure(Exception("Could not resolve base commit tree: ${err.take(200)}"))
+                }
+                val commitJson = org.json.JSONObject(commitResp.body?.string() ?: "")
+                val baseTreeSha = commitJson.getJSONObject("tree").getString("sha")
+
+                // 3. Create a blob for each file to be committed
+                val gitJson = org.json.JSONArray()
+                for ((path, content) in files) {
+                    val blobPayload = org.json.JSONObject().apply {
+                        put("content", content)
+                        put("encoding", "utf-8")
+                    }
+                    val blobReq = okhttp3.Request.Builder()
+                        .url("$baseUrl/git/blobs")
+                        .header("Accept", "application/vnd.github.v3+json")
+                        .header("Authorization", "Bearer $actualToken")
+                        .header("User-Agent", "Antigravity-Mobile-App")
+                        .post(blobPayload.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
+                    val blobResp = httpClient.newCall(blobReq).execute()
+                    if (!blobResp.isSuccessful) {
+                        val err = blobResp.body?.string() ?: "HTTP ${blobResp.code}"
+                        blobResp.close()
+                        return@withContext Result.failure(Exception("Could not create blob for '$path': ${err.take(200)}"))
+                    }
+                    val blobSha = org.json.JSONObject(blobResp.body?.string() ?: "").getString("sha")
+                    gitJson.put(
+                        org.json.JSONObject().apply {
+                            put("path", path)
+                            put("mode", "100644")
+                            put("type", "blob")
+                            put("sha", blobSha)
+                        }
+                    )
+                }
+
+                // 4. Create the new tree based on the base tree
+                val treePayload = org.json.JSONObject().apply {
+                    put("base_tree", baseTreeSha)
+                    put("tree", gitJson)
+                }
+                val treeReq = okhttp3.Request.Builder()
+                    .url("$baseUrl/git/trees")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("Authorization", "Bearer $actualToken")
+                    .header("User-Agent", "Antigravity-Mobile-App")
+                    .post(treePayload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+                val treeResp = httpClient.newCall(treeReq).execute()
+                if (!treeResp.isSuccessful) {
+                    val err = treeResp.body?.string() ?: "HTTP ${treeResp.code}"
+                    treeResp.close()
+                    return@withContext Result.failure(Exception("Could not create git tree: ${err.take(200)}"))
+                }
+                val newTreeSha = org.json.JSONObject(treeResp.body?.string() ?: "").getString("sha")
+
+                // 5. Create the commit on top of the base branch tip
+                val commitPayload = org.json.JSONObject().apply {
+                    put("message", branchCommitMessage.ifBlank { title })
+                    put("tree", newTreeSha)
+                    put("parents", org.json.JSONArray(listOf(baseCommitSha)))
+                }
+                val newCommitReq = okhttp3.Request.Builder()
+                    .url("$baseUrl/git/commits")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("Authorization", "Bearer $actualToken")
+                    .header("User-Agent", "Antigravity-Mobile-App")
+                    .post(commitPayload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+                val newCommitResp = httpClient.newCall(newCommitReq).execute()
+                if (!newCommitResp.isSuccessful) {
+                    val err = newCommitResp.body?.string() ?: "HTTP ${newCommitResp.code}"
+                    newCommitResp.close()
+                    return@withContext Result.failure(Exception("Could not create git commit: ${err.take(200)}"))
+                }
+                val newCommitSha = org.json.JSONObject(newCommitResp.body?.string() ?: "").getString("sha")
+
+                // 6. Push the branch (create ref pointing at the new commit)
+                val refPayload = org.json.JSONObject().apply {
+                    put("ref", "refs/heads/$sourceBranch")
+                    put("sha", newCommitSha)
+                }
+                val refReq = okhttp3.Request.Builder()
+                    .url("$baseUrl/git/refs")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("Authorization", "Bearer $actualToken")
+                    .header("User-Agent", "Antigravity-Mobile-App")
+                    .post(refPayload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+                val refResp = httpClient.newCall(refReq).execute()
+                if (!refResp.isSuccessful) {
+                    val err = refResp.body?.string() ?: "HTTP ${refResp.code}"
+                    refResp.close()
+                    return@withContext Result.failure(Exception("Could not push branch '$sourceBranch': ${err.take(200)}"))
+                }
+
+                EnterpriseAuditLogger.log(
+                    category = AuditCategory.SDLC_OPERATION,
+                    action = "PUSH_BRANCH_GITHUB",
+                    details = "Pushed branch '$sourceBranch' (commit $newCommitSha) with ${files.size} files"
+                )
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
+        }
+
+        // 7. Create the PR once the branch exists on the remote
+        createPullRequestReal(title, sourceBranch, targetBranch, body, actualToken, actualOwner, actualRepo)
     }
 
     suspend fun createPullRequestReal(
