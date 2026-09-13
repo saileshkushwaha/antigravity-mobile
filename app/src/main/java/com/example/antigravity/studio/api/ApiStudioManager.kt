@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 enum class HttpMethod {
@@ -142,8 +143,15 @@ object ApiStudioManager {
             )
         } catch (e: Exception) {
             val latency = System.currentTimeMillis() - startTime
-            // Controlled fallback simulation for local development / testing
-            simulateMockResponse(request, latency, now)
+            ApiResponseResult(
+                statusCode = 0,
+                statusMessage = "Error: ${e.message ?: "Request failed"}",
+                headers = emptyMap(),
+                body = "",
+                latencyMs = latency,
+                timestamp = now,
+                isSuccess = false
+            )
         }
     }
 
@@ -248,6 +256,10 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
         try {
             val root = JSONObject(jsonString)
             val paths = root.optJSONObject("paths") ?: return emptyList()
+            val baseUrl = root.optJSONArray("servers")
+                ?.optJSONObject(0)?.optString("url")?.trimEnd('/')
+                ?.takeIf { it.startsWith("http") }
+                ?: "https://api.example.com"
 
             val keys = paths.keys()
             while (keys.hasNext()) {
@@ -263,7 +275,7 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
                                 id = "openapi-${items.size + 1}",
                                 name = summary,
                                 method = method,
-                                url = "https://api.example.com$pathKey",
+                                url = "$baseUrl$pathKey",
                                 headers = mapOf("Accept" to "application/json")
                             )
                         )
@@ -288,5 +300,62 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
         } catch (_: Exception) {
             raw
         }
+    }
+
+    fun saveRequests(workspaceDir: File, requests: List<ApiRequestItem>) {
+        try {
+            val arr = org.json.JSONArray()
+            requests.forEach { r ->
+                arr.put(JSONObject().apply {
+                    put("id", r.id)
+                    put("name", r.name)
+                    put("method", r.method.name)
+                    put("url", r.url)
+                    put("headers", JSONObject(r.headers))
+                    put("queryParams", JSONObject(r.queryParams))
+                    put("body", r.body)
+                    put("bearerToken", r.bearerToken)
+                })
+            }
+            val dir = File(workspaceDir, ".antigravity")
+            dir.mkdirs()
+            File(dir, "requests.json").writeText(arr.toString(2))
+        } catch (_: Exception) {
+        }
+    }
+
+    fun loadRequests(workspaceDir: File): List<ApiRequestItem> {
+        return try {
+            val file = File(File(workspaceDir, ".antigravity"), "requests.json")
+            if (!file.exists()) return getSampleRequests()
+            val arr = org.json.JSONArray(file.readText())
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                ApiRequestItem(
+                    id = o.optString("id", "req-${System.currentTimeMillis() % 10000}"),
+                    name = o.optString("name", "Untitled Request"),
+                    method = runCatching { HttpMethod.valueOf(o.optString("method", "GET")) }.getOrDefault(HttpMethod.GET),
+                    url = o.optString("url", "https://api.github.com/zen"),
+                    headers = o.optJSONObject("headers")?.let { jo ->
+                        joinToString(jo)
+                    } ?: mapOf("Accept" to "application/json"),
+                    queryParams = o.optJSONObject("queryParams")?.let { jo -> joinToString(jo) } ?: emptyMap(),
+                    body = o.optString("body", ""),
+                    bearerToken = o.optString("bearerToken", "")
+                )
+            }
+        } catch (_: Exception) {
+            getSampleRequests()
+        }
+    }
+
+    private fun joinToString(jo: org.json.JSONObject): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        val keys = jo.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            map[k] = jo.optString(k)
+        }
+        return map
     }
 }

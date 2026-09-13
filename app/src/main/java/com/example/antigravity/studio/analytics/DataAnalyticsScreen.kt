@@ -26,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.studio.code.CodeStudioManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,18 +38,24 @@ fun DataAnalyticsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val sqlEngine = remember(activeWorkspaceDir) {
-        AnalyticsSqlEngine(context, activeWorkspaceDir).apply {
-            syncWorkspaceFilesIntoDatabase()
-        }
+        AnalyticsSqlEngine(context, activeWorkspaceDir)
     }
 
     var currentSql by remember {
         mutableStateOf("SELECT model_name, prompt_tokens, completion_tokens, latency_ms, cost_cents FROM llm_metrics ORDER BY cost_cents DESC;")
     }
-    var queryResult by remember { mutableStateOf(sqlEngine.executeQuery(currentSql)) }
+    var queryResult by remember { mutableStateOf(SqlQueryResult()) }
     var showSchema by remember { mutableStateOf(false) }
-    var schemaInfo by remember { mutableStateOf(sqlEngine.getTableSchemas()) }
+    var schemaInfo by remember { mutableStateOf(mapOf<String, List<String>>()) }
+
+    LaunchedEffect(activeWorkspaceDir) {
+        withContext(Dispatchers.IO) {
+            schemaInfo = sqlEngine.getTableSchemas()
+            queryResult = sqlEngine.executeQuery(currentSql)
+        }
+    }
 
     val presetQueries = listOf(
         Pair(
@@ -84,7 +93,10 @@ fun DataAnalyticsScreen(
     )
 
     fun runQuery(sql: String) {
-        queryResult = sqlEngine.executeQuery(sql)
+        coroutineScope.launch(Dispatchers.IO) {
+            val result = sqlEngine.executeQuery(sql)
+            queryResult = result
+        }
     }
 
     Scaffold(
@@ -121,9 +133,11 @@ fun DataAnalyticsScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        sqlEngine.syncWorkspaceFilesIntoDatabase()
-                        schemaInfo = sqlEngine.getTableSchemas()
-                        runQuery(currentSql)
+                        coroutineScope.launch(Dispatchers.IO) {
+                            sqlEngine.syncWorkspaceFilesIntoDatabase()
+                            schemaInfo = sqlEngine.getTableSchemas()
+                            queryResult = sqlEngine.executeQuery(currentSql)
+                        }
                         Toast.makeText(context, "Workspace database re-indexed!", Toast.LENGTH_SHORT).show()
                     }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Sync Workspace", tint = Color.White)

@@ -41,10 +41,14 @@ fun ApiStudioScreen(
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
 
-    var requestsList by remember { mutableStateOf(ApiStudioManager.getSampleRequests()) }
+    var requestsList by remember(activeWorkspaceDir) { mutableStateOf(ApiStudioManager.loadRequests(activeWorkspaceDir)) }
     var activeRequest by remember { mutableStateOf(requestsList.firstOrNull() ?: ApiRequestItem()) }
     var responseResult by remember { mutableStateOf<ApiResponseResult?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(requestsList) {
+        ApiStudioManager.saveRequests(activeWorkspaceDir, requestsList)
+    }
 
     // Sub-tabs: 0: Params, 1: Headers, 2: Body, 3: Auth
     var activeRequestTab by remember { mutableIntStateOf(0) }
@@ -383,16 +387,30 @@ fun ApiStudioScreen(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (responseResult!!.headers.isNotEmpty()) {
                         item {
-                            Text(
-                                text = responseResult!!.body,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = AntigravityColors.TextPrimary,
-                                lineHeight = 15.sp
-                            )
+                            Text("HEADERS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
+                            responseResult!!.headers.forEach { (k, v) ->
+                                Text(
+                                    text = "$k: $v",
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AntigravityColors.ElectricCyan.copy(alpha = 0.8f)
+                                )
+                            }
+                            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
+                    item {
+                        Text(
+                            text = responseResult!!.body,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = AntigravityColors.TextPrimary,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
                 }
             }
         }

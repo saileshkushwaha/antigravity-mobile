@@ -153,6 +153,9 @@ class AntigravityAgentEngine(
         repository.addMessage(initialAgentMsg)
 
         // 3. Launch execution
+        currentJob?.cancel()
+        val myGeneration = ++jobGeneration
+
         val settings = repository.settings.value
         val modelInfo = ModelCatalog.findModel(settings.activeModelId, repository.models.value) 
             ?: ModelCatalog.findModel(settings.activeModel, repository.models.value)
@@ -162,8 +165,6 @@ class AntigravityAgentEngine(
             ?.filter { it.id != agentMessageId && it.id != userMessage.id }
             ?: emptyList()
 
-        currentJob?.cancel()
-        val myGeneration = ++jobGeneration
         currentJob = scope.launch {
             val requestStartTime = System.currentTimeMillis()
             _agentState.value = AgentRunState.THINKING

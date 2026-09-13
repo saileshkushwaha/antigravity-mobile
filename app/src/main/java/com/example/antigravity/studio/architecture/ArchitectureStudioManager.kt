@@ -141,10 +141,13 @@ erDiagram
                 val lines = file.readLines()
                 val title = lines.firstOrNull { it.startsWith("#") }?.removePrefix("#")?.trim() ?: file.nameWithoutExtension
                 val status = lines.firstOrNull { it.contains("Status:") }?.substringAfter("Status:")?.trim() ?: "ACCEPTED"
+                val dateStr = lines.firstOrNull { it.contains("Date:") }
+                    ?.substringAfter("Date:")?.trim()
+                    ?: SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(file.lastModified()))
                 val context = lines.firstOrNull { it.contains("Context:") }?.substringAfter("Context:")?.trim() ?: "Architectural context"
                 val decision = lines.firstOrNull { it.contains("Decision:") }?.substringAfter("Decision:")?.trim() ?: "Architectural decision"
                 val consequences = lines.firstOrNull { it.contains("Consequences:") }?.substringAfter("Consequences:")?.trim() ?: "Positive outcome"
-                AdrItem(file.nameWithoutExtension, title, status, "2026-09-13", context, decision, consequences)
+                AdrItem(file.nameWithoutExtension, title, status, dateStr, context, decision, consequences)
             } catch (_: Exception) {
                 null
             }

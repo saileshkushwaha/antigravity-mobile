@@ -410,6 +410,10 @@ fun SdlcHubContent(
                         SdlcManager.approvePullRequest(prNum)
                         statusMessage = "PR #$prNum approved."
                     },
+                    onCiPassed = { prNum ->
+                        SdlcManager.updatePrCiStatus(prNum, CiStatus.PASSING)
+                        statusMessage = "CI marked as passed for PR #$prNum."
+                    },
                     onMergePr = { prNum ->
                         coroutineScope.launch {
                             statusMessage = "Merging PR #$prNum via GitHub API..."
@@ -513,7 +517,7 @@ fun SdlcHubContent(
             currentToken = sdlcConfig.githubToken,
             onDismiss = { showGithubAuthDialog = false },
             onSelect = { owner, repo, branch, token ->
-                appRepository?.selectGitHubRepository(owner, repo, branch)
+                appRepository?.selectGitHubRepository(owner, repo, branch, token)
                 coroutineScope.launch {
                     statusMessage = "Connecting to $owner/$repo ($branch)..."
                     val res = SdlcManager.switchRepository(owner, repo, branch, token)
@@ -655,6 +659,7 @@ fun GitHubCenterTab(
     onDispatchWorkflowClick: () -> Unit,
     onApprovePr: (Int) -> Unit,
     onMergePr: (Int) -> Unit,
+    onCiPassed: (Int) -> Unit,
     onToggleIssue: (Int) -> Unit,
     onRerunWorkflow: (Long) -> Unit
 ) {
@@ -903,7 +908,8 @@ fun GitHubCenterTab(
 fun PullRequestCard(
     pr: PullRequestItem,
     onApprove: () -> Unit,
-    onMerge: () -> Unit
+    onMerge: () -> Unit,
+    onCiPassed: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1030,6 +1036,15 @@ fun PullRequestCard(
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text(text = "Approve", fontSize = 11.sp, color = AntigravityColors.CyanElectric)
+                            }
+                        }
+                        if (pr.ciStatus != CiStatus.PASSING) {
+                            OutlinedButton(
+                                onClick = onCiPassed,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(text = "Mark CI Passed", fontSize = 11.sp, color = AntigravityColors.CyanElectric)
                             }
                         }
                         Button(

@@ -42,7 +42,10 @@ import java.io.File
 @Composable
 fun ProductDesignScreen(
     activeWorkspaceDir: File,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    githubOwner: String = "",
+    githubRepo: String = "",
+    githubToken: String = ""
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -63,6 +66,17 @@ fun ProductDesignScreen(
         Triple("Solar Flare", "#FF9100", "#FF5252"),
         Triple("Deep Violet", "#A855F7", "#EC4899")
     )
+
+    // Load persisted tokens.json from the workspace on startup
+    LaunchedEffect(activeWorkspaceDir) {
+        runCatching {
+            val tokensFile = File(activeWorkspaceDir, "tokens.json")
+            if (tokensFile.exists()) {
+                val parsed = DesignTokens.parseW3cDtcgJson(tokensFile.readText())
+                parsed.onSuccess { tokens = it }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -122,10 +136,15 @@ fun ProductDesignScreen(
                         }
                         IconButton(onClick = {
                             val composeCode = DesignTokens.generateComposeCode(tokens)
-                            val targetFile = File(activeWorkspaceDir, "AppDesignTokens.kt")
-                            val ok = CodeStudioManager.saveFileContent(targetFile, composeCode)
-                            val msg = if (ok) "Saved to ${targetFile.name}!" else "Failed to save"
-                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            val dtcgJson = tokens.generateW3cDtcgJson()
+                            val files = listOf(
+                                File(activeWorkspaceDir, "AppDesignTokens.kt") to composeCode,
+                                File(activeWorkspaceDir, "tokens.json") to dtcgJson
+                            )
+                            var allOk = true
+                            files.forEach { (f, content) -> f.parentFile?.mkdirs(); if (!CodeStudioManager.saveFileContent(f, content)) allOk = false }
+                            saveStatus = if (allOk) "Saved ${files.map { it.first.name }.joinToString(", ")}" else "Failed to save some files"
+                            Toast.makeText(context, saveStatus ?: "Saved", Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(Icons.Default.Save, contentDescription = "Save to Workspace", tint = Color.White)
                         }
@@ -672,7 +691,13 @@ fun ProductDesignScreen(
                             showPrConfirmDialog = false
                             isDispatchingPr = true
                             coroutineScope.launch {
-                                val result = DesignToPrPipeline.execute(activeWorkspaceDir, tokens)
+                                val result = DesignToPrPipeline.execute(
+                                    activeWorkspaceDir,
+                                    tokens,
+                                    owner = githubOwner,
+                                    repo = githubRepo.ifBlank { activeWorkspaceDir.name },
+                                    token = githubToken
+                                )
                                 isDispatchingPr = false
                                 prResultDialog = result
                             }

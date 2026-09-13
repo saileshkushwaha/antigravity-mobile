@@ -90,6 +90,7 @@ object CodeStudioManager {
                 return null
             }
             if (!newFile.exists()) {
+                newFile.parentFile?.mkdirs()
                 newFile.writeText(initialContent)
             }
             newFile

@@ -122,7 +122,12 @@ fun ResearchHubScreen(
 
             isLoading = false
             if (anySuccess) {
-                papers = combinedList.sortedByDescending { it.publishedDate }
+                papers = combinedList.sortedByDescending { paper ->
+                    runCatching {
+                        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                            .parse(paper.publishedDate.take(10)).time
+                    }.getOrDefault(0L)
+                }
             } else {
                 errorMessage = failureMsg ?: "No papers or documents found"
             }

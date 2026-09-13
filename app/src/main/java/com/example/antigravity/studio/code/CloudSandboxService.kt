@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 enum class SandboxRunnerType {
@@ -65,6 +66,7 @@ object CloudSandboxService {
     suspend fun executeCommand(
         command: String,
         config: SandboxConfig = _config.value,
+        workDir: File? = null,
         onOutputLine: ((String) -> Unit)? = null
     ): Result<SandboxExecutionResult> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
@@ -77,6 +79,7 @@ object CloudSandboxService {
 
                 // Execute local process if feasible, or simulate controlled output
                 val process = ProcessBuilder()
+                    .directory(workDir)
                     .command(if (System.getProperty("os.name")?.contains("Windows", ignoreCase = true) == true) {
                         listOf("cmd.exe", "/c", command)
                     } else {
@@ -92,10 +95,17 @@ object CloudSandboxService {
                     onOutputLine?.invoke(line)
                     line = reader.readLine()
                 }
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val finished = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                     process.waitFor(config.timeoutSeconds.toLong(), TimeUnit.SECONDS)
                 } else {
                     process.waitFor()
+                    true
+                }
+                if (!finished) {
+                    process.destroyForcibly()
+                    val duration = System.currentTimeMillis() - startTime
+                    onOutputLine?.invoke("[Timed out after ${config.timeoutSeconds}s] Command terminated: $command")
+                    return@withContext Result.failure(Exception("Command timed out after ${config.timeoutSeconds}s"))
                 }
 
                 val duration = System.currentTimeMillis() - startTime

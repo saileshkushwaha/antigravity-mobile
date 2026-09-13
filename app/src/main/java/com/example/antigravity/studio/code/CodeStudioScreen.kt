@@ -2,7 +2,9 @@ package com.example.antigravity.studio.code
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,14 +52,15 @@ fun CodeStudioScreen(
         mutableStateOf(CodeStudioManager.buildFileTree(workspaceDir))
     }
     var expandedPaths by remember { mutableStateOf(setOf<String>()) }
-    var selectedFile by remember { mutableStateOf<File?>(null) }
-    var fileContent by remember { mutableStateOf("") }
-    var originalDiskContent by remember { mutableStateOf("") }
-    var isDirty by remember { mutableStateOf(false) }
+    var selectedFile by remember(workspaceDir) { mutableStateOf<File?>(null) }
+    var fileContent by remember(workspaceDir) { mutableStateOf("") }
+    var originalDiskContent by remember(workspaceDir) { mutableStateOf("") }
+    var isDirty by remember(workspaceDir) { mutableStateOf(false) }
     var showSavedToast by remember { mutableStateOf(false) }
     var showDiffDialog by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var showNewFileDialog by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<FileNodeItem?>(null) }
     var newFileName by remember { mutableStateOf("") }
     var showNewFolderDialog by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }
@@ -844,11 +847,11 @@ fun CodeStudioScreen(
                                                 coroutineScope.launch {
                                                     CloudSandboxService.executeCommand(
                                                         command = cmd,
+                                                        workDir = workspaceDir,
                                                         onOutputLine = { outLine ->
                                                             localTerminalLogs = localTerminalLogs + outLine
                                                         }
                                                     )
-                                                    onExecuteCommand(cmd)
                                                     isExecutingSandboxCommand = false
                                                 }
                                             }
@@ -933,7 +936,8 @@ fun CodeStudioScreen(
                                         isDirty = false
                                         // Optional: Auto-close drawer on small screens
                                         // showFileTreePane = false 
-                                    }
+                                    },
+                                    onDelete = { node -> deleteTarget = node }
                                 )
                             }
                         }
@@ -993,6 +997,52 @@ fun CodeStudioScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showNewFileDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Delete File/Folder Confirm Dialog
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFFB7185))
+                    Text("Delete ${if (target.isDirectory) "Folder" else "File"}", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text(
+                    "Are you sure you want to permanently delete \"${target.file.name}\"? This cannot be undone.${if (target.isDirectory) " All files inside will be removed." else ""}",
+                    fontSize = 12.sp,
+                    color = AntigravityColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val deleted = CodeStudioManager.deleteFile(target.file)
+                        if (deleted) {
+                            if (selectedFile?.absolutePath == target.file.absolutePath) {
+                                selectedFile = null
+                                fileContent = ""
+                                originalDiskContent = ""
+                                isDirty = false
+                            }
+                            fileTree = CodeStudioManager.buildFileTree(workspaceDir)
+                        }
+                        deleteTarget = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48))
+                ) {
+                    Text("Delete", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
                     Text("Cancel", color = AntigravityColors.TextSecondary)
                 }
             }
@@ -1402,13 +1452,15 @@ fun CodeStudioScreen(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun FileTreeNodeItem(
     node: FileNodeItem,
     level: Int,
     selectedFile: File?,
     expandedPaths: Set<String>,
     onToggleExpand: (String) -> Unit,
-    onSelectFile: (File) -> Unit
+    onSelectFile: (File) -> Unit,
+    onDelete: (FileNodeItem) -> Unit
 ) {
     val isExpanded = expandedPaths.contains(node.path)
     val isSelected = selectedFile?.absolutePath == node.path
@@ -1419,13 +1471,16 @@ fun FileTreeNodeItem(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(4.dp))
                 .background(if (isSelected) AntigravityColors.ElectricCyan.copy(alpha = 0.18f) else Color.Transparent)
-                .clickable {
-                    if (node.isDirectory) {
-                        onToggleExpand(node.path)
-                    } else {
-                        onSelectFile(node.file)
-                    }
-                }
+                .combinedClickable(
+                    onClick = {
+                        if (node.isDirectory) {
+                            onToggleExpand(node.path)
+                        } else {
+                            onSelectFile(node.file)
+                        }
+                    },
+                    onLongClick = { onDelete(node) }
+                )
                 .padding(start = (level * 10 + 4).dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1471,7 +1526,8 @@ fun FileTreeNodeItem(
                     selectedFile = selectedFile,
                     expandedPaths = expandedPaths,
                     onToggleExpand = onToggleExpand,
-                    onSelectFile = onSelectFile
+                    onSelectFile = onSelectFile,
+                    onDelete = onDelete
                 )
             }
         }

@@ -414,7 +414,7 @@ fun ChatInputBar(
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                     onSend = {
-                        if (inputText.isNotBlank()) {
+                        if (inputText.isNotBlank() && !isBusy) {
                             val promptToSend = if (attachedFile != null) {
                                 "$inputText [Attached: $attachedFile]"
                             } else {

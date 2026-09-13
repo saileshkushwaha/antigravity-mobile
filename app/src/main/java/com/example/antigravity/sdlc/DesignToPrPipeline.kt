@@ -38,7 +38,10 @@ object DesignToPrPipeline {
         sourceBranchName: String = "feature/design-tokens-sync-${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}",
         targetBranch: String = "main",
         customPrTitle: String = "chore(design): synchronize design system tokens with DTCG standard",
-        customPrBody: String? = null
+        customPrBody: String? = null,
+        owner: String = "",
+        repo: String = "",
+        token: String = ""
     ): PipelineResult = withContext(Dispatchers.IO) {
         val generated = mutableListOf<String>()
 
@@ -98,7 +101,10 @@ object DesignToPrPipeline {
                 title = customPrTitle,
                 sourceBranch = sourceBranchName,
                 targetBranch = targetBranch,
-                body = prBody
+                body = prBody,
+                token = token,
+                owner = owner,
+                repo = repo
             )
 
             if (prResult.isSuccess) {

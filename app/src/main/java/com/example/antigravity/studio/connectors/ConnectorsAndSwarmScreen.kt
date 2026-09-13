@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import com.example.antigravity.studio.analytics.AnalyticsSqlEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -618,14 +620,18 @@ fun ConnectorsAndSwarmScreen(
 
                                 OutlinedButton(
                                     onClick = {
-                                        val now = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                                        SwarmCheckpointManager.createCheckpoint(
-                                            workspaceDir = activeWorkspaceDir,
-                                            triggerAgent = "Manual-User",
-                                            description = "Manual checkpoint snapshot $now"
-                                        )
-                                        checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
-                                        Toast.makeText(context, "Checkpoint snapshot captured!", Toast.LENGTH_SHORT).show()
+                                        coroutineScope.launch {
+                                            val now = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                                            withContext(Dispatchers.IO) {
+                                                SwarmCheckpointManager.createCheckpoint(
+                                                    workspaceDir = activeWorkspaceDir,
+                                                    triggerAgent = "Manual-User",
+                                                    description = "Manual checkpoint snapshot $now"
+                                                )
+                                            }
+                                            checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
+                                            Toast.makeText(context, "Checkpoint snapshot captured!", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     shape = RoundedCornerShape(8.dp),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
@@ -706,11 +712,15 @@ fun ConnectorsAndSwarmScreen(
 
                                         OutlinedButton(
                                             onClick = {
-                                                val success = SwarmCheckpointManager.rollbackToCheckpoint(cp, activeWorkspaceDir)
-                                                if (success) {
-                                                    Toast.makeText(context, "Rolled back to checkpoint #${cp.id}!", Toast.LENGTH_SHORT).show()
-                                                } else {
-                                                    Toast.makeText(context, "Rollback failed", Toast.LENGTH_SHORT).show()
+                                                coroutineScope.launch {
+                                                    val success = withContext(Dispatchers.IO) {
+                                                        SwarmCheckpointManager.rollbackToCheckpoint(cp, activeWorkspaceDir)
+                                                    }
+                                                    if (success) {
+                                                        Toast.makeText(context, "Rolled back to checkpoint #${cp.id}!", Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        Toast.makeText(context, "Rollback failed", Toast.LENGTH_SHORT).show()
+                                                    }
                                                 }
                                             },
                                             shape = RoundedCornerShape(8.dp),

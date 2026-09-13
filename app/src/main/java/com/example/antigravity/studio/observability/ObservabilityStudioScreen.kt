@@ -23,7 +23,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.antigravity.sdlc.SdlcManager
 import com.example.antigravity.theme.AntigravityColors
+import kotlinx.coroutines.launch
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,6 +36,7 @@ fun ObservabilityStudioScreen(
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var activeTab by remember { mutableIntStateOf(0) } // 0: Crash Analyzer, 1: Network Monitor
     var stackTraceInput by remember { mutableStateOf("") }
     var crashReport by remember { mutableStateOf<CrashReport?>(null) }
@@ -257,7 +260,32 @@ java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Stri
 
                                 Button(
                                     onClick = {
-                                        Toast.makeText(context, "Bug-fix PR created for ${crashReport!!.rootFrame?.fileName}!", Toast.LENGTH_LONG).show()
+                                        val report = crashReport!!
+                                        coroutineScope.launch {
+                                            runCatching {
+                                                val reportsDir = File(activeWorkspaceDir, ".antigravity/crash-reports")
+                                                reportsDir.mkdirs()
+                                                val reportFile = File(reportsDir, "crash-${System.currentTimeMillis()}.md")
+                                                reportFile.writeText(
+                                                    "# ${report.exceptionType}: ${report.message}\n\n" +
+                                                        "## Stack Trace Root Frame\n${report.rootFrame}\n\n" +
+                                                        "## Suggested Fix\n${report.suggestedFix}\n"
+                                                )
+                                            }
+                                            val result = SdlcManager.createPullRequestReal(
+                                                title = "fix(crash): address ${report.exceptionType}",
+                                                sourceBranch = "fix/crash-${System.currentTimeMillis() % 10000}",
+                                                targetBranch = "main",
+                                                body = "Auto-fix dispatched from Antigravity Observability Studio.\n\n" +
+                                                    "**Exception**: ${report.exceptionType}: ${report.message}\n\n" +
+                                                    "**Root frame**: ${report.rootFrame}\n\n" +
+                                                    "**Suggested fix**:\n${report.suggestedFix}\n"
+                                            )
+                                            result.fold(
+                                                onSuccess = { pr -> Toast.makeText(context, "Bug-fix PR #${pr.number} created!", Toast.LENGTH_LONG).show() },
+                                                onFailure = { e -> Toast.makeText(context, "PR dispatch: ${e.message}", Toast.LENGTH_LONG).show() }
+                                            )
+                                        }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                                     modifier = Modifier.fillMaxWidth()

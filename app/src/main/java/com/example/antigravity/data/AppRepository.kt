@@ -549,7 +549,7 @@ class AppRepository {
 
     fun updateMessage(messageId: String, transform: (ChatMessage) -> ChatMessage) {
         val current = _conversations.value.toMutableList()
-        val index = current.indexOfFirst { it.id == _activeConversationId.value }
+        val index = current.indexOfFirst { conv -> conv.messages.any { it.id == messageId } }
         if (index != -1) {
             val conv = current[index]
             val msgIndex = conv.messages.indexOfFirst { it.id == messageId }
@@ -1235,21 +1235,24 @@ class AppRepository {
         }
     }
 
-    fun selectGitHubRepository(owner: String, repo: String, branch: String = "main") {
+    fun selectGitHubRepository(owner: String, repo: String, branch: String = "main", token: String = "") {
         _settings.update {
             it.copy(
                 githubOwner = owner,
                 githubRepo = repo,
-                targetBranch = branch
+                targetBranch = branch,
+                githubToken = token.ifBlank { it.githubToken }
             )
         }
         com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
             it.copy(
                 repositoryOwner = owner,
                 projectName = repo,
-                targetBranch = branch
+                targetBranch = branch,
+                githubToken = token.ifBlank { it.githubToken }
             )
         }
+        updateSettings(_settings.value)
     }
 
     fun updateSettings(transform: (AppSettings) -> AppSettings) {

@@ -494,6 +494,7 @@ fun AntigravityMainScreen(
                                             agentEngine.rejectPlan(messageId)
                                         },
                                         onLockStudio = onLockStudio,
+                                        autoScroll = settings.autoScrollChat,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
@@ -512,7 +513,10 @@ fun AntigravityMainScreen(
                                 AntigravityAppScreen.DESIGN -> {
                                     ProductDesignScreen(
                                         activeWorkspaceDir = activeWorkspaceDir,
-                                        onBack = { currentScreen = AntigravityAppScreen.CHAT }
+                                        onBack = { currentScreen = AntigravityAppScreen.CHAT },
+                                        githubOwner = settings.githubOwner,
+                                        githubRepo = settings.githubRepo,
+                                        githubToken = settings.githubToken
                                     )
                                 }
                                 AntigravityAppScreen.RESEARCH -> {

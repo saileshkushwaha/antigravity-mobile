@@ -40,11 +40,17 @@ object SwarmCheckpointManager {
 
         var fileCounter = 0
         if (workspaceDir.exists() && workspaceDir.isDirectory) {
-            val files = workspaceDir.listFiles() ?: emptyArray()
-            files.filter { it.isFile && !it.name.startsWith(".") && it.name != "build" }.forEach { srcFile ->
-                val destFile = File(snapshotFolder, srcFile.name)
-                srcFile.copyTo(destFile, overwrite = true)
-                fileCounter++
+            workspaceDir.walkTopDown().forEach { f ->
+                if (f == workspaceDir) return@forEach
+                val rel = f.relativeTo(workspaceDir).path
+                if (rel == ".antigravity" || rel.startsWith(".antigravity/")) return@forEach
+                if (f.name == "build" && f.isDirectory) return@forEach
+                if (f.isFile) {
+                    val destFile = File(snapshotFolder, rel)
+                    destFile.parentFile?.mkdirs()
+                    f.copyTo(destFile, overwrite = true)
+                    fileCounter++
+                }
             }
         }
 
@@ -98,10 +104,15 @@ object SwarmCheckpointManager {
         return try {
             if (!checkpoint.snapshotDir.exists()) return false
 
-            val snapshotFiles = checkpoint.snapshotDir.listFiles() ?: emptyArray()
-            snapshotFiles.filter { it.isFile && it.name != "checkpoint_meta.txt" }.forEach { snapFile ->
-                val targetFile = File(workspaceDir, snapFile.name)
-                snapFile.copyTo(targetFile, overwrite = true)
+            checkpoint.snapshotDir.walkTopDown().forEach { snapFile ->
+                if (snapFile == checkpoint.snapshotDir) return@forEach
+                val rel = snapFile.relativeTo(checkpoint.snapshotDir).path
+                if (rel == "checkpoint_meta.txt") return@forEach
+                if (snapFile.isFile) {
+                    val targetFile = File(workspaceDir, rel)
+                    targetFile.parentFile?.mkdirs()
+                    snapFile.copyTo(targetFile, overwrite = true)
+                }
             }
             true
         } catch (e: Exception) {

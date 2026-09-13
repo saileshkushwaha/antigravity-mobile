@@ -51,7 +51,8 @@ fun ChatCanvas(
     onOpenPersonaPicker: (() -> Unit)? = null,
     onOpenPromptLibrary: (() -> Unit)? = null,
     onOpenWorkspaceManager: () -> Unit = {},
-    onLockStudio: (() -> Unit)? = null
+    onLockStudio: (() -> Unit)? = null,
+    autoScroll: Boolean = true
 ) {
     val listState = rememberLazyListState()
     var showModelDropdown by remember { mutableStateOf(false) }
@@ -62,7 +63,7 @@ fun ChatCanvas(
     // user is already near the bottom (don't hijack while reading history).
     LaunchedEffect(conversation?.messages?.size, conversation?.messages?.lastOrNull()?.text) {
         val msgs = conversation?.messages
-        if (!msgs.isNullOrEmpty()) {
+        if (!msgs.isNullOrEmpty() && autoScroll) {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val shouldAutoScroll = lastVisible >= (listState.layoutInfo.totalItemsCount - 2)
             if (shouldAutoScroll) {
@@ -272,7 +273,7 @@ fun ChatCanvas(
                                         }
                                     } else {
                                         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                                            items(filteredDropdownModels, key = { "${it.gateway.name}_${it.id}" }) { model ->
+                                            items(filteredDropdownModels, key = { "${it.gateway.name}_${it.providerName}_${it.id}" }) { model ->
                                                 val isSelected = model.id.equals(activeModelId, ignoreCase = true) ||
                                                         model.name.equals(activeModel, ignoreCase = true)
 
@@ -827,6 +828,30 @@ fun AgentMessageCard(
             ) {
                 Box(modifier = Modifier.padding(12.dp)) {
                     MarkdownRenderer(text = message.text)
+                }
+            }
+        } else if (message.isStreaming) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = AntigravityColors.CardBackground,
+                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = AntigravityColors.ElectricCyan
+                    )
+                    Text(
+                        text = "Thinking…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AntigravityColors.TextSecondary
+                    )
                 }
             }
         }

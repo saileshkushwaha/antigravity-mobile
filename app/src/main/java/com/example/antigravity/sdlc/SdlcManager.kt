@@ -684,7 +684,13 @@ object SdlcManager {
             } catch (_: Exception) {
                 remoteOk = false
             }
-            if (!remoteOk) return@withContext current?.state ?: targetState
+            if (!remoteOk) {
+                EnterpriseAuditLogger.log(
+                    category = AuditCategory.SDLC_OPERATION,
+                    action = "TOGGLE_ISSUE_GITHUB_FAILED",
+                    details = "GitHub state change failed for issue #$issueNumber; applying local toggle."
+                )
+            }
         }
 
         _issues.update { list ->
@@ -755,9 +761,11 @@ object SdlcManager {
                     return@withContext Result.success(localRun)
                 } else {
                     val err = resp.body?.string() ?: "HTTP ${resp.code}"
+                    _workflowRuns.update { list -> list.filterNot { it.id == localRun.id } }
                     return@withContext Result.failure(Exception("GitHub API Error: $err"))
                 }
             } catch (e: Exception) {
+                _workflowRuns.update { list -> list.filterNot { it.id == localRun.id } }
                 return@withContext Result.failure(e)
             }
         }
