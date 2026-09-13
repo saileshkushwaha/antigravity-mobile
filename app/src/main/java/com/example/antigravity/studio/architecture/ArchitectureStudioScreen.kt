@@ -41,7 +41,7 @@ fun ArchitectureStudioScreen(
 
     val diagrams = remember(activeWorkspaceDir) { ArchitectureStudioManager.scanAndGenerateMermaid(activeWorkspaceDir) }
     var selectedDiagramIndex by remember { mutableIntStateOf(0) }
-    val selectedDiagram = diagrams.getOrElse(selectedDiagramIndex) { diagrams.firstOrNull() }
+    val selectedDiagram = diagrams.getOrElse(selectedDiagramIndex) { diagrams.firstOrNull() } ?: diagrams.first()
 
     var adrList by remember { mutableStateOf(ArchitectureStudioManager.listAdrs(activeWorkspaceDir)) }
     var showNewAdrDialog by remember { mutableStateOf(false) }
