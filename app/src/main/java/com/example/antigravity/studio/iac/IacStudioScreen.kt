@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -38,9 +39,12 @@ fun IacStudioScreen(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    val templates = remember { IacStudioManager.getPrebuiltTemplates() }
+    var templates by remember(activeWorkspaceDir) { mutableStateOf(IacStudioManager.listWorkspaceTemplates(activeWorkspaceDir)) }
     var selectedTemplate by remember { mutableStateOf(templates.firstOrNull() ?: IacTemplateItem(id = "empty", name = "Empty", type = IacType.DOCKER_COMPOSE, description = "Empty template", content = "", targetFileName = "docker-compose.yml")) }
     var currentContent by remember { mutableStateOf(selectedTemplate.content) }
+    var showNewTemplateDialog by remember { mutableStateOf(false) }
+    var newTemplateName by remember { mutableStateOf("") }
+    var newTemplateType by remember { mutableStateOf(IacType.DOCKER_COMPOSE) }
 
     val violations = remember(currentContent, selectedTemplate.type) {
         IacStudioManager.validateIacSyntax(currentContent, selectedTemplate.type)
@@ -101,6 +105,9 @@ fun IacStudioScreen(
                         onClick = {
                             val targetFile = File(activeWorkspaceDir, selectedTemplate.targetFileName)
                             val saved = CodeStudioManager.saveFileContent(targetFile, currentContent)
+                            if (saved && selectedTemplate.id.startsWith("custom_")) {
+                                IacStudioManager.saveWorkspaceTemplate(activeWorkspaceDir, selectedTemplate.copy(content = currentContent))
+                            }
                             Toast.makeText(
                                 context,
                                 if (saved) "Saved to ${selectedTemplate.targetFileName}!" else "Failed to save ${selectedTemplate.targetFileName}",
@@ -110,6 +117,24 @@ fun IacStudioScreen(
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Default.Save, contentDescription = "Save", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(17.dp))
+                    }
+                    if (selectedTemplate.id.startsWith("custom_")) {
+                        IconButton(
+                            onClick = {
+                                val deleted = IacStudioManager.deleteWorkspaceTemplate(activeWorkspaceDir, selectedTemplate.id)
+                                if (deleted) {
+                                    templates = templates.filterNot { it.id == selectedTemplate.id }
+                                    selectedTemplate = templates.first()
+                                    currentContent = selectedTemplate.content
+                                    Toast.makeText(context, "Template deleted", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Template not found", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete template", tint = Color(0xFFFB7185), modifier = Modifier.size(17.dp))
+                        }
                     }
                     IconButton(
                         onClick = {
@@ -149,6 +174,23 @@ fun IacStudioScreen(
                         fontWeight = FontWeight.Bold,
                         color = if (isSel) AntigravityColors.ElectricCyan else AntigravityColors.TextSecondary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFF00E5FF).copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan),
+                modifier = Modifier.clickable { showNewTemplateDialog = true }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(
+                        "New",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AntigravityColors.ElectricCyan
                     )
                 }
             }
@@ -209,5 +251,81 @@ fun IacStudioScreen(
                 )
             )
         }
+    }
+
+    if (showNewTemplateDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewTemplateDialog = false },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = AntigravityColors.ElectricCyan)
+                    Text("New IaC Template", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newTemplateName,
+                        onValueChange = { newTemplateName = it },
+                        singleLine = true,
+                        label = { Text("Template name", fontSize = 12.sp) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AntigravityColors.ElectricCyan,
+                            unfocusedBorderColor = AntigravityColors.CardBorder,
+                            focusedTextColor = AntigravityColors.TextPrimary,
+                            unfocusedTextColor = AntigravityColors.TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("Type", fontSize = 12.sp, color = AntigravityColors.TextSecondary)
+                    IacType.entries.forEach { type ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (newTemplateType == type) AntigravityColors.ElectricCyan.copy(alpha = 0.2f) else Color.Transparent)
+                                .clickable { newTemplateType = type }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (newTemplateType == type) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(type.label, fontSize = 13.sp, color = AntigravityColors.TextPrimary)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newTemplateName.isNotBlank()) {
+                            val tmpl = IacStudioManager.createCustomTemplate(newTemplateName.trim(), newTemplateType)
+                            if (IacStudioManager.saveWorkspaceTemplate(activeWorkspaceDir, tmpl)) {
+                                templates = IacStudioManager.listWorkspaceTemplates(activeWorkspaceDir)
+                                selectedTemplate = templates.find { it.id == tmpl.id } ?: tmpl
+                                currentContent = selectedTemplate.content
+                            }
+                            showNewTemplateDialog = false
+                            newTemplateName = ""
+                        }
+                    },
+                    enabled = newTemplateName.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
+                ) {
+                    Text("Create", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewTemplateDialog = false }) {
+                    Text("Cancel", color = AntigravityColors.TextSecondary)
+                }
+            }
+        )
     }
 }

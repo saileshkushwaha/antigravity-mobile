@@ -556,8 +556,11 @@ fun SdlcHubContent(
             onCreate = { title, body, labels ->
                 coroutineScope.launch {
                     statusMessage = "Filing GitHub issue..."
-                    val newIssue = SdlcManager.createIssue(title, body, labels)
-                    statusMessage = "Created Issue #${newIssue.number}: ${newIssue.title}"
+                    val res = SdlcManager.createIssue(title, body, labels)
+                    statusMessage = res.fold(
+                        onSuccess = { "Created Issue #${it.number}: ${it.title}" },
+                        onFailure = { "Issue creation failed: ${it.localizedMessage}" }
+                    )
                 }
                 showNewIssueDialog = false
             }

@@ -1,5 +1,7 @@
 package com.example.antigravity.studio.iac
 
+import java.io.File
+
 enum class IacType(val label: String) {
     DOCKER_COMPOSE("Docker Compose"),
     KUBERNETES_MANIFEST("Kubernetes"),
@@ -20,6 +22,96 @@ data class IacTemplateItem(
  * Validates Docker Compose, Kubernetes, and Terraform configs with production security policies.
  */
 object IacStudioManager {
+
+    private const val DEFAULT_TARGET_FILE = "docker-compose.yml"
+
+    private fun templatesDir(workspaceDir: File): File {
+        val dir = File(workspaceDir, ".antigravity/iac_templates")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    /**
+     * Returns prebuilt templates merged with the user's saved templates for this workspace.
+     */
+    fun listWorkspaceTemplates(workspaceDir: File): List<IacTemplateItem> {
+        val prebuilt = getPrebuiltTemplates()
+        val custom = templatesDir(workspaceDir).listFiles()
+            ?.filter { it.isFile && it.extension == "json" }
+            ?.mapNotNull { loadTemplateFile(it) }
+            ?: emptyList()
+        return prebuilt + custom
+    }
+
+    /**
+     * Persists a custom template to the workspace so it survives app restarts.
+     */
+    fun saveWorkspaceTemplate(workspaceDir: File, template: IacTemplateItem): Boolean {
+        return try {
+            val file = File(templatesDir(workspaceDir), sanitizeId(template.id) + ".json")
+            val json = org.json.JSONObject().apply {
+                put("id", template.id)
+                put("name", template.name)
+                put("type", template.type.name)
+                put("description", template.description)
+                put("content", template.content)
+                put("targetFileName", template.targetFileName)
+            }
+            file.writeText(json.toString(2))
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Removes a persisted custom template. Prebuilt templates are ignored.
+     */
+    fun deleteWorkspaceTemplate(workspaceDir: File, id: String): Boolean {
+        if (id in getPrebuiltTemplates().map { it.id }) return false
+        return try {
+            val file = File(templatesDir(workspaceDir), sanitizeId(id) + ".json")
+            file.exists() && file.delete()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun createCustomTemplate(name: String, type: IacType): IacTemplateItem {
+        val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+            .format(java.util.Date())
+        return IacTemplateItem(
+            id = "custom_$timestamp",
+            name = name,
+            type = type,
+            description = "Custom ${type.label} template",
+            content = "",
+            targetFileName = when (type) {
+                IacType.DOCKER_COMPOSE -> "docker-compose.yml"
+                IacType.KUBERNETES_MANIFEST -> "k8s-deployment.yaml"
+                IacType.TERRAFORM_CONFIG -> "main.tf"
+            }
+        )
+    }
+
+    private fun loadTemplateFile(file: File): IacTemplateItem? {
+        return try {
+            val obj = org.json.JSONObject(file.readText())
+            IacTemplateItem(
+                id = obj.optString("id", file.nameWithoutExtension),
+                name = obj.optString("name", "Custom Template"),
+                type = runCatching { IacType.valueOf(obj.optString("type", "DOCKER_COMPOSE")) }
+                    .getOrDefault(IacType.DOCKER_COMPOSE),
+                description = obj.optString("description", "Custom template"),
+                content = obj.optString("content", ""),
+                targetFileName = obj.optString("targetFileName", DEFAULT_TARGET_FILE)
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun sanitizeId(id: String) = id.replace(Regex("[^a-zA-Z0-9_.-]"), "_")
 
     fun getPrebuiltTemplates(): List<IacTemplateItem> {
         val dockerCompose = """

@@ -568,7 +568,7 @@ object SdlcManager {
         token: String = "",
         owner: String = "",
         repo: String = ""
-    ): GitHubIssueItem = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    ): kotlin.Result<GitHubIssueItem> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val actualOwner = owner.ifBlank { _sdlcConfig.value.repositoryOwner }
         val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
@@ -609,7 +609,7 @@ object SdlcManager {
                         action = "CREATE_ISSUE_GITHUB",
                         details = "Created live GitHub Issue #${issue.number}: '$title'"
                     )
-                    return@withContext issue
+                    return@withContext kotlin.Result.success(issue)
                 }
                 val respBody = runCatching { resp.body?.string() ?: "" }.getOrDefault("")
                 resp.close()
@@ -618,12 +618,16 @@ object SdlcManager {
                     action = "CREATE_ISSUE_GITHUB_FAILED",
                     details = "GitHub rejected issue creation (HTTP ${resp.code}): ${respBody.take(200)}"
                 )
+                return@withContext kotlin.Result.failure(
+                    Exception("GitHub rejected issue creation (HTTP ${resp.code}): ${respBody.take(200)}")
+                )
             } catch (e: Exception) {
                 EnterpriseAuditLogger.log(
                     category = AuditCategory.SDLC_OPERATION,
                     action = "CREATE_ISSUE_GITHUB_FAILED",
                     details = "GitHub issue creation error: ${e.message}"
                 )
+                return@withContext kotlin.Result.failure(e)
             }
         } else {
             EnterpriseAuditLogger.log(
@@ -651,6 +655,7 @@ object SdlcManager {
             details = "Created issue #$nextNumber: '$title'"
         )
         newIssue
+        kotlin.Result.success(newIssue)
     }
 
     suspend fun toggleIssueState(
