@@ -18,10 +18,13 @@ object CodeStudioManager {
     /**
      * Traverses actual file system at root directory to build an interactive tree.
      */
-    fun buildFileTree(rootDir: File, maxDepth: Int = 4, currentDepth: Int = 0): List<FileNodeItem> {
+    fun buildFileTree(rootDir: File, maxDepth: Int = 4, currentDepth: Int = 0, visitedPaths: MutableSet<String> = mutableSetOf()): List<FileNodeItem> {
         if (!rootDir.exists() || !rootDir.isDirectory || currentDepth >= maxDepth) {
             return emptyList()
         }
+
+        val canonicalRoot = try { rootDir.canonicalPath } catch (_: Exception) { return emptyList() }
+        if (!visitedPaths.add(canonicalRoot)) return emptyList()
 
         val entries = rootDir.listFiles() ?: return emptyList()
 
@@ -30,7 +33,7 @@ object CodeStudioManager {
             .sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
             .map { file ->
                 val children = if (file.isDirectory) {
-                    buildFileTree(file, maxDepth, currentDepth + 1)
+                    buildFileTree(file, maxDepth, currentDepth + 1, visitedPaths)
                 } else {
                     emptyList()
                 }

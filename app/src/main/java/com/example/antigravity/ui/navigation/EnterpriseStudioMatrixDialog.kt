@@ -128,7 +128,7 @@ fun EnterpriseStudioMatrixDialog(
                                     color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f)
                                 ) {
                                     Text(
-                                        text = "10 HUBS",
+                                        text = "${StudioScreenRegistry.allStudios.size} HUBS",
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = AntigravityColors.ElectricCyan,

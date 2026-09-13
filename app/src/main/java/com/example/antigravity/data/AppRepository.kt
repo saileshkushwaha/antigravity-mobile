@@ -326,7 +326,7 @@ class AppRepository {
     private val _workspaces = MutableStateFlow(createDefaultWorkspaces())
     val workspaces: StateFlow<List<ProjectWorkspace>> = _workspaces.asStateFlow()
 
-    private val _activeWorkspace = MutableStateFlow(_workspaces.value.first())
+    private val _activeWorkspace = MutableStateFlow(_workspaces.value.firstOrNull() ?: ProjectWorkspace(id = "default", name = "Default", path = android.os.Environment.getExternalStorageDirectory().absolutePath))
     val activeWorkspace: StateFlow<ProjectWorkspace> = _activeWorkspace.asStateFlow()
 
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
@@ -426,10 +426,12 @@ class AppRepository {
             // 1. Sync Active Model
             if (conv.activeModel.isNotBlank()) {
                 val modelInfo = ModelCatalog.findModel(conv.activeModelId.ifBlank { conv.activeModel }, _models.value)
-                _settings.value = _settings.value.copy(
-                    activeModel = conv.activeModel,
-                    activeModelId = conv.activeModelId.ifBlank { modelInfo?.id ?: _settings.value.activeModelId }
-                )
+                _settings.update { s ->
+                    s.copy(
+                        activeModel = conv.activeModel,
+                        activeModelId = conv.activeModelId.ifBlank { modelInfo?.id ?: s.activeModelId }
+                    )
+                }
             }
 
             // 2. Sync Active Workspace & GitHub Repository
@@ -443,11 +445,13 @@ class AppRepository {
             val branch = conv.githubBranch.ifBlank { targetWs?.branch ?: "main" }
 
             if (owner.isNotBlank() && repo.isNotBlank()) {
-                _settings.value = _settings.value.copy(
-                    githubOwner = owner,
-                    githubRepo = repo,
-                    targetBranch = branch
-                )
+                _settings.update { s ->
+                    s.copy(
+                        githubOwner = owner,
+                        githubRepo = repo,
+                        targetBranch = branch
+                    )
+                }
                 com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
                     it.copy(
                         repositoryOwner = owner,
@@ -456,6 +460,7 @@ class AppRepository {
                     )
                 }
             }
+            updateSettings(_settings.value)
         }
     }
 
@@ -1257,6 +1262,7 @@ class AppRepository {
             val updated = s.customProviders.filterNot { it.id == provider.id } + provider
             s.copy(customProviders = updated)
         }
+        updateSettings(_settings.value)
     }
 
     fun updateCustomProvider(provider: CustomProviderConfig) {
@@ -1264,12 +1270,14 @@ class AppRepository {
             val updated = s.customProviders.map { if (it.id == provider.id) provider else it }
             s.copy(customProviders = updated)
         }
+        updateSettings(_settings.value)
     }
 
     fun deleteCustomProvider(providerId: String) {
         _settings.update { s ->
             s.copy(customProviders = s.customProviders.filterNot { it.id == providerId })
         }
+        updateSettings(_settings.value)
         _models.update { list ->
             list.filterNot { it.gateway == ModelGateway.CUSTOM && it.tags.contains(providerId) }
         }
@@ -1282,6 +1290,7 @@ class AppRepository {
             }
             s.copy(customProviders = updated)
         }
+        updateSettings(_settings.value)
     }
 
     suspend fun testCustomProvider(
@@ -1299,6 +1308,6 @@ class AppRepository {
         resetSkillsToDefault()
         resetMcpServersToDefault()
         clearActiveConversationMessages()
-        _settings.value = AppSettings()
+        updateSettings(AppSettings())
     }
 }

@@ -254,6 +254,7 @@ object SdlcManager {
 
             // If user endpoint returned 404 (e.g. it is an organization account), fallback to /orgs/:org/repos
             if (resp.code == 404 && owner.isNotBlank()) {
+                resp.body?.close()
                 val orgUrl = "https://api.github.com/orgs/$owner/repos?per_page=100&sort=updated"
                 req = okhttp3.Request.Builder()
                     .url(orgUrl)
@@ -1052,7 +1053,7 @@ object SdlcManager {
             val resp = httpClient.newCall(req).execute()
             val latency = System.currentTimeMillis() - startTime
             val statusMsg = "${resp.code} ${resp.message} (${latency}ms)"
-            val isSuccess = resp.isSuccessful || resp.code in 200..404
+            val isSuccess = resp.isSuccessful
 
             _integrationTools.update { list ->
                 list.map {

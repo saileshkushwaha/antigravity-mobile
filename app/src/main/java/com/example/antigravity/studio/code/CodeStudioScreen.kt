@@ -485,6 +485,7 @@ fun CodeStudioScreen(
                     }
 
                     // Code Editor with Line Numbers Gutter
+                    val editorScrollState = rememberScrollState()
                     Row(
                         modifier = Modifier
                             .weight(1f)
@@ -497,6 +498,7 @@ fun CodeStudioScreen(
                             modifier = Modifier
                                 .width(46.dp)
                                 .fillMaxHeight()
+                                .verticalScroll(editorScrollState)
                                 .padding(top = 8.dp)
                         ) {
                             for (lineIdx in 1..lineCount) {

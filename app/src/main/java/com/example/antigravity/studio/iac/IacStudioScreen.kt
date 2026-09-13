@@ -99,7 +99,7 @@ fun IacStudioScreen(
                     IconButton(
                         onClick = {
                             val targetFile = File(activeWorkspaceDir, selectedTemplate.targetFileName)
-                            targetFile.writeText(currentContent)
+                            CodeStudioManager.saveFileContent(targetFile, currentContent)
                             Toast.makeText(context, "Saved to ${selectedTemplate.targetFileName}!", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(32.dp)

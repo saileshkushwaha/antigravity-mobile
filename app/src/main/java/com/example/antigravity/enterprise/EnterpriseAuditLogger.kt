@@ -70,7 +70,7 @@ object EnterpriseAuditLogger {
             details = details,
             severity = severity
         )
-        _events.value = listOf(newEvent) + _events.value
+        _events.value = listOf(newEvent) + _events.value.take(499)
         sqlEngineRef?.recordAgentAudit(
             agentName = category.name,
             actionTaken = action,

@@ -122,8 +122,8 @@ fun ProductDesignScreen(
                             val composeCode = DesignTokens.generateComposeCode(tokens)
                             val targetFile = File(activeWorkspaceDir, "AppDesignTokens.kt")
                             val ok = CodeStudioManager.saveFileContent(targetFile, composeCode)
-                            saveStatus = if (ok) "Saved to ${targetFile.name}!" else "Failed to save"
-                            Toast.makeText(context, saveStatus, Toast.LENGTH_SHORT).show()
+                            val msg = if (ok) "Saved to ${targetFile.name}!" else "Failed to save"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(Icons.Default.Save, contentDescription = "Save to Workspace", tint = Color.White)
                         }

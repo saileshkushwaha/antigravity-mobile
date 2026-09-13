@@ -19,7 +19,7 @@ enum class NetworkStatus {
 class NetworkMonitor(context: Context) {
 
     private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
     val networkStatus: Flow<NetworkStatus> = callbackFlow {
         val callback = object : ConnectivityManager.NetworkCallback() {
@@ -43,17 +43,18 @@ class NetworkMonitor(context: Context) {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
 
-        connectivityManager.registerNetworkCallback(request, callback)
+        connectivityManager?.registerNetworkCallback(request, callback)
         trySend(getCurrentNetworkStatus())
 
         awaitClose {
-            connectivityManager.unregisterNetworkCallback(callback)
+            connectivityManager?.unregisterNetworkCallback(callback)
         }
     }
 
     fun getCurrentNetworkStatus(): NetworkStatus {
-        val activeNetwork = connectivityManager.activeNetwork ?: return NetworkStatus.OFFLINE
-        val caps = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return NetworkStatus.OFFLINE
+        val cm = connectivityManager ?: return NetworkStatus.OFFLINE
+        val activeNetwork = cm.activeNetwork ?: return NetworkStatus.OFFLINE
+        val caps = cm.getNetworkCapabilities(activeNetwork) ?: return NetworkStatus.OFFLINE
 
         return when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkStatus.WIFI

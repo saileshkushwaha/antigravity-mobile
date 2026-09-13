@@ -40,7 +40,8 @@ fun ArchitectureStudioScreen(
     var activeTab by remember { mutableIntStateOf(0) } // 0: Mermaid Diagrams, 1: ADR Catalog, 2: Room Migrations
 
     val diagrams = remember(activeWorkspaceDir) { ArchitectureStudioManager.scanAndGenerateMermaid(activeWorkspaceDir) }
-    var selectedDiagram by remember { mutableStateOf(diagrams.first()) }
+    var selectedDiagramIndex by remember { mutableIntStateOf(0) }
+    val selectedDiagram = diagrams.getOrElse(selectedDiagramIndex) { diagrams.firstOrNull() }
 
     var adrList by remember { mutableStateOf(ArchitectureStudioManager.listAdrs(activeWorkspaceDir)) }
     var showNewAdrDialog by remember { mutableStateOf(false) }
@@ -157,13 +158,13 @@ fun ArchitectureStudioScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        diagrams.forEach { diag ->
-                            val isSel = diag.id == selectedDiagram.id
+                        diagrams.forEachIndexed { idx, diag ->
+                            val isSel = idx == selectedDiagramIndex
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = if (isSel) AntigravityColors.ElectricCyan.copy(alpha = 0.2f) else AntigravityColors.SurfaceElevated,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) AntigravityColors.ElectricCyan else Color.Transparent),
-                                modifier = Modifier.clickable { selectedDiagram = diag }
+                                modifier = Modifier.clickable { selectedDiagramIndex = idx }
                             ) {
                                 Text(
                                     diag.type,

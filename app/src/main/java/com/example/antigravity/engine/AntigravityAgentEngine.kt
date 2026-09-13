@@ -37,7 +37,8 @@ class AntigravityAgentEngine(
             action = "SET_PERSONA",
             details = "Switched active agent persona to ${persona.name} (${persona.roleTitle})"
         )
-        repository.executeTerminalCommand("echo Switched active persona to: ${persona.name}")
+        val safeName = persona.name.replace(Regex("[;&|`\$()]"), "")
+        repository.executeTerminalCommand("echo Switched active persona to: $safeName")
     }
 
     fun buildSynthesizedSystemPrompt(): String {
@@ -159,13 +160,14 @@ class AntigravityAgentEngine(
             ?.filter { it.id != agentMessageId && it.id != userMessage.id }
             ?: emptyList()
 
+        currentJob?.cancel()
         currentJob = scope.launch {
             val requestStartTime = System.currentTimeMillis()
             _agentState.value = AgentRunState.THINKING
             try {
                 if (!settings.isOfflineDemoMode) {
                     val sysInstruction = buildSynthesizedSystemPrompt()
-                    val maxAutonomousTurns = 3
+                    val maxAutonomousTurns = settings.maxAutonomousSteps
                     var currentTurn = 0
                     var currentPrompt = trimmed
                     var currentHistory = previousMessages.toMutableList()
@@ -342,6 +344,7 @@ class AntigravityAgentEngine(
             it.copy(planArtifact = plan)
         }
 
+        currentJob?.cancel()
         currentJob = scope.launch {
             _agentState.value = AgentRunState.EXECUTING_TOOL
             try {
@@ -562,7 +565,10 @@ class AntigravityAgentEngine(
                 "view_file" -> {
                     val filePath = tool.arguments["path"] ?: tool.arguments["file"] ?: ""
                     val target = if (java.io.File(filePath).isAbsolute) java.io.File(filePath) else java.io.File(wsDir, filePath)
-                    if (target.exists() && target.isFile) {
+                    val canonicalTarget = target.canonicalFile
+                    if (!canonicalTarget.path.startsWith(wsDir.canonicalPath) && !canonicalTarget.path.startsWith("/data/")) {
+                        Result.failure(Exception("Access denied: path is outside workspace"))
+                    } else if (canonicalTarget.exists() && canonicalTarget.isFile) {
                         val content = target.readLines().take(200).joinToString("\n")
                         Result.success(content)
                     } else {
@@ -572,7 +578,10 @@ class AntigravityAgentEngine(
                 "list_dir" -> {
                     val sub = tool.arguments["path"] ?: ""
                     val target = if (sub.isBlank() || sub == ".") wsDir else java.io.File(wsDir, sub)
-                    if (target.exists() && target.isDirectory) {
+                    val canonicalTarget = target.canonicalFile
+                    if (!canonicalTarget.path.startsWith(wsDir.canonicalPath)) {
+                        Result.failure(Exception("Access denied: path is outside workspace"))
+                    } else if (canonicalTarget.exists() && canonicalTarget.isDirectory) {
                         val entries = target.listFiles()?.take(50)?.joinToString("\n") {
                             (if (it.isDirectory) "[DIR] " else "[FILE] ") + it.name + " (" + (if (it.isFile) "${it.length()}B" else "dir") + ")"
                         } ?: "Empty directory"

@@ -344,8 +344,11 @@ fun ConnectorsAndSwarmScreen(
 
                                                     // Log SQLite audit events
                                                     stageAgents.forEach { ag ->
-                                                        sqlEngine.executeQuery(
-                                                            "INSERT INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('${ag.name}', 'Stage $stageNum execution: ${ag.role}', 'SUCCESS', 350, '$now')"
+                                                        sqlEngine.recordAgentAudit(
+                                                            agentName = ag.name,
+                                                            actionTaken = "Stage $stageNum execution: ${ag.role}",
+                                                            status = "SUCCESS",
+                                                            executionTimeMs = 350L
                                                         )
                                                     }
 

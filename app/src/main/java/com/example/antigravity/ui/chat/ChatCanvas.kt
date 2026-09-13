@@ -60,8 +60,9 @@ fun ChatCanvas(
 
     // Auto-scroll to bottom when messages change or update
     LaunchedEffect(conversation?.messages?.size, conversation?.messages?.lastOrNull()?.text) {
-        if ((conversation?.messages?.size ?: 0) > 0) {
-            listState.animateScrollToItem(conversation!!.messages.size - 1)
+        val msgs = conversation?.messages
+        if (!msgs.isNullOrEmpty()) {
+            listState.animateScrollToItem(msgs.size - 1)
         }
     }
 

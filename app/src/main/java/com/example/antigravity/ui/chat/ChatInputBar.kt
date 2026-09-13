@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.model.MentionItem
@@ -386,6 +388,7 @@ fun ChatInputBar(
             }
 
             // Input TextField
+            val keyboardController = LocalSoftwareKeyboardController.current
             TextField(
                 value = inputText,
                 onValueChange = onInputChange,
@@ -406,6 +409,21 @@ fun ChatInputBar(
                     unfocusedTextColor = AntigravityColors.TextPrimary,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
+                ),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onSend = {
+                        if (inputText.isNotBlank()) {
+                            val promptToSend = if (attachedFile != null) {
+                                "$inputText [Attached: $attachedFile]"
+                            } else {
+                                inputText
+                            }
+                            onSend(promptToSend)
+                            attachedFile = null
+                            keyboardController?.hide()
+                        }
+                    }
                 ),
                 maxLines = 4
             )
