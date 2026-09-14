@@ -421,8 +421,6 @@ fun ChatCanvas(
                             }
                         }
 
-HorizontalDivider(color = AntigravityColors.DividerColor)
-
                     // Agent Status Pill
                         StatusBadge(agentState = agentState)
                     }

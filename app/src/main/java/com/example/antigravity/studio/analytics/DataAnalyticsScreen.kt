@@ -138,8 +138,10 @@ fun DataAnalyticsScreen(
                             sqlEngine.syncWorkspaceFilesIntoDatabase()
                             schemaInfo = sqlEngine.getTableSchemas()
                             queryResult = sqlEngine.executeQuery(currentSql)
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Workspace database re-indexed!", Toast.LENGTH_SHORT).show()
+                            }
                         }
-                        Toast.makeText(context, "Workspace database re-indexed!", Toast.LENGTH_SHORT).show()
                     }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Sync Workspace", tint = Color.White)
                     }

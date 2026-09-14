@@ -213,7 +213,7 @@ object PersonaCatalog {
     )
 
     fun getPersonaById(id: String): AgentPersona {
-        return allPersonas.find { it.id == id } ?: allPersonas.first()
+        return allPersonas.find { it.id == id } ?: allPersonas.firstOrNull() ?: error("No personas available")
     }
 }
 

@@ -64,7 +64,7 @@ class AppRepository {
         if (savedJson != null) {
             try {
                 val parsed = kotlinx.serialization.json.Json.decodeFromString(AppSettings.serializer(), savedJson)
-                var safeSettings = parsed.copy(biometricLockEnabled = true)
+                var safeSettings = parsed
                 if (safeSettings.activeModelId.equals("gemini-2.5-flash", ignoreCase = true) || safeSettings.activeModel.equals("Gemini 2.5 Flash", ignoreCase = true)) {
                     safeSettings = safeSettings.copy(
                         activeModel = "Gemini 2.0 Flash",
@@ -92,7 +92,7 @@ class AppRepository {
                 _workspaces.value = dbWorkspaces
                 val savedActiveId = sharedPrefs?.getString("active_workspace_id", null)
                 val lastActive = if (savedActiveId != null) dbWorkspaces.find { it.id == savedActiveId } else null
-                _activeWorkspace.value = lastActive ?: dbWorkspaces.first()
+                _activeWorkspace.value = lastActive ?: dbWorkspaces.firstOrNull() ?: _activeWorkspace.value
             } else {
                 val savedWorkspacesJson = sharedPrefs?.getString("saved_workspaces", null)
                 if (!savedWorkspacesJson.isNullOrBlank()) {
@@ -101,7 +101,7 @@ class AppRepository {
                         _workspaces.value = parsedWs
                         val savedActiveId = sharedPrefs?.getString("active_workspace_id", null)
                         val lastActive = if (savedActiveId != null) parsedWs.find { it.id == savedActiveId } else null
-                        _activeWorkspace.value = lastActive ?: parsedWs.first()
+                        _activeWorkspace.value = lastActive ?: parsedWs.firstOrNull() ?: _activeWorkspace.value
                         parsedWs.forEach { _sqlEngine?.saveWorkspace(it) }
                     }
                 } else {
@@ -997,7 +997,7 @@ class AppRepository {
         saveWorkspacesToPrefs()
         _sqlEngine?.deleteWorkspace(workspaceId)
         if (_activeWorkspace.value.id == workspaceId) {
-            _activeWorkspace.value = remaining.first()
+            _activeWorkspace.value = remaining.firstOrNull() ?: _activeWorkspace.value
         }
     }
 
