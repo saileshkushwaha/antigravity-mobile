@@ -99,6 +99,7 @@ object GitDiffManager {
                 DiffLineType.ADD -> addedCount++
                 DiffLineType.REMOVE -> removedCount++
                 DiffLineType.CONTEXT -> {}
+                DiffLineType.HEADER -> {}
             }
         }
 

@@ -56,6 +56,7 @@ class AppRepository {
         try {
             val engine = com.example.antigravity.studio.analytics.AnalyticsSqlEngine(context, baseDirFile)
             _sqlEngine = engine
+            companionSqlEngine = engine
             com.example.antigravity.enterprise.EnterpriseAuditLogger.sqlEngineRef = engine
             com.example.antigravity.config.AppConfigManager.init(context, baseDirFile, engine)
         } catch (e: Exception) {
@@ -175,6 +176,11 @@ class AppRepository {
 
     companion object {
         const val MAX_DEFAULT_WORKSPACES = 6
+
+        @Volatile
+        private var companionSqlEngine: com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = null
+
+        fun getSqlEngine(): com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = companionSqlEngine
 
         data class GitRepoMetadata(
             val branch: String = "main",
