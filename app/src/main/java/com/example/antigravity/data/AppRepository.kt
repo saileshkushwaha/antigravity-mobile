@@ -413,7 +413,7 @@ class AppRepository {
 
     private val _terminalLogs = MutableStateFlow<List<String>>(
         listOf(
-            "Antigravity Studio Shell ${android.os.Build.VERSION.RELEASE} (${android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64"})",
+            "Antigravity Studio Shell ${android.os.Build.VERSION.RELEASE ?: "unknown"} (${android.os.Build.SUPPORTED_ABIS?.firstOrNull() ?: "arm64"})",
             "Active Workspace: ${_workspaces.value.firstOrNull()?.name ?: "default"} (Branch: ${_workspaces.value.firstOrNull()?.branch ?: "main"})",
             "System initialized. Type 'help' or commands to execute.",
             "> "
