@@ -90,14 +90,18 @@ class AppRepository {
             val dbWorkspaces = _sqlEngine?.getWorkspaces() ?: emptyList()
             if (dbWorkspaces.isNotEmpty()) {
                 _workspaces.value = dbWorkspaces
-                _activeWorkspace.value = dbWorkspaces.first()
+                val savedActiveId = sharedPrefs?.getString("active_workspace_id", null)
+                val lastActive = if (savedActiveId != null) dbWorkspaces.find { it.id == savedActiveId } else null
+                _activeWorkspace.value = lastActive ?: dbWorkspaces.first()
             } else {
                 val savedWorkspacesJson = sharedPrefs?.getString("saved_workspaces", null)
                 if (!savedWorkspacesJson.isNullOrBlank()) {
                     val parsedWs = Json.decodeFromString(ListSerializer(ProjectWorkspace.serializer()), savedWorkspacesJson)
                     if (parsedWs.isNotEmpty()) {
                         _workspaces.value = parsedWs
-                        _activeWorkspace.value = parsedWs.first()
+                        val savedActiveId = sharedPrefs?.getString("active_workspace_id", null)
+                        val lastActive = if (savedActiveId != null) parsedWs.find { it.id == savedActiveId } else null
+                        _activeWorkspace.value = lastActive ?: parsedWs.first()
                         parsedWs.forEach { _sqlEngine?.saveWorkspace(it) }
                     }
                 } else {
@@ -821,6 +825,7 @@ class AppRepository {
 
     fun switchWorkspace(workspace: ProjectWorkspace) {
         _activeWorkspace.value = workspace
+        sharedPrefs?.edit { putString("active_workspace_id", workspace.id) }
         val owner = workspace.githubOwner
         val repo = workspace.githubRepo
         val branch = workspace.branch
@@ -866,17 +871,41 @@ class AppRepository {
         customRules: List<String> = listOf("user_rules.md", "architecture.md"),
         githubOwner: String = "",
         githubRepo: String = "",
-        githubUrl: String = ""
+        githubUrl: String = "",
+        cloneIfRemote: Boolean = true
     ): ProjectWorkspace {
         val safeName = name.trim().ifBlank { "workspace-${_workspaces.value.size + 1}" }
         val safePath = path.trim().ifBlank { resolveWorkspacePath(safeName.lowercase().replace("\\s+".toRegex(), "-")) }
         val resolvedUrl = githubUrl.ifBlank {
             if (githubOwner.isNotBlank() && githubRepo.isNotBlank()) "https://github.com/$githubOwner/$githubRepo" else ""
         }
+
+        val targetDir = java.io.File(safePath)
+
+        if (cloneIfRemote && resolvedUrl.isNotBlank()) {
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
+            val dirContents = targetDir.listFiles()
+            val isEmpty = dirContents.isNullOrEmpty()
+            val hasGit = java.io.File(targetDir, ".git").exists()
+
+            if (isEmpty && !hasGit) {
+                val cloneResult = gitCloneRepository(resolvedUrl, targetDir, branch.trim().ifBlank { "main" })
+                if (!cloneResult.isSuccess) {
+                    android.util.Log.e("AppRepository", "Git clone failed: ${cloneResult.errorMessage}")
+                }
+            }
+        } else {
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
+        }
+
         val newWorkspace = ProjectWorkspace(
             id = "ws-${System.currentTimeMillis()}",
             name = safeName,
-            path = safePath,
+            path = targetDir.canonicalPath,
             branch = branch.trim().ifBlank { "main" },
             customRules = customRules,
             githubOwner = githubOwner.trim(),
@@ -887,6 +916,41 @@ class AppRepository {
         saveWorkspacesToPrefs()
         switchWorkspace(newWorkspace)
         return newWorkspace
+    }
+
+    data class CloneResult(val isSuccess: Boolean, val errorMessage: String = "")
+
+    fun gitCloneRepository(
+        remoteUrl: String,
+        targetDir: java.io.File,
+        branch: String = "main"
+    ): CloneResult {
+        return try {
+            val processBuilder = ProcessBuilder(
+                "git", "clone",
+                "--branch", branch,
+                "--single-branch",
+                "--depth", "1",
+                remoteUrl,
+                targetDir.absolutePath
+            )
+            processBuilder.directory(targetDir.parentFile ?: java.io.File("."))
+            processBuilder.redirectErrorStream(true)
+            processBuilder.environment()["GIT_TERMINAL_PROMPT"] = "0"
+
+            val process = processBuilder.start()
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+
+            if (exitCode == 0) {
+                android.util.Log.i("AppRepository", "Git clone succeeded: $remoteUrl -> ${targetDir.absolutePath}")
+                CloneResult(isSuccess = true)
+            } else {
+                CloneResult(isSuccess = false, errorMessage = "git clone exited with code $exitCode: $output")
+            }
+        } catch (e: Exception) {
+            CloneResult(isSuccess = false, errorMessage = e.message ?: "Unknown clone error")
+        }
     }
 
     fun bindWorkspaceToGitRepo(
