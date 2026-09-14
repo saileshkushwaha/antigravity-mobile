@@ -57,6 +57,43 @@ import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
 import java.io.File
 
+/**
+ * Holds all dialog visibility states for the main screen.
+ * Extracted to reduce AntigravityMainScreen parameter count.
+ */
+data class DialogStates(
+    val showSettings: Boolean = false,
+    val showApiKeyCsv: Boolean = false,
+    val showScheduledTasks: Boolean = false,
+    val showModelSelection: Boolean = false,
+    val showDiagnostics: Boolean = false,
+    val showAbout: Boolean = false,
+    val showChatPersona: Boolean = false,
+    val showChatPrompt: Boolean = false,
+    val showAddWorkspace: Boolean = false
+)
+
+@Composable
+fun rememberDialogStates(): MutableState<DialogStates> = remember { mutableStateOf(DialogStates()) }
+
+/**
+ * Holds workspace creation form state.
+ */
+data class WorkspaceFormState(
+    val name: String = "",
+    val path: String = "",
+    val branch: String = "main",
+    val githubOwner: String = "",
+    val githubRepo: String = "",
+    val githubUrl: String = "",
+    val showDiscoveredRepos: Boolean = false,
+    val folderInput: String = "",
+    val isAddingFolderMode: Boolean = false
+)
+
+@Composable
+fun rememberWorkspaceFormState(): MutableState<WorkspaceFormState> = remember { mutableStateOf(WorkspaceFormState()) }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AntigravityMainScreen(

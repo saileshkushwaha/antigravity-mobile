@@ -32,13 +32,15 @@ private val AntigravityLightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     secondary = Color(0xFF6750A4),
     onSecondary = Color.White,
-    background = Color(0xFFF9FAFB),
-    onBackground = Color(0xFF111827),
-    surface = Color.White,
-    onSurface = Color(0xFF111827),
-    surfaceVariant = Color(0xFFF3F4F6),
-    onSurfaceVariant = Color(0xFF4B5563),
-    outline = Color(0xFFE5E7EB)
+    tertiary = Color(0xFF00C853),
+    background = AntigravityColors.BackgroundLight,
+    onBackground = AntigravityColors.TextPrimaryLight,
+    surface = AntigravityColors.SurfaceLight,
+    onSurface = AntigravityColors.TextPrimaryLight,
+    surfaceVariant = AntigravityColors.SurfaceElevatedLight,
+    onSurfaceVariant = AntigravityColors.TextSecondaryLight,
+    outline = AntigravityColors.CardBorderLight,
+    error = AntigravityColors.StatusError
 )
 
 @Composable

@@ -9,7 +9,7 @@ import com.example.antigravity.studio.observability.CrashTraceMapper
 import com.example.antigravity.studio.observability.NetworkTrafficMonitor
 import com.example.antigravity.studio.vision.A11ySeverity
 import com.example.antigravity.studio.vision.VisionToCodeService
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +26,7 @@ class NextGenHorizonsTest {
     // ==========================================
 
     @Test
-    fun testApiStudioExecuteRequestSimulationFallback() = runBlocking {
+    fun testApiStudioExecuteRequestSimulationFallback() = runTest {
         val request = ApiRequestItem(
             id = "test-1",
             name = "Fetch Post",

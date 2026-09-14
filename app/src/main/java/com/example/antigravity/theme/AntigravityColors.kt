@@ -3,7 +3,7 @@ package com.example.antigravity.theme
 import androidx.compose.ui.graphics.Color
 
 object AntigravityColors {
-    // Surface & Backgrounds
+    // Dark Theme Colors
     val BackgroundDark = Color(0xFF101216)
     val SurfaceDark = Color(0xFF16181D)
     val SurfaceElevated = Color(0xFF1E2128)
@@ -11,7 +11,18 @@ object AntigravityColors {
     val CardBorder = Color(0xFF333842)
     val DividerColor = Color(0xFF2C3038)
 
-    // Primary & Accent Brand Colors
+    // Light Theme Colors
+    val BackgroundLight = Color(0xFFF9FAFB)
+    val SurfaceLight = Color(0xFFFFFFFF)
+    val SurfaceElevatedLight = Color(0xFFF3F4F6)
+    val CardBackgroundLight = Color(0xFFFFFFFF)
+    val CardBorderLight = Color(0xFFE5E7EB)
+    val DividerColorLight = Color(0xFFE5E7EB)
+    val TextPrimaryLight = Color(0xFF111827)
+    val TextSecondaryLight = Color(0xFF4B5563)
+    val TextMutedLight = Color(0xFF9CA3AF)
+
+    // Primary & Accent Brand Colors (shared across themes)
     val ElectricCyan = Color(0xFF00E5FF)
     val NeonViolet = Color(0xFF8B5CF6)
     val DeepPurple = Color(0xFF6D28D9)
@@ -39,7 +50,7 @@ object AntigravityColors {
     val DiffHeaderBg = Color(0x2E3B82F6)
     val DiffHeaderText = Color(0xFF60A5FA)
 
-    // Text Colors
+    // Text Colors (dark theme)
     val TextPrimary = Color(0xFFF3F4F6)
     val TextSecondary = Color(0xFF9CA3AF)
     val TextMuted = Color(0xFF6B7280)

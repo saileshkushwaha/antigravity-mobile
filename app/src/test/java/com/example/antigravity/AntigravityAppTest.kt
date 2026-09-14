@@ -662,7 +662,7 @@ class AntigravityAppTest {
     }
 
     @Test
-    fun testDesignToPrPipelineExecution() = kotlinx.coroutines.runBlocking {
+    fun testDesignToPrPipelineExecution() = kotlinx.coroutines.test.runTest {
         val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "antigravity_test_ws_${System.currentTimeMillis()}")
         tempDir.mkdirs()
 
@@ -694,7 +694,7 @@ class AntigravityAppTest {
     }
 
     @Test
-    fun testCloudSandboxServiceConfigAndLocalExecution() = kotlinx.coroutines.runBlocking {
+    fun testCloudSandboxServiceConfigAndLocalExecution() = kotlinx.coroutines.test.runTest {
         val initial = com.example.antigravity.studio.code.CloudSandboxService.config.value
         assertEquals(com.example.antigravity.studio.code.SandboxRunnerType.LOCAL_FALLBACK, initial.runnerType)
 

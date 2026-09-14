@@ -910,3 +910,41 @@ fun SidebarIconTile(
     }
 }
 
+/**
+ * Groups all navigation callbacks for the sidebar drawer.
+ * Use this instead of passing 40+ individual lambda parameters.
+ */
+data class SidebarCallbacks(
+    val onSelectWorkspace: (ProjectWorkspace) -> Unit = {},
+    val onSelectConversation: (String) -> Unit = {},
+    val onNewConversation: () -> Unit = {},
+    val onDeleteConversation: (String) -> Unit = {},
+    val onOpenScheduledTasks: () -> Unit = {},
+    val onOpenSkillsMcp: () -> Unit = {},
+    val onOpenSettings: () -> Unit = {},
+    val onOpenDiagnostics: () -> Unit = {},
+    val onOpenAbout: () -> Unit = {},
+    val onOpenLandingScreen: () -> Unit = {},
+    val onOpenCodeStudio: () -> Unit = {},
+    val onOpenDesignStudio: () -> Unit = {},
+    val onOpenResearchHub: () -> Unit = {},
+    val onOpenAnalyticsStudio: () -> Unit = {},
+    val onOpenConnectorsAndSwarm: () -> Unit = {},
+    val onOpenSdlcHub: () -> Unit = {},
+    val onOpenPersonas: () -> Unit = {},
+    val onOpenPrompts: () -> Unit = {},
+    val onOpenInspector: () -> Unit = {},
+    val onOpenApiStudio: () -> Unit = {},
+    val onOpenObservability: () -> Unit = {},
+    val onOpenArchitecture: () -> Unit = {},
+    val onOpenIacStudio: () -> Unit = {},
+    val onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
+    val onDeleteWorkspace: (String) -> Unit = {},
+    val onOpenAddProjectOrFolder: () -> Unit = {},
+    val onLockStudio: () -> Unit = {},
+    val onOpenChatStudio: () -> Unit = {},
+    val onOpenModelSelection: () -> Unit = {},
+    val onOpenApiKeyCsv: () -> Unit = {},
+    val onOpenStudioMatrix: () -> Unit = {}
+)
+
