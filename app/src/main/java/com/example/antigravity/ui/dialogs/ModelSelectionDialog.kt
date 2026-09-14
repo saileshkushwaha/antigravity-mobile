@@ -168,105 +168,110 @@ fun ModelSelectionDialog(
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Header
+                // Header - Title row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            Icons.Default.Dns,
-                            contentDescription = null,
-                            tint = AntigravityColors.ElectricCyan,
-                            modifier = Modifier.size(20.dp)
+                    Icon(
+                        Icons.Default.Dns,
+                        contentDescription = null,
+                        tint = AntigravityColors.ElectricCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Models & Gateways",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AntigravityColors.TextPrimary,
+                            maxLines = 1
                         )
-                        Column {
-                            Text(
-                                text = "Models & Gateways",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AntigravityColors.TextPrimary
-                            )
-                            Text(
-                                text = "${filteredModels.size} of ${models.size} models • Live Catalog",
-                                fontSize = 11.sp,
-                                color = AntigravityColors.TextSecondary
-                            )
+                        Text(
+                            text = "${filteredModels.size} of ${models.size} models \u2022 Live Catalog",
+                            fontSize = 11.sp,
+                            color = AntigravityColors.TextSecondary,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Actions row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (onRefresh != null) {
+                        IconButton(
+                            onClick = onRefresh,
+                            enabled = !isRefreshing,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            if (isRefreshing) {
+                                CircularProgressIndicator(
+                                    color = AntigravityColors.ElectricCyan,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = "Refresh Models",
+                                    tint = AntigravityColors.ElectricCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (onRefresh != null) {
-                            IconButton(
-                                onClick = onRefresh,
-                                enabled = !isRefreshing,
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                if (isRefreshing) {
-                                    CircularProgressIndicator(
-                                        color = AntigravityColors.ElectricCyan,
-                                        strokeWidth = 2.dp,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Default.Refresh,
-                                        contentDescription = "Refresh Models",
-                                        tint = AntigravityColors.ElectricCyan,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
 
-                        if (onAddCustomProvider != null) {
-                            OutlinedButton(
-                                onClick = { showAddCustomProviderModal = true },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF10B981)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f)),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Provider", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
+                    if (onAddCustomProvider != null) {
+                        OutlinedButton(
+                            onClick = { showAddCustomProviderModal = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF10B981)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Provider", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
+                    }
 
-                        if (onOpenApiKeyCsv != null) {
-                            OutlinedButton(
-                                onClick = onOpenApiKeyCsv,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD54F)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F).copy(alpha = 0.6f)),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp)
-                            ) {
-                                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("CSV", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
+                    if (onOpenApiKeyCsv != null) {
+                        OutlinedButton(
+                            onClick = onOpenApiKeyCsv,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD54F)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F).copy(alpha = 0.6f)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(12.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("CSV", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
+                    }
 
-                        if (onOpenApiKeys != null) {
-                            OutlinedButton(
-                                onClick = onOpenApiKeys,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.ElectricCyan),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f)),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp)
-                            ) {
-                                Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Keys", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
+                    if (onOpenApiKeys != null) {
+                        OutlinedButton(
+                            onClick = onOpenApiKeys,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityColors.ElectricCyan),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.5f)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(12.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Keys", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
-                        IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
-                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary)
                     }
                 }
 
