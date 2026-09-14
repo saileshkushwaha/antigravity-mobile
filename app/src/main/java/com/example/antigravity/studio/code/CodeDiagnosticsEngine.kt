@@ -28,68 +28,92 @@ object CodeDiagnosticsEngine {
         // 1. Bracket Matching Stack
         val bracketStack = mutableListOf<Pair<Char, Pair<Int, Int>>>() // char, (line, col)
         var inBlockComment = false
+        var inString = false
+        var escapeNext = false
 
         for (lineIdx in lines.indices) {
             val lineNum = lineIdx + 1
             val rawLine = lines[lineIdx]
             val trimmed = rawLine.trim()
 
-            // Handle multi-line comment boundary
-            if (trimmed.contains("/*")) inBlockComment = true
-            if (trimmed.contains("*/")) {
-                inBlockComment = false
-                continue
-            }
-            if (inBlockComment) continue
+            // Process character-by-character for accurate state tracking
+            var colIdx = 0
+            while (colIdx < rawLine.length) {
+                val c = rawLine[colIdx]
 
-            // Single line comment skip
-            val codeWithoutComment = when {
-                trimmed.contains("//") -> rawLine.substringBefore("//")
-                trimmed.contains("#") && extension == "py" -> rawLine.substringBefore("#")
-                trimmed.contains("--") && extension == "sql" -> rawLine.substringBefore("--")
-                else -> rawLine
-            }
-
-            // 2. Unclosed string check (single-line double quotes)
-            var inString = false
-            var escapeNext = false
-            for (colIdx in codeWithoutComment.indices) {
-                val c = codeWithoutComment[colIdx]
-                if (c == '\\' && !escapeNext) {
-                    escapeNext = true
+                // Handle block comment state
+                if (inBlockComment) {
+                    if (c == '*' && colIdx + 1 < rawLine.length && rawLine[colIdx + 1] == '/') {
+                        inBlockComment = false
+                        colIdx++ // skip '/'
+                    }
+                    colIdx++
                     continue
                 }
-                if (c == '"' && !escapeNext) {
-                    inString = !inString
-                }
-                escapeNext = false
 
-                if (!inString) {
-                    when (c) {
-                        '{', '(', '[' -> bracketStack.add(c to (lineNum to (colIdx + 1)))
-                        '}' -> {
-                            if (bracketStack.isEmpty() || bracketStack.last().first != '{') {
-                                diagnostics.add(CodeDiagnostic(lineNum, colIdx + 1, "Unmatched closing brace '}'", DiagnosticSeverity.ERROR))
-                            } else {
-                                bracketStack.removeAt(bracketStack.lastIndex)
-                            }
+                // Handle string state
+                if (escapeNext) {
+                    escapeNext = false
+                    colIdx++
+                    continue
+                }
+                if (c == '\\' && inString) {
+                    escapeNext = true
+                    colIdx++
+                    continue
+                }
+                if (c == '"') {
+                    inString = !inString
+                    colIdx++
+                    continue
+                }
+                if (inString) {
+                    colIdx++
+                    continue
+                }
+
+                // Not in string or block comment — check for comment/block-comment start
+                if (c == '/' && colIdx + 1 < rawLine.length) {
+                    val next = rawLine[colIdx + 1]
+                    if (next == '/') break // line comment, rest of line is ignored
+                    if (next == '*') {
+                        inBlockComment = true
+                        colIdx++ // skip '*'
+                        colIdx++ // skip '/'
+                        continue
+                    }
+                }
+                // Python comment
+                if (c == '#' && extension == "py") break
+                // SQL comment
+                if (c == '-' && colIdx + 1 < rawLine.length && rawLine[colIdx + 1] == '-' && extension == "sql") break
+
+                // Bracket matching
+                when (c) {
+                    '{', '(', '[' -> bracketStack.add(c to (lineNum to (colIdx + 1)))
+                    '}' -> {
+                        if (bracketStack.isEmpty() || bracketStack.last().first != '{') {
+                            diagnostics.add(CodeDiagnostic(lineNum, colIdx + 1, "Unmatched closing brace '}'", DiagnosticSeverity.ERROR))
+                        } else {
+                            bracketStack.removeAt(bracketStack.lastIndex)
                         }
-                        ')' -> {
-                            if (bracketStack.isEmpty() || bracketStack.last().first != '(') {
-                                diagnostics.add(CodeDiagnostic(lineNum, colIdx + 1, "Unmatched closing parenthesis ')'", DiagnosticSeverity.ERROR))
-                            } else {
-                                bracketStack.removeAt(bracketStack.lastIndex)
-                            }
+                    }
+                    ')' -> {
+                        if (bracketStack.isEmpty() || bracketStack.last().first != '(') {
+                            diagnostics.add(CodeDiagnostic(lineNum, colIdx + 1, "Unmatched closing parenthesis ')'", DiagnosticSeverity.ERROR))
+                        } else {
+                            bracketStack.removeAt(bracketStack.lastIndex)
                         }
-                        ']' -> {
-                            if (bracketStack.isEmpty() || bracketStack.last().first != '[') {
-                                diagnostics.add(CodeDiagnostic(lineNum, colIdx + 1, "Unmatched closing bracket ']'", DiagnosticSeverity.ERROR))
-                            } else {
-                                bracketStack.removeAt(bracketStack.lastIndex)
-                            }
+                    }
+                    ']' -> {
+                        if (bracketStack.isEmpty() || bracketStack.last().first != '[') {
+                            diagnostics.add(CodeDiagnostic(lineNum, colIdx + 1, "Unmatched closing bracket ']'", DiagnosticSeverity.ERROR))
+                        } else {
+                            bracketStack.removeAt(bracketStack.lastIndex)
                         }
                     }
                 }
+                colIdx++
             }
 
             // If string was left unclosed on the line (and not triple quote multiline)
@@ -97,20 +121,22 @@ object CodeDiagnosticsEngine {
                 diagnostics.add(
                     CodeDiagnostic(lineNum, rawLine.length, "Unclosed string literal on line", DiagnosticSeverity.WARNING)
                 )
+                inString = false // reset to avoid cascading false positives
             }
 
             // 3. Code smell: TODO / FIXME detection
             if (trimmed.contains("TODO", ignoreCase = true) || trimmed.contains("FIXME", ignoreCase = true)) {
-                val todoMsg = trimmed.substringAfter("TODO", "").substringAfter("FIXME", "").removePrefix(":").trim()
+                val marker = if (trimmed.contains("TODO", ignoreCase = true)) "TODO" else "FIXME"
+                val todoMsg = trimmed.substringAfter(marker, "").removePrefix(":").trim()
                 diagnostics.add(
-                    CodeDiagnostic(lineNum, 1, "TODO: ${todoMsg.take(50)}", DiagnosticSeverity.INFO)
+                    CodeDiagnostic(lineNum, 1, "$marker: ${todoMsg.take(50)}", DiagnosticSeverity.INFO)
                 )
             }
 
-            // 4. Code smell: Debug print statement
-            if (codeWithoutComment.contains("println(") || codeWithoutComment.contains("print(")) {
+            // 4. Code smell: Debug print statement (skip if inside string)
+            if (!inString && (rawLine.contains("println(") || rawLine.contains("print("))) {
                 diagnostics.add(
-                    CodeDiagnostic(lineNum, codeWithoutComment.indexOf("print") + 1, "Avoid println in production code", DiagnosticSeverity.WARNING)
+                    CodeDiagnostic(lineNum, rawLine.indexOf("print") + 1, "Avoid println in production code", DiagnosticSeverity.WARNING)
                 )
             }
         }

@@ -43,7 +43,7 @@ private val AntigravityLightColorScheme = lightColorScheme(
 
 @Composable
 fun AntigravityTheme(
-    darkTheme: Boolean = true, // Default to Antigravity Dark Studio theme
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) AntigravityDarkColorScheme else AntigravityLightColorScheme

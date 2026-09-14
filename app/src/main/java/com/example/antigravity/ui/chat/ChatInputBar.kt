@@ -28,6 +28,7 @@ import com.example.antigravity.model.SlashCommand
 import com.example.antigravity.studio.voice.VoiceProgrammingManager
 import com.example.antigravity.studio.voice.VoiceState
 import com.example.antigravity.theme.AntigravityColors
+import androidx.compose.runtime.snapshots.Snapshot
 
 @Composable
 fun ChatInputBar(
@@ -62,13 +63,14 @@ fun ChatInputBar(
     }
 
     val currentInput by rememberUpdatedState(inputText)
+    val onInputChangeRef by rememberUpdatedState(onInputChange)
     DisposableEffect(voiceManager) {
         voiceManager.onStateChanged = { state ->
-            isListening = (state == VoiceState.LISTENING)
+            Snapshot.withMutableSnapshot { isListening = (state == VoiceState.LISTENING) }
         }
         voiceManager.onSpeechRecognized = { res ->
             val updated = if (currentInput.isBlank()) res.parsedAction else "$currentInput ${res.parsedAction}"
-            onInputChange(updated)
+            Snapshot.withMutableSnapshot { onInputChangeRef(updated) }
         }
         onDispose {
             voiceManager.release()

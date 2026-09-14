@@ -60,7 +60,7 @@ fun ChatCanvas(
 
     // Auto-scroll to bottom when messages change or update, but only if the
     // user is already near the bottom (don't hijack while reading history).
-    LaunchedEffect(conversation?.messages?.size, conversation?.messages?.lastOrNull()?.text) {
+    LaunchedEffect(conversation?.messages?.size) {
         val msgs = conversation?.messages
         if (!msgs.isNullOrEmpty() && autoScroll) {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0

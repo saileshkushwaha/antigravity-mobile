@@ -14,15 +14,35 @@ import androidx.compose.ui.text.font.FontWeight
 object CodeSyntaxHighlighter {
 
     // Dark Studio Theme Color Tokens
-    val ColorKeyword = Color(0xFF00E5FF)       // Electric Cyan
-    val ColorType = Color(0xFF818CF8)          // Soft Indigo
-    val ColorString = Color(0xFF34D399)        // Emerald Green
-    val ColorNumber = Color(0xFFFBBF24)        // Amber
-    val ColorComment = Color(0xFF6B7280)       // Muted Gray
-    val ColorAnnotation = Color(0xFFC084FC)    // Violet
-    val ColorFunction = Color(0xFF60A5FA)      // Sky Blue
-    val ColorTag = Color(0xFFF472B6)           // Pink
-    val ColorAttribute = Color(0xFFFBBF24)     // Amber
+    val ColorKeyword = Color(0xFF00E5FF)
+    val ColorType = Color(0xFF818CF8)
+    val ColorString = Color(0xFF34D399)
+    val ColorNumber = Color(0xFFFBBF24)
+    val ColorComment = Color(0xFF6B7280)
+    val ColorAnnotation = Color(0xFFC084FC)
+    val ColorFunction = Color(0xFF60A5FA)
+    val ColorTag = Color(0xFFF472B6)
+    val ColorAttribute = Color(0xFFFBBF24)
+
+    // Pre-compiled regex patterns
+    private val RE_LINE_COMMENT = Regex("""//.*""")
+    private val RE_BLOCK_COMMENT = Regex("""/\*[\s\S]*?\*/""")
+    private val RE_STRING_DOUBLE = Regex(""""(?:[^"\\]|\\.)*"""")
+    private val RE_STRING_SINGLE = Regex("'''[\\s\\S]*?'''|\"\"\"[\\s\\S]*?\"\"\"")
+    private val RE_ANNOTATION = Regex("""@[A-Za-z0-9_]+""")
+    private val RE_NUMBER = Regex("""\b\d+(?:\.\d+)?[fFL]?\b""")
+    private val RE_NUMBER_NO_SUFFIX = Regex("""\b\d+(?:\.\d+)?\b""")
+    private val RE_FUN_DECL = Regex("""\bfun\s+([A-Za-z0-9_]+)""")
+    private val RE_WORD = Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\b""")
+    private val RE_PYTHON_DEF = Regex("""\bdef\s+([A-Za-z0-9_]+)""")
+    private val RE_SQL_COMMENT = Regex("""--.*""")
+    private val RE_HTML_COMMENT = Regex("""<!--[\s\S]*?-->""")
+    private val RE_HTML_TAG = Regex("""</?[A-Za-z0-9_-]+""")
+    private val RE_HTML_ATTR = Regex("""\s([A-Za-z0-9_-]+)=""")
+    private val RE_PYTHON_STRING = Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'""")
+    private val RE_JS_STRING = Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`""")
+    private val RE_GENERIC_COMMENT = Regex("""//.*|#.*""")
+    private val RE_GENERIC_NUMBER = Regex("""\b\d+\b""")
 
     private val KOTLIN_KEYWORDS = setOf(
         "package", "import", "class", "interface", "object", "val", "var", "fun",
@@ -80,30 +100,21 @@ object CodeSyntaxHighlighter {
     }
 
     private fun highlightKotlin(code: String, builder: AnnotatedString.Builder) {
-        // 1. Comments
-        applyRegex(builder, code, Regex("""//.*"""), ColorComment)
-        applyRegex(builder, code, Regex("""/\*[\s\S]*?\*/"""), ColorComment)
+        applyRegex(builder, code, RE_LINE_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_BLOCK_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_STRING_DOUBLE, ColorString)
+        applyRegex(builder, code, RE_STRING_SINGLE, ColorString)
+        applyRegex(builder, code, RE_ANNOTATION, ColorAnnotation, FontWeight.Bold)
+        applyRegex(builder, code, RE_NUMBER, ColorNumber)
 
-        // 2. Strings
-        applyRegex(builder, code, Regex(""""(?:[^"\\]|\\.)*""""), ColorString)
-        applyRegex(builder, code, Regex("'''[\\s\\S]*?'''|\"\"\"[\\s\\S]*?\"\"\""), ColorString)
-
-        // 3. Annotations
-        applyRegex(builder, code, Regex("""@[A-Za-z0-9_]+"""), ColorAnnotation, FontWeight.Bold)
-
-        // 4. Numbers
-        applyRegex(builder, code, Regex("""\b\d+(?:\.\d+)?[fFL]?\b"""), ColorNumber)
-
-        // 5. Function declarations
-        Regex("""\bfun\s+([A-Za-z0-9_]+)""").findAll(code).forEach { match ->
+        RE_FUN_DECL.findAll(code).forEach { match ->
             val group = match.groups[1]
             if (group != null) {
                 builder.addStyle(SpanStyle(color = ColorFunction, fontWeight = FontWeight.SemiBold), group.range.first, group.range.last + 1)
             }
         }
 
-        // 6. Keywords
-        Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\b""").findAll(code).forEach { match ->
+        RE_WORD.findAll(code).forEach { match ->
             val word = match.value
             if (KOTLIN_KEYWORDS.contains(word)) {
                 builder.addStyle(SpanStyle(color = ColorKeyword, fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
@@ -114,20 +125,20 @@ object CodeSyntaxHighlighter {
     }
 
     private fun highlightPython(code: String, builder: AnnotatedString.Builder) {
-        applyRegex(builder, code, Regex("""#.*"""), ColorComment)
-        applyRegex(builder, code, Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'"""), ColorString)
-        applyRegex(builder, code, Regex("'''[\\s\\S]*?'''|\"\"\"[\\s\\S]*?\"\"\""), ColorString)
-        applyRegex(builder, code, Regex("""@[A-Za-z0-9_]+"""), ColorAnnotation)
-        applyRegex(builder, code, Regex("""\b\d+(?:\.\d+)?\b"""), ColorNumber)
+        applyRegex(builder, code, RE_LINE_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_PYTHON_STRING, ColorString)
+        applyRegex(builder, code, RE_STRING_SINGLE, ColorString)
+        applyRegex(builder, code, RE_ANNOTATION, ColorAnnotation)
+        applyRegex(builder, code, RE_NUMBER_NO_SUFFIX, ColorNumber)
 
-        Regex("""\bdef\s+([A-Za-z0-9_]+)""").findAll(code).forEach { match ->
+        RE_PYTHON_DEF.findAll(code).forEach { match ->
             val group = match.groups[1]
             if (group != null) {
                 builder.addStyle(SpanStyle(color = ColorFunction, fontWeight = FontWeight.SemiBold), group.range.first, group.range.last + 1)
             }
         }
 
-        Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\b""").findAll(code).forEach { match ->
+        RE_WORD.findAll(code).forEach { match ->
             val word = match.value
             if (PYTHON_KEYWORDS.contains(word)) {
                 builder.addStyle(SpanStyle(color = ColorKeyword, fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
@@ -138,12 +149,12 @@ object CodeSyntaxHighlighter {
     }
 
     private fun highlightJavaScript(code: String, builder: AnnotatedString.Builder) {
-        applyRegex(builder, code, Regex("""//.*"""), ColorComment)
-        applyRegex(builder, code, Regex("""/\*[\s\S]*?\*/"""), ColorComment)
-        applyRegex(builder, code, Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`"""), ColorString)
-        applyRegex(builder, code, Regex("""\b\d+(?:\.\d+)?\b"""), ColorNumber)
+        applyRegex(builder, code, RE_LINE_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_BLOCK_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_JS_STRING, ColorString)
+        applyRegex(builder, code, RE_NUMBER_NO_SUFFIX, ColorNumber)
 
-        Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\b""").findAll(code).forEach { match ->
+        RE_WORD.findAll(code).forEach { match ->
             val word = match.value
             if (JS_KEYWORDS.contains(word)) {
                 builder.addStyle(SpanStyle(color = ColorKeyword, fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
@@ -154,12 +165,12 @@ object CodeSyntaxHighlighter {
     }
 
     private fun highlightSql(code: String, builder: AnnotatedString.Builder) {
-        applyRegex(builder, code, Regex("""--.*"""), ColorComment)
-        applyRegex(builder, code, Regex("""/\*[\s\S]*?\*/"""), ColorComment)
-        applyRegex(builder, code, Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'"""), ColorString)
-        applyRegex(builder, code, Regex("""\b\d+(?:\.\d+)?\b"""), ColorNumber)
+        applyRegex(builder, code, RE_SQL_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_BLOCK_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_PYTHON_STRING, ColorString)
+        applyRegex(builder, code, RE_NUMBER_NO_SUFFIX, ColorNumber)
 
-        Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\b""").findAll(code).forEach { match ->
+        RE_WORD.findAll(code).forEach { match ->
             val word = match.value.uppercase()
             if (SQL_KEYWORDS.contains(word)) {
                 builder.addStyle(SpanStyle(color = ColorKeyword, fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
@@ -168,16 +179,16 @@ object CodeSyntaxHighlighter {
     }
 
     private fun highlightHtml(code: String, builder: AnnotatedString.Builder) {
-        applyRegex(builder, code, Regex("""<!--[\s\S]*?-->"""), ColorComment)
-        applyRegex(builder, code, Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'"""), ColorString)
-        applyRegex(builder, code, Regex("""</?[A-Za-z0-9_-]+"""), ColorTag, FontWeight.Bold)
-        applyRegex(builder, code, Regex("""\s([A-Za-z0-9_-]+)=="""), ColorAttribute)
+        applyRegex(builder, code, RE_HTML_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_PYTHON_STRING, ColorString)
+        applyRegex(builder, code, RE_HTML_TAG, ColorTag, FontWeight.Bold)
+        applyRegex(builder, code, RE_HTML_ATTR, ColorAttribute)
     }
 
     private fun highlightGeneric(code: String, builder: AnnotatedString.Builder) {
-        applyRegex(builder, code, Regex("""//.*|#.*"""), ColorComment)
-        applyRegex(builder, code, Regex(""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'"""), ColorString)
-        applyRegex(builder, code, Regex("""\b\d+\b"""), ColorNumber)
+        applyRegex(builder, code, RE_GENERIC_COMMENT, ColorComment)
+        applyRegex(builder, code, RE_PYTHON_STRING, ColorString)
+        applyRegex(builder, code, RE_GENERIC_NUMBER, ColorNumber)
     }
 
     private fun applyRegex(
