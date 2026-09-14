@@ -93,14 +93,9 @@ class StudioPillarsTest {
         assertTrue(connectors.any { it.name == "Supabase DB" && it.category == ConnectorCategory.DATABASE })
         assertTrue(connectors.any { it.name == "Docker Registry" && it.category == ConnectorCategory.RUNTIME })
 
-        // Check Swarm Agents
+        // Check Swarm Agents - starts empty, no mock data
         val agents = manager.getInitialSwarmAgents()
-        assertEquals("Initial swarm must have 5 autonomous agents", 5, agents.size)
-        assertTrue(agents.any { it.name == "Architect-Agent" })
-        assertTrue(agents.any { it.name == "Code-Generator" })
-        assertTrue(agents.any { it.name == "Test-Architect" })
-        assertTrue(agents.any { it.name == "Reviewer-Bot" })
-        assertTrue(agents.any { it.name == "DevOps-Runner" })
+        assertEquals("Initial swarm should be empty (no hardcoded mock data)", 0, agents.size)
     }
 
     @Test

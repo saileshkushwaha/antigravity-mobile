@@ -362,27 +362,51 @@ class AntigravityAppTest {
     @Test
     fun testSwarmDagTopologyAndAgents() {
         val connectorsManager = com.example.antigravity.studio.connectors.MarketConnectorsManager()
-        val agents = connectorsManager.getInitialSwarmAgents()
+        val initialAgents = connectorsManager.getInitialSwarmAgents()
+        assertEquals("Initial swarm should be empty (no mock data)", 0, initialAgents.size)
 
-        assertEquals("Expected 5 agents in branching DAG", 5, agents.size)
-        assertTrue("Models must use valid Gemini 2.0 models, not legacy 2.5", agents.all { it.model == "gemini-2.0-flash" })
+        val agent1 = connectorsManager.registerCustomAgent(
+            existingAgents = initialAgents,
+            name = "Architect-Agent",
+            role = "System Design & DAG Decomposition",
+            stage = 1
+        )
+        assertEquals(1, agent1.size)
+        assertEquals("Architect-Agent", agent1[0].name)
+        assertTrue(agent1[0].id.startsWith("custom-"))
 
-        val archAgent = agents.find { it.id == "arch-01" }
-        assertNotNull("Must include Architect-Agent as root", archAgent)
-        assertEquals("Architect-Agent", archAgent?.name)
+        val agent2 = connectorsManager.registerCustomAgent(
+            existingAgents = agent1,
+            name = "Code-Generator",
+            role = "Full-Stack Jetpack Compose & Kotlin",
+            stage = 2
+        )
+        assertEquals(2, agent2.size)
 
-        val codeAgent = agents.find { it.id == "code-02" }
-        assertNotNull("Must include Code-Generator for branch A", codeAgent)
+        val agent3 = connectorsManager.registerCustomAgent(
+            existingAgents = agent2,
+            name = "Test-Architect",
+            role = "Unit & Integration Test Suite Verification",
+            stage = 2
+        )
+        assertEquals(3, agent3.size)
 
-        val testAgent = agents.find { it.id == "test-03" }
-        assertNotNull("Must include Test-Architect for parallel branch B", testAgent)
-        assertEquals("Test-Architect", testAgent?.name)
+        val agent4 = connectorsManager.registerCustomAgent(
+            existingAgents = agent3,
+            name = "Reviewer-Bot",
+            role = "Static Analysis, A11y & AST Audit",
+            stage = 3
+        )
+        assertEquals(4, agent4.size)
 
-        val revAgent = agents.find { it.id == "rev-04" }
-        assertNotNull("Must include Reviewer-Bot as convergence node", revAgent)
-
-        val opsAgent = agents.find { it.id == "ops-05" }
-        assertNotNull("Must include DevOps-Runner as sink node", opsAgent)
+        val agent5 = connectorsManager.registerCustomAgent(
+            existingAgents = agent4,
+            name = "DevOps-Runner",
+            role = "Docker, Gradle & Git Sync Orchestrator",
+            stage = 4
+        )
+        assertEquals(5, agent5.size)
+        assertTrue("All agents should have stages 1..4", agent5.all { it.stage in 1..4 })
     }
 
     @Test
@@ -700,18 +724,17 @@ class AntigravityAppTest {
     fun testMarketConnectorsCustomSwarmNodeRegistrationAndStage() {
         val manager = com.example.antigravity.studio.connectors.MarketConnectorsManager()
         val initialSwarm = manager.getInitialSwarmAgents()
-        assertTrue(initialSwarm.isNotEmpty())
-        assertTrue("System agents should have stages 1..4", initialSwarm.all { it.stage in 1..4 })
+        assertTrue("Initial swarm should be empty (no mock data)", initialSwarm.isEmpty())
 
-        val updatedList = manager.registerCustomAgent(
+        val agent1 = manager.registerCustomAgent(
             existingAgents = initialSwarm,
             name = "Security SAST Agent",
             role = "Vulnerability Scanner",
             stage = 2
         )
 
-        assertEquals(initialSwarm.size + 1, updatedList.size)
-        val customAgent = updatedList.last()
+        assertEquals(initialSwarm.size + 1, agent1.size)
+        val customAgent = agent1.last()
         assertTrue(customAgent.id.startsWith("custom-"))
         assertEquals("Security SAST Agent", customAgent.name)
         assertEquals(2, customAgent.stage)

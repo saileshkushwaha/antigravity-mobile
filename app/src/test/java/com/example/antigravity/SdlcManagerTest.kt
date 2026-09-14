@@ -57,9 +57,14 @@ class SdlcManagerTest {
     @Test
     fun testDeploymentAndRollback() {
         val env = EnvironmentType.STAGING
+        val initialVersion = "v2.4.0"
         val newVersion = "v2.5.0-rc1"
 
-        // Trigger deploy
+        // Create initial deployment first (so there's a version to rollback to)
+        val initialDeploy = SdlcManager.triggerDeployment(env, initialVersion)
+        assertEquals(initialVersion, initialDeploy.versionTag)
+
+        // Trigger deploy new version
         val deployRecord = SdlcManager.triggerDeployment(env, newVersion)
         assertEquals(newVersion, deployRecord.versionTag)
         assertEquals(DeploymentStatus.DEPLOYED, deployRecord.status)
@@ -78,18 +83,32 @@ class SdlcManagerTest {
 
     @Test
     fun testIntegrationToolsToggleAndPing() {
-        val toolId = "tool-jira"
-        val initial = SdlcManager.integrationTools.value.find { it.id == toolId }
-        val initialState = initial?.state ?: ConnectionState.DISCONNECTED
+        // Integration tools start empty (no mock data), so add one first
+        val testTool = com.example.antigravity.sdlc.IntegrationTool(
+            id = "tool-jira",
+            name = "Jira Software",
+            category = com.example.antigravity.sdlc.IntegrationCategory.ISSUE_TRACKING,
+            description = "Bi-directional sync between Antigravity agent tasks and Jira tickets",
+            state = com.example.antigravity.sdlc.ConnectionState.DISCONNECTED,
+            webhookUrl = "",
+            lastPingStatus = "Disconnected",
+            lastSyncTime = "Never"
+        )
+        SdlcManager.addIntegration(testTool)
+
+        val initial = SdlcManager.integrationTools.value.find { it.id == "tool-jira" }
+        assertNotNull("Tool should exist after adding", initial)
+        val initialState = initial?.state ?: com.example.antigravity.sdlc.ConnectionState.DISCONNECTED
 
         // Toggle integration
-        SdlcManager.toggleIntegration(toolId)
-        val toggled = SdlcManager.integrationTools.value.find { it.id == toolId }
+        SdlcManager.toggleIntegration("tool-jira")
+        val toggled = SdlcManager.integrationTools.value.find { it.id == "tool-jira" }
         assertNotEquals(initialState, toggled?.state)
 
         // Test ping
-        val pingMessage = SdlcManager.testPingIntegration("tool-slack-alerts")
-        assertTrue("Ping should confirm success", pingMessage.contains("succeeded") || pingMessage.contains("Latency"))
+        val pingMessage = SdlcManager.testPingIntegration("tool-jira")
+        assertNotNull("Ping should return a message", pingMessage)
+        assertTrue("Ping should report result", pingMessage.contains("Ping") || pingMessage.contains("completed"))
     }
 
     @Test
