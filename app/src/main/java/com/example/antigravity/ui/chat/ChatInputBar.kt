@@ -54,6 +54,12 @@ fun ChatInputBar(
     val context = LocalContext.current
     val voiceManager = remember { VoiceProgrammingManager(context) }
     var isListening by remember { mutableStateOf(false) }
+    var showPersonaChip by remember { mutableStateOf(!activePersonaName.isNullOrBlank()) }
+
+    // Re-show persona chip when persona changes (user selects a different one)
+    LaunchedEffect(activePersonaName) {
+        if (!activePersonaName.isNullOrBlank()) showPersonaChip = true
+    }
 
     val currentInput by rememberUpdatedState(inputText)
     DisposableEffect(voiceManager) {
@@ -233,31 +239,44 @@ fun ChatInputBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // Active Persona Chip / Switcher
-            item {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = AntigravityColors.CardBackground,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)),
-                    modifier = Modifier.clickable { onOpenPersonaSelection() }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+            // Active Persona Chip / Switcher (optional, dismissable)
+            if (showPersonaChip && !activePersonaName.isNullOrBlank()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = AntigravityColors.CardBackground,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.6f)),
+                        modifier = Modifier.clickable { onOpenPersonaSelection() }
                     ) {
-                        Text(
-                            text = "🎭 ${activePersonaName ?: "Persona"}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AntigravityColors.ElectricCyan
-                        )
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = "Switch persona",
-                            tint = AntigravityColors.ElectricCyan,
-                            modifier = Modifier.size(14.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "🎭 $activePersonaName",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AntigravityColors.ElectricCyan
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = "Switch persona",
+                                tint = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Hide persona",
+                                tint = AntigravityColors.TextMuted,
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                                    ) { showPersonaChip = false }
+                            )
+                        }
                     }
                 }
             }
