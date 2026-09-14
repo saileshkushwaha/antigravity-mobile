@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -342,6 +343,12 @@ fun CodeStudioScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(AntigravityColors.BackgroundDark)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) {
+                            if (showFileTreePane) showFileTreePane = false
+                        }
                 ) {
                     // File Tab & Line Stats Bar with Diagnostics Status Pill
                     Row(
