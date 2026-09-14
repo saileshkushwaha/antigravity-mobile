@@ -198,7 +198,7 @@ fun PromptLibraryDialog(
                         )
                     )
 
-                    PromptCategory.values().forEach { cat ->
+                    PromptCategory.entries.forEach { cat ->
                         val isSel = selectedCategory == cat
                         FilterChip(
                             selected = isSel,

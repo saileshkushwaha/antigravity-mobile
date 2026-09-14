@@ -139,7 +139,7 @@ fun WebSandboxView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SandboxViewport.values().forEach { vp ->
+                SandboxViewport.entries.forEach { vp ->
                     val isSelected = selectedViewport == vp
                     Surface(
                         shape = RoundedCornerShape(6.dp),

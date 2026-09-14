@@ -200,7 +200,7 @@ fun PersonaSelectionDialog(
                         )
                     )
 
-                    PersonaCategory.values().forEach { cat ->
+                    PersonaCategory.entries.forEach { cat ->
                         val isSel = selectedCategory == cat
                         FilterChip(
                             selected = isSel,

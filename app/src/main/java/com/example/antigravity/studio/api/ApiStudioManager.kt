@@ -244,7 +244,7 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
             while (keys.hasNext()) {
                 val pathKey = keys.next()
                 val pathObj = paths.getJSONObject(pathKey)
-                HttpMethod.values().forEach { method ->
+                HttpMethod.entries.forEach { method ->
                     val methodStr = method.name.lowercase()
                     if (pathObj.has(methodStr)) {
                         val opObj = pathObj.getJSONObject(methodStr)

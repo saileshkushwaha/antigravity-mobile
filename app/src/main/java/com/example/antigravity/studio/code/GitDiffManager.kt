@@ -1,15 +1,7 @@
 package com.example.antigravity.studio.code
 
-enum class DiffLineType {
-    ADDED, REMOVED, UNCHANGED
-}
-
-data class DiffLine(
-    val type: DiffLineType,
-    val content: String,
-    val oldLineNum: Int? = null,
-    val newLineNum: Int? = null
-)
+import com.example.antigravity.model.DiffLine
+import com.example.antigravity.model.DiffLineType
 
 data class DiffHunk(
     val hunkIndex: Int,
@@ -67,8 +59,8 @@ object GitDiffManager {
             if (i > 0 && j > 0 && originalLines[i - 1] == modifiedLines[j - 1]) {
                 rawDiffLines.add(
                     DiffLine(
-                        type = DiffLineType.UNCHANGED,
-                        content = originalLines[i - 1],
+                        type = DiffLineType.CONTEXT,
+                        text = originalLines[i - 1],
                         oldLineNum = i,
                         newLineNum = j
                     )
@@ -78,8 +70,8 @@ object GitDiffManager {
             } else if (j > 0 && (i == 0 || dp[i][j - 1] >= dp[i - 1][j])) {
                 rawDiffLines.add(
                     DiffLine(
-                        type = DiffLineType.ADDED,
-                        content = modifiedLines[j - 1],
+                        type = DiffLineType.ADD,
+                        text = modifiedLines[j - 1],
                         oldLineNum = null,
                         newLineNum = j
                     )
@@ -88,8 +80,8 @@ object GitDiffManager {
             } else if (i > 0 && (j == 0 || dp[i][j - 1] < dp[i - 1][j])) {
                 rawDiffLines.add(
                     DiffLine(
-                        type = DiffLineType.REMOVED,
-                        content = originalLines[i - 1],
+                        type = DiffLineType.REMOVE,
+                        text = originalLines[i - 1],
                         oldLineNum = i,
                         newLineNum = null
                     )
@@ -104,9 +96,9 @@ object GitDiffManager {
         var removedCount = 0
         rawDiffLines.forEach {
             when (it.type) {
-                DiffLineType.ADDED -> addedCount++
-                DiffLineType.REMOVED -> removedCount++
-                DiffLineType.UNCHANGED -> {}
+                DiffLineType.ADD -> addedCount++
+                DiffLineType.REMOVE -> removedCount++
+                DiffLineType.CONTEXT -> {}
             }
         }
 
@@ -123,7 +115,7 @@ object GitDiffManager {
 
     private fun groupIntoHunks(diffLines: List<DiffLine>, contextSize: Int = 3): List<DiffHunk> {
         if (diffLines.isEmpty()) return emptyList()
-        val changeIndices = diffLines.indices.filter { diffLines[it].type != DiffLineType.UNCHANGED }
+        val changeIndices = diffLines.indices.filter { diffLines[it].type != DiffLineType.CONTEXT }
         if (changeIndices.isEmpty()) return emptyList()
 
         val hunks = mutableListOf<DiffHunk>()
@@ -176,8 +168,8 @@ object GitDiffManager {
     }
 
     private fun createHunk(index: Int, lines: List<DiffLine>): DiffHunk {
-        val oldLines = lines.filter { it.type != DiffLineType.ADDED }
-        val newLines = lines.filter { it.type != DiffLineType.REMOVED }
+        val oldLines = lines.filter { it.type != DiffLineType.ADD }
+        val newLines = lines.filter { it.type != DiffLineType.REMOVE }
 
         val oldStart = oldLines.firstOrNull()?.oldLineNum ?: 1
         val oldCount = oldLines.size

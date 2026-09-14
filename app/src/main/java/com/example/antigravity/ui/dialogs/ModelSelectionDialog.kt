@@ -306,7 +306,7 @@ fun ModelSelectionDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(ModelFilterCategory.values()) { category ->
+                    items(ModelFilterCategory.entries) { category ->
                         val isSelected = selectedCategory == category
                         val chipColor = if (category == ModelFilterCategory.FREE_ONLY) AntigravityColors.StatusSuccess else AntigravityColors.ElectricCyan
 
@@ -335,7 +335,7 @@ fun ModelSelectionDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(ModelCapabilityFilter.values()) { capability ->
+                    items(ModelCapabilityFilter.entries) { capability ->
                         val isSelected = selectedCapability == capability
                         Surface(
                             shape = RoundedCornerShape(14.dp),
@@ -356,7 +356,7 @@ fun ModelSelectionDialog(
                         }
                     }
 
-                    items(ContextFilter.values()) { ctx ->
+                    items(ContextFilter.entries) { ctx ->
                         val isSelected = selectedContext == ctx
                         Surface(
                             shape = RoundedCornerShape(14.dp),

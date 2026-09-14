@@ -520,7 +520,7 @@ fun ApiStudioScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Select target library / client type:", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        CodeTargetType.values().forEach { target ->
+                        CodeTargetType.entries.forEach { target ->
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = if (selectedCodeGenTarget == target) AntigravityColors.ElectricCyan.copy(alpha = 0.2f) else AntigravityColors.SurfaceElevated,

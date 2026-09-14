@@ -291,7 +291,7 @@ private fun PersonasTabContent(
                     selectedLabelColor = AntigravityColors.ElectricCyan
                 )
             )
-            PersonaCategory.values().forEach { category ->
+            PersonaCategory.entries.forEach { category ->
                 FilterChip(
                     selected = selectedCategory == category,
                     onClick = { selectedCategory = if (selectedCategory == category) null else category },
@@ -644,7 +644,7 @@ private fun PromptsTabContent(
                     selectedLabelColor = AntigravityColors.ElectricCyan
                 )
             )
-            PromptCategory.values().forEach { category ->
+            PromptCategory.entries.forEach { category ->
                 FilterChip(
                     selected = selectedCategory == category,
                     onClick = { selectedCategory = if (selectedCategory == category) null else category },

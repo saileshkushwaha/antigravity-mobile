@@ -1,5 +1,6 @@
 package com.example.antigravity.studio.code
 
+import com.example.antigravity.model.DiffLineType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -159,9 +160,10 @@ fun GitDiffViewerDialog(
                                 // Hunk Lines
                                 hunk.lines.forEach { line ->
                                     val (bgColor, textColor, prefix) = when (line.type) {
-                                        DiffLineType.ADDED -> Triple(Color(0xFF064E3B).copy(alpha = 0.5f), Color(0xFF6EE7B7), "+")
-                                        DiffLineType.REMOVED -> Triple(Color(0xFF7F1D1D).copy(alpha = 0.5f), Color(0xFFFCA5A5), "-")
-                                        DiffLineType.UNCHANGED -> Triple(Color.Transparent, Color(0xFF94A3B8), " ")
+                                        DiffLineType.ADD -> Triple(Color(0xFF064E3B).copy(alpha = 0.5f), Color(0xFF6EE7B7), "+")
+                                        DiffLineType.REMOVE -> Triple(Color(0xFF7F1D1D).copy(alpha = 0.5f), Color(0xFFFCA5A5), "-")
+                                        DiffLineType.CONTEXT -> Triple(Color.Transparent, Color(0xFF94A3B8), " ")
+                                        DiffLineType.HEADER -> Triple(Color.Transparent, Color(0xFF94A3B8), " ")
                                     }
 
                                     Row(
@@ -194,7 +196,7 @@ fun GitDiffViewerDialog(
                                             modifier = Modifier.width(16.dp)
                                         )
                                         Text(
-                                            line.content,
+                                            line.text,
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 11.sp,
                                             color = textColor

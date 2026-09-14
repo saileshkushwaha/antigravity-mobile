@@ -130,7 +130,7 @@ fun AuxiliaryPane(
             edgePadding = 8.dp,
             divider = { HorizontalDivider(color = AntigravityColors.DividerColor) }
         ) {
-            AuxiliaryTab.values().forEach { tab ->
+            AuxiliaryTab.entries.forEach { tab ->
                 val badgeCount = when (tab) {
                     AuxiliaryTab.SUBAGENTS -> subagents.size
                     AuxiliaryTab.TASKS -> backgroundTasks.count { it.status == TaskStatus.RUNNING }

@@ -132,7 +132,7 @@ fun PromptEditorDialog(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            PromptCategory.values().forEach { cat ->
+                            PromptCategory.entries.forEach { cat ->
                                 val isSelected = category == cat
                                 FilterChip(
                                     selected = isSelected,

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.security.MessageDigest
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -33,6 +34,12 @@ import com.example.antigravity.R
 import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.security.BiometricHardwareStatus
 import com.example.antigravity.theme.AntigravityColors
+
+private fun hashPin(pin: String): String {
+    return MessageDigest.getInstance("SHA-256")
+        .digest(pin.toByteArray())
+        .joinToString("") { "%02x".format(it) }
+}
 
 @Composable
 fun BiometricLockScreen(
@@ -50,7 +57,7 @@ fun BiometricLockScreen(
         context.getSharedPreferences("antigravity_security_prefs", android.content.Context.MODE_PRIVATE)
     }
     var enrolledPin by remember {
-        mutableStateOf(sharedPrefs.getString("enclave_pin", null))
+        mutableStateOf(sharedPrefs.getString("enclave_pin_hash", null))
     }
 
     var showPinDialog by remember { mutableStateOf(false) }
@@ -529,13 +536,13 @@ fun BiometricLockScreen(
                             } else if (enteredPin != confirmPin) {
                                 pinErrorText = "PINs do not match"
                             } else {
-                                sharedPrefs.edit { putString("enclave_pin", enteredPin) }
-                                enrolledPin = enteredPin
+                                sharedPrefs.edit { putString("enclave_pin_hash", hashPin(enteredPin)) }
+                                enrolledPin = hashPin(enteredPin)
                                 showPinDialog = false
                                 onUnlock()
                             }
                         } else {
-                            if (enrolledPin != null && enteredPin == enrolledPin) {
+                            if (enrolledPin != null && hashPin(enteredPin) == enrolledPin) {
                                 showPinDialog = false
                                 onUnlock()
                             } else {

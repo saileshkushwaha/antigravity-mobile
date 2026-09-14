@@ -549,16 +549,12 @@ class AppRepository {
                 )
             )
         )
-        _conversations.value = listOf(newConv) + _conversations.value
+        _conversations.update { listOf(newConv) + it }
         _activeConversationId.value = newId
         _activeWorkspace.value = targetWs
 
         if (safeOwner.isNotBlank() && safeRepo.isNotBlank()) {
-            _settings.value = _settings.value.copy(
-                githubOwner = safeOwner,
-                githubRepo = safeRepo,
-                targetBranch = safeBranch
-            )
+        _settings.update { it.copy(githubOwner = safeOwner, githubRepo = safeRepo, targetBranch = safeBranch) }
             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
                 it.copy(
                     repositoryOwner = safeOwner,
@@ -830,11 +826,7 @@ class AppRepository {
         val repo = workspace.githubRepo
         val branch = workspace.branch
         if (owner.isNotBlank() && repo.isNotBlank()) {
-            _settings.value = _settings.value.copy(
-                githubOwner = owner,
-                githubRepo = repo,
-                targetBranch = branch
-            )
+            _settings.update { it.copy(githubOwner = owner, githubRepo = repo, targetBranch = branch) }
             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
                 it.copy(
                     repositoryOwner = owner,
@@ -912,7 +904,7 @@ class AppRepository {
             githubRepo = githubRepo.trim(),
             githubUrl = resolvedUrl.trim()
         )
-        _workspaces.value = _workspaces.value + newWorkspace
+        _workspaces.update { it + newWorkspace }
         saveWorkspacesToPrefs()
         switchWorkspace(newWorkspace)
         return newWorkspace
@@ -963,15 +955,17 @@ class AppRepository {
         val resolvedUrl = githubUrl.ifBlank {
             if (githubOwner.isNotBlank() && githubRepo.isNotBlank()) "https://github.com/$githubOwner/$githubRepo" else ""
         }
-        _workspaces.value = _workspaces.value.map { ws ->
-            if (ws.id == workspaceId) {
-                ws.copy(
-                    githubOwner = githubOwner.trim(),
-                    githubRepo = githubRepo.trim(),
-                    branch = branch.trim().ifBlank { "main" },
-                    githubUrl = resolvedUrl.trim()
-                )
-            } else ws
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.id == workspaceId) {
+                    ws.copy(
+                        githubOwner = githubOwner.trim(),
+                        githubRepo = githubRepo.trim(),
+                        branch = branch.trim().ifBlank { "main" },
+                        githubUrl = resolvedUrl.trim()
+                    )
+                } else ws
+            }
         }
         saveWorkspacesToPrefs()
         val targetWs = _workspaces.value.find { it.id == workspaceId }
@@ -981,9 +975,7 @@ class AppRepository {
     }
 
     fun updateWorkspace(workspace: ProjectWorkspace) {
-        _workspaces.value = _workspaces.value.map {
-            if (it.id == workspace.id) workspace else it
-        }
+        _workspaces.update { list -> list.map { if (it.id == workspace.id) workspace else it } }
         saveWorkspacesToPrefs()
         if (_activeWorkspace.value.id == workspace.id) {
             _activeWorkspace.value = workspace
@@ -993,7 +985,7 @@ class AppRepository {
     fun deleteWorkspace(workspaceId: String) {
         if (_workspaces.value.size <= 1) return // Keep at least one active workspace
         val remaining = _workspaces.value.filter { it.id != workspaceId }
-        _workspaces.value = remaining
+        _workspaces.update { remaining }
         saveWorkspacesToPrefs()
         _sqlEngine?.deleteWorkspace(workspaceId)
         if (_activeWorkspace.value.id == workspaceId) {
@@ -1060,66 +1052,62 @@ class AppRepository {
     }
 
     fun addBackgroundTask(task: BackgroundTaskItem) {
-        _backgroundTasks.value = listOf(task) + _backgroundTasks.value
+        _backgroundTasks.update { listOf(task) + it }
     }
 
     fun updateTaskStatus(taskId: String, status: TaskStatus) {
-        _backgroundTasks.value = _backgroundTasks.value.map {
-            if (it.taskId == taskId) it.copy(status = status) else it
-        }
+        _backgroundTasks.update { list -> list.map { if (it.taskId == taskId) it.copy(status = status) else it } }
     }
 
     fun appendTaskLog(taskId: String, line: String) {
-        _backgroundTasks.value = _backgroundTasks.value.map {
-            if (it.taskId == taskId) {
-                val newLogs = it.logs.toMutableList().apply { add(line) }
-                it.copy(logs = newLogs)
-            } else it
+        _backgroundTasks.update { list ->
+            list.map {
+                if (it.taskId == taskId) {
+                    val newLogs = it.logs.toMutableList().apply { add(line) }
+                    it.copy(logs = newLogs)
+                } else it
+            }
         }
     }
 
     fun addSubagent(subagent: SubagentItem) {
-        _subagents.value = listOf(subagent) + _subagents.value
+        _subagents.update { listOf(subagent) + it }
     }
 
     fun updateSubagentState(conversationId: String, state: SubagentState, lastAction: String) {
-        _subagents.value = _subagents.value.map {
-            if (it.conversationId == conversationId) {
-                it.copy(state = state, lastAction = lastAction)
-            } else it
+        _subagents.update { list ->
+            list.map {
+                if (it.conversationId == conversationId) it.copy(state = state, lastAction = lastAction) else it
+            }
         }
     }
 
     fun addFileDiff(diff: FileDiffItem) {
-        _fileDiffs.value = listOf(diff) + _fileDiffs.value
+        _fileDiffs.update { listOf(diff) + it }
     }
 
     fun addArtifact(artifact: ArtifactItem) {
-        _artifacts.value = listOf(artifact) + _artifacts.value
+        _artifacts.update { listOf(artifact) + it }
     }
 
     fun clearArtifacts() {
-        _artifacts.value = emptyList()
+        _artifacts.update { emptyList() }
     }
 
     fun addScheduledTask(task: ScheduledTask) {
-        _scheduledTasks.value = listOf(task) + _scheduledTasks.value
+        _scheduledTasks.update { listOf(task) + it }
     }
 
     fun toggleScheduledTask(id: String) {
-        _scheduledTasks.value = _scheduledTasks.value.map {
-            if (it.id == id) it.copy(isActive = !it.isActive) else it
-        }
+        _scheduledTasks.update { list -> list.map { if (it.id == id) it.copy(isActive = !it.isActive) else it } }
     }
 
     fun deleteScheduledTask(id: String) {
-        _scheduledTasks.value = _scheduledTasks.value.filter { it.id != id }
+        _scheduledTasks.update { list -> list.filter { it.id != id } }
     }
 
     fun toggleSkill(name: String) {
-        _skills.value = _skills.value.map {
-            if (it.name == name) it.copy(isEnabled = !it.isEnabled) else it
-        }
+        _skills.update { list -> list.map { if (it.name == name) it.copy(isEnabled = !it.isEnabled) else it } }
         persistListFile("skills.json", _skills.value)
     }
 
@@ -1203,12 +1191,12 @@ class AppRepository {
     }
 
     fun deletePersona(personaId: String) {
-        _personas.value = _personas.value.filter { it.id != personaId }
+        _personas.update { list -> list.filter { it.id != personaId } }
         persistListFile("personas.json", _personas.value)
     }
 
     fun resetPersonasToDefault() {
-        _personas.value = PersonaCatalog.allPersonas
+        _personas.update { PersonaCatalog.allPersonas }
         persistListFile("personas.json", _personas.value)
     }
 
@@ -1238,12 +1226,12 @@ class AppRepository {
     }
 
     fun deletePrompt(promptId: String) {
-        _prompts.value = _prompts.value.filter { it.id != promptId }
+        _prompts.update { list -> list.filter { it.id != promptId } }
         persistListFile("prompts.json", _prompts.value)
     }
 
     fun resetPromptsToDefault() {
-        _prompts.value = PromptLibrary.allPrompts
+        _prompts.update { PromptLibrary.allPrompts }
         persistListFile("prompts.json", _prompts.value)
     }
 
@@ -1273,7 +1261,7 @@ class AppRepository {
     }
 
     fun deleteSkill(skillName: String) {
-        _skills.value = _skills.value.filterNot { it.name.equals(skillName, ignoreCase = true) }
+        _skills.update { list -> list.filterNot { it.name.equals(skillName, ignoreCase = true) } }
         persistListFile("skills.json", _skills.value)
     }
 
@@ -1319,16 +1307,18 @@ class AppRepository {
     }
 
     fun deleteMcpServer(serverName: String) {
-        _mcpServers.value = _mcpServers.value.filterNot { it.name.equals(serverName, ignoreCase = true) }
+        _mcpServers.update { list -> list.filterNot { it.name.equals(serverName, ignoreCase = true) } }
         persistListFile("mcp_servers.json", _mcpServers.value)
     }
 
     fun toggleMcpServer(serverName: String) {
-        _mcpServers.value = _mcpServers.value.map {
-            if (it.name.equals(serverName, ignoreCase = true)) {
-                val newStatus = if (it.status == "Connected") "Disconnected" else "Connected"
-                it.copy(status = newStatus, isEnabled = newStatus == "Connected")
-            } else it
+        _mcpServers.update { list ->
+            list.map {
+                if (it.name.equals(serverName, ignoreCase = true)) {
+                    val newStatus = if (it.status == "Connected") "Disconnected" else "Connected"
+                    it.copy(status = newStatus, isEnabled = newStatus == "Connected")
+                } else it
+            }
         }
         persistListFile("mcp_servers.json", _mcpServers.value)
     }
@@ -1346,17 +1336,19 @@ class AppRepository {
     // Clear Active Conversation History
     fun clearActiveConversationMessages() {
         val activeId = _activeConversationId.value
-        _conversations.value = _conversations.value.map { conv ->
-            if (conv.id == activeId) {
-                conv.copy(messages = mutableListOf(
-                    ChatMessage(
-                        id = java.util.UUID.randomUUID().toString(),
-                        sender = MessageSender.SYSTEM,
-                        text = "Session history cleared. Ready for instructions.",
-                        timestamp = System.currentTimeMillis()
-                    )
-                ))
-            } else conv
+        _conversations.update { list ->
+            list.map { conv ->
+                if (conv.id == activeId) {
+                    conv.copy(messages = mutableListOf(
+                        ChatMessage(
+                            id = java.util.UUID.randomUUID().toString(),
+                            sender = MessageSender.SYSTEM,
+                            text = "Session history cleared. Ready for instructions.",
+                            timestamp = System.currentTimeMillis()
+                        )
+                    ))
+                } else conv
+            }
         }
     }
 

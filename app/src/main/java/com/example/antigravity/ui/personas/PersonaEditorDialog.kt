@@ -147,7 +147,7 @@ fun PersonaEditorDialog(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            PersonaCategory.values().forEach { cat ->
+                            PersonaCategory.entries.forEach { cat ->
                                 val isSelected = category == cat
                                 FilterChip(
                                     selected = isSelected,

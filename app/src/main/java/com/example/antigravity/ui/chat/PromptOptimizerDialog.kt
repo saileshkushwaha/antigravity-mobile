@@ -160,7 +160,7 @@ fun PromptOptimizerDialog(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        PromptOptimizationMode.values().forEach { mode ->
+                        PromptOptimizationMode.entries.forEach { mode ->
                             val isSelected = mode == selectedMode
                             Surface(
                                 shape = RoundedCornerShape(10.dp),

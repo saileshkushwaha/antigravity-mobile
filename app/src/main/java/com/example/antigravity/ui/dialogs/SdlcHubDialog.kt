@@ -353,7 +353,7 @@ fun SdlcHubContent(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SdlcTab.values().forEach { tab ->
+            SdlcTab.entries.forEach { tab ->
                 val isSelected = selectedTab == tab
                 FilterChip(
                     selected = isSelected,
@@ -3061,7 +3061,7 @@ fun AddSecretDialog(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    EnvironmentType.values().forEach { env ->
+                    EnvironmentType.entries.forEach { env ->
                         val isSel = selectedEnv == env
                         Surface(
                             shape = RoundedCornerShape(4.dp),
