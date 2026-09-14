@@ -368,7 +368,7 @@ fun DataAnalyticsScreen(
                             }
                         }
 
-                        Divider(color = Color(0xFF334155), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
 
                         // Data Rows
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -393,7 +393,7 @@ fun DataAnalyticsScreen(
                                         }
                                     }
                                 }
-                                Divider(color = Color(0xFF1E293B), thickness = 0.5.dp)
+                                HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.5.dp)
                             }
                         }
                     }
