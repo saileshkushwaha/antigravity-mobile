@@ -296,4 +296,52 @@ class OpenAiGatewayService {
             modelsEndpoint = modelsEndpoint
         )
     }
+
+    suspend fun validateApiKey(
+        baseUrl: String,
+        apiKey: String,
+        gateway: ModelGateway
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
+            if (cleanKey.isBlank()) return@withContext Result.failure(Exception("API key is empty"))
+            val cleanBase = baseUrl.trimEnd('/')
+            if (cleanBase.isBlank()) return@withContext Result.failure(Exception("Base URL is empty"))
+
+            val endpointUrl = "$cleanBase/models"
+            val requestBuilder = Request.Builder()
+                .url(endpointUrl)
+                .get()
+                .addHeader("Accept", "application/json")
+
+            if (cleanKey.isNotBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $cleanKey")
+            }
+            if (gateway == ModelGateway.OPENROUTER) {
+                requestBuilder.addHeader("HTTP-Referer", "https://antigravity.ai")
+                requestBuilder.addHeader("X-Title", "Antigravity Mobile")
+            } else if (gateway == ModelGateway.KILOCODE || gateway == ModelGateway.OPENCODE) {
+                requestBuilder.addHeader("X-Client-App", "Antigravity-Mobile")
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
+            val body = response.body?.string() ?: ""
+            if (response.isSuccessful) {
+                val json = JSONObject(body)
+                val count = json.optJSONArray("data")?.length() ?: json.optJSONArray("models")?.length() ?: 0
+                Result.success("Valid — $count models via ${gateway.displayName}")
+            } else {
+                val msg = when (response.code) {
+                    401 -> "Invalid API key (HTTP 401)"
+                    403 -> "Access denied (HTTP 403) — key may lack permissions"
+                    429 -> "Rate limited — key is valid but quota exceeded"
+                    404 -> "Models endpoint not found — check base URL"
+                    else -> "HTTP ${response.code}"
+                }
+                Result.failure(Exception(msg))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

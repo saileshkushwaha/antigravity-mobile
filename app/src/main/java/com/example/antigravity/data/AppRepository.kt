@@ -1431,6 +1431,33 @@ class AppRepository {
         return openAiGatewayService.testProviderConnection(baseUrl, apiKey, modelsEndpoint, name)
     }
 
+    suspend fun validateGatewayKey(
+        gateway: com.example.antigravity.model.ModelGateway,
+        apiKey: String
+    ): Result<String> {
+        val settings = _settings.value
+        return when (gateway) {
+            com.example.antigravity.model.ModelGateway.GEMINI ->
+                geminiService.validateApiKey(apiKey)
+            com.example.antigravity.model.ModelGateway.OPENAI ->
+                openAiGatewayService.validateApiKey(com.example.antigravity.model.ModelGateway.OPENAI.defaultBaseUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.GROQ ->
+                openAiGatewayService.validateApiKey(com.example.antigravity.model.ModelGateway.GROQ.defaultBaseUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.OPENROUTER ->
+                openAiGatewayService.validateApiKey(com.example.antigravity.model.ModelGateway.OPENROUTER.defaultBaseUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.KILOCODE ->
+                openAiGatewayService.validateApiKey(com.example.antigravity.model.ModelGateway.KILOCODE.defaultBaseUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.OPENCODE ->
+                openAiGatewayService.validateApiKey(com.example.antigravity.model.ModelGateway.OPENCODE.defaultBaseUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.HUGGINGFACE ->
+                openAiGatewayService.validateApiKey(com.example.antigravity.model.ModelGateway.HUGGINGFACE.defaultBaseUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.OLLAMA ->
+                openAiGatewayService.validateApiKey(settings.customGatewayUrl, apiKey, gateway)
+            com.example.antigravity.model.ModelGateway.CUSTOM ->
+                openAiGatewayService.validateApiKey(settings.customGatewayUrl, apiKey, gateway)
+        }
+    }
+
     fun resetAllDataToDefaults() {
         resetPersonasToDefault()
         resetPromptsToDefault()

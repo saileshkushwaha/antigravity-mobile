@@ -737,6 +737,7 @@ fun AntigravityMainScreen(
             settings = settings,
             models = models,
             workspacePath = activeWorkspace.path,
+            appRepository = repository,
             onSave = { 
                 repository.updateSettings(it)
                 coroutineScope.launch {

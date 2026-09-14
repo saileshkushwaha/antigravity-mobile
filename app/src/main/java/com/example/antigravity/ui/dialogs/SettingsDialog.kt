@@ -41,6 +41,7 @@ fun SettingsDialog(
     settings: AppSettings,
     models: List<ModelInfo> = ModelCatalog.allModels,
     workspacePath: String = "",
+    appRepository: com.example.antigravity.data.AppRepository? = null,
     onSave: (AppSettings) -> Unit,
     onClearChatHistory: () -> Unit = {},
     onResetPersonas: () -> Unit = {},
@@ -68,6 +69,22 @@ fun SettingsDialog(
     var customProviders by remember { mutableStateOf(settings.customProviders) }
     var editingProvider by remember { mutableStateOf<CustomProviderConfig?>(null) }
     var showAddProviderModal by remember { mutableStateOf(false) }
+
+    // API Key Validation State
+    var geminiTestResult by remember { mutableStateOf<String?>(null) }
+    var openAiTestResult by remember { mutableStateOf<String?>(null) }
+    var groqTestResult by remember { mutableStateOf<String?>(null) }
+    var kiloCodeTestResult by remember { mutableStateOf<String?>(null) }
+    var openCodeTestResult by remember { mutableStateOf<String?>(null) }
+    var openRouterTestResult by remember { mutableStateOf<String?>(null) }
+    var huggingFaceTestResult by remember { mutableStateOf<String?>(null) }
+    var isTestingGemini by remember { mutableStateOf(false) }
+    var isTestingOpenAi by remember { mutableStateOf(false) }
+    var isTestingGroq by remember { mutableStateOf(false) }
+    var isTestingKiloCode by remember { mutableStateOf(false) }
+    var isTestingOpenCode by remember { mutableStateOf(false) }
+    var isTestingOpenRouter by remember { mutableStateOf(false) }
+    var isTestingHuggingFace by remember { mutableStateOf(false) }
     var selectedModel by remember { mutableStateOf(settings.activeModel) }
     var selectedModelId by remember { mutableStateOf(settings.activeModelId) }
     var temperature by remember { mutableFloatStateOf(settings.temperature) }
@@ -450,7 +467,20 @@ fun SettingsDialog(
                                         placeholder = "AIzaSy...",
                                         badge = "DEFAULT",
                                         badgeColor = AntigravityColors.ElectricCyan,
-                                        onValueChange = { apiKey = it }
+                                        onValueChange = { apiKey = it; geminiTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingGemini = true
+                                            geminiTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.GEMINI, apiKey.trim()
+                                                )
+                                                geminiTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingGemini = false
+                                            }
+                                        }} else null,
+                                        testResult = geminiTestResult,
+                                        isTesting = isTestingGemini
                                     )
 
                                     // OpenAI
@@ -460,7 +490,20 @@ fun SettingsDialog(
                                         placeholder = "sk-proj-...",
                                         badge = "OPENAI",
                                         badgeColor = Color(0xFF10A37F),
-                                        onValueChange = { openAiKey = it }
+                                        onValueChange = { openAiKey = it; openAiTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingOpenAi = true
+                                            openAiTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.OPENAI, openAiKey.trim()
+                                                )
+                                                openAiTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingOpenAi = false
+                                            }
+                                        }} else null,
+                                        testResult = openAiTestResult,
+                                        isTesting = isTestingOpenAi
                                     )
 
                                     // Groq
@@ -470,7 +513,20 @@ fun SettingsDialog(
                                         placeholder = "gsk_...",
                                         badge = "FREE TIER",
                                         badgeColor = Color(0xFFFF9100),
-                                        onValueChange = { groqKey = it }
+                                        onValueChange = { groqKey = it; groqTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingGroq = true
+                                            groqTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.GROQ, groqKey.trim()
+                                                )
+                                                groqTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingGroq = false
+                                            }
+                                        }} else null,
+                                        testResult = groqTestResult,
+                                        isTesting = isTestingGroq
                                     )
 
                                     // KiloCode
@@ -480,7 +536,20 @@ fun SettingsDialog(
                                         placeholder = "kilo_live_...",
                                         badge = "FREE",
                                         badgeColor = AntigravityColors.ElectricCyan,
-                                        onValueChange = { kiloCodeKey = it }
+                                        onValueChange = { kiloCodeKey = it; kiloCodeTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingKiloCode = true
+                                            kiloCodeTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.KILOCODE, kiloCodeKey.trim()
+                                                )
+                                                kiloCodeTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingKiloCode = false
+                                            }
+                                        }} else null,
+                                        testResult = kiloCodeTestResult,
+                                        isTesting = isTestingKiloCode
                                     )
 
                                     // OpenCode
@@ -490,7 +559,20 @@ fun SettingsDialog(
                                         placeholder = "opencode_live_...",
                                         badge = "FREE",
                                         badgeColor = Color(0xFF38BDF8),
-                                        onValueChange = { openCodeKey = it }
+                                        onValueChange = { openCodeKey = it; openCodeTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingOpenCode = true
+                                            openCodeTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.OPENCODE, openCodeKey.trim()
+                                                )
+                                                openCodeTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingOpenCode = false
+                                            }
+                                        }} else null,
+                                        testResult = openCodeTestResult,
+                                        isTesting = isTestingOpenCode
                                     )
 
                                     // OpenRouter
@@ -500,7 +582,20 @@ fun SettingsDialog(
                                         placeholder = "sk-or-v1-...",
                                         badge = "MULTI-PROVIDER",
                                         badgeColor = AntigravityColors.NeonViolet,
-                                        onValueChange = { openRouterKey = it }
+                                        onValueChange = { openRouterKey = it; openRouterTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingOpenRouter = true
+                                            openRouterTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.OPENROUTER, openRouterKey.trim()
+                                                )
+                                                openRouterTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingOpenRouter = false
+                                            }
+                                        }} else null,
+                                        testResult = openRouterTestResult,
+                                        isTesting = isTestingOpenRouter
                                     )
 
                                     // Hugging Face
@@ -510,7 +605,20 @@ fun SettingsDialog(
                                         placeholder = "hf_...",
                                         badge = "COMMUNITY",
                                         badgeColor = Color(0xFFFFD21E),
-                                        onValueChange = { huggingFaceKey = it }
+                                        onValueChange = { huggingFaceKey = it; huggingFaceTestResult = null },
+                                        onTestKey = if (appRepository != null) {{
+                                            isTestingHuggingFace = true
+                                            huggingFaceTestResult = null
+                                            coroutineScope.launch {
+                                                val result = appRepository.validateGatewayKey(
+                                                    com.example.antigravity.model.ModelGateway.HUGGINGFACE, huggingFaceKey.trim()
+                                                )
+                                                huggingFaceTestResult = if (result.isSuccess) result.getOrNull() else "!${result.exceptionOrNull()?.message ?: "Validation failed"}"
+                                                isTestingHuggingFace = false
+                                            }
+                                        }} else null,
+                                        testResult = huggingFaceTestResult,
+                                        isTesting = isTestingHuggingFace
                                     )
 
                                     // Custom Gateway / Ollama
@@ -1705,7 +1813,10 @@ private fun GatewayKeyField(
     placeholder: String,
     badge: String,
     badgeColor: Color,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    onTestKey: (() -> Unit)? = null,
+    testResult: String? = null,
+    isTesting: Boolean = false
 ) {
     var showPassword by remember { mutableStateOf(false) }
 
@@ -1716,18 +1827,40 @@ private fun GatewayKeyField(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(label, fontSize = 11.sp, color = AntigravityColors.TextSecondary)
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = badgeColor.copy(alpha = 0.15f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.3f))
-            ) {
-                Text(
-                    text = badge,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = badgeColor,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onTestKey != null && value.isNotBlank()) {
+                    androidx.compose.material3.TextButton(
+                        onClick = onTestKey,
+                        enabled = !isTesting,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                        modifier = Modifier.height(20.dp)
+                    ) {
+                        if (isTesting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(10.dp),
+                                strokeWidth = 1.5.dp,
+                                color = badgeColor
+                            )
+                        } else {
+                            Icon(Icons.Default.CheckCircleOutline, contentDescription = null, tint = badgeColor, modifier = Modifier.size(10.dp))
+                        }
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(if (isTesting) "Testing..." else "Test", fontSize = 9.sp, color = badgeColor)
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = badgeColor.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = badge,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeColor,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
             }
         }
         OutlinedTextField(
@@ -1754,6 +1887,16 @@ private fun GatewayKeyField(
                 unfocusedBorderColor = AntigravityColors.CardBorder
             )
         )
+        if (testResult != null) {
+            val isError = testResult.startsWith("!")
+            Text(
+                text = testResult.removePrefix("!"),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (isError) Color(0xFFEF4444) else Color(0xFF10B981),
+                modifier = Modifier.padding(start = 2.dp)
+            )
+        }
     }
 }
 

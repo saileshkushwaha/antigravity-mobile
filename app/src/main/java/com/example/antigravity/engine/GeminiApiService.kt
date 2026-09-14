@@ -268,4 +268,30 @@ class GeminiApiService {
             Result.failure(e)
         }
     }
+
+    suspend fun validateApiKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
+            if (cleanKey.isBlank()) return@withContext Result.failure(Exception("API key is empty"))
+            val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey"
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: ""
+            if (response.isSuccessful) {
+                val json = JSONObject(body)
+                val count = json.optJSONArray("models")?.length() ?: 0
+                Result.success("Valid — $count models accessible")
+            } else {
+                val msg = when (response.code) {
+                    400 -> "Invalid API key format"
+                    401, 403 -> "API key rejected (HTTP ${response.code})"
+                    429 -> "Rate limited — key is valid but quota exceeded"
+                    else -> "HTTP ${response.code}"
+                }
+                Result.failure(Exception(msg))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
