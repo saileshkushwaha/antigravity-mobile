@@ -31,3 +31,23 @@
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 -keepattributes SourceFile,LineNumberTable
+
+# Keep app model classes for serialization
+-keep class com.example.antigravity.model.** { *; }
+-keep class com.example.antigravity.data.** { *; }
+
+# Keep enum entries for .entries usage
+-keepclassmembers enum * {
+    **[] $VALUES;
+    public * **();
+}
+
+# Keep Serializable data classes
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable <fields>;
+}
+
+# Prevent R8 from stripping interface information
+-keep,allowobfuscation,allowshrinking interface kotlinx.coroutines.flow.Flow
+-keep,allowobfuscation,allowshrinking interface kotlinx.coroutines.flow.StateFlow
+-keep,allowobfuscation,allowshrinking interface kotlinx.coroutines.flow.SharedFlow

@@ -30,6 +30,9 @@ class AppRepository {
     private val _isFetchingModels = MutableStateFlow(false)
     val isFetchingModels: StateFlow<Boolean> = _isFetchingModels.asStateFlow()
 
+    private val _modelFetchError = MutableStateFlow<String?>(null)
+    val modelFetchError: StateFlow<String?> = _modelFetchError.asStateFlow()
+
     private val _settings = MutableStateFlow(
         AppSettings(
             apiKey = "",
@@ -373,7 +376,7 @@ class AppRepository {
         }
     }
 
-    private val _workspaces = MutableStateFlow(createDefaultWorkspaces())
+    private val _workspaces by lazy { MutableStateFlow(createDefaultWorkspaces()) }
     val workspaces: StateFlow<List<ProjectWorkspace>> = _workspaces.asStateFlow()
 
     private val _activeWorkspace = MutableStateFlow(_workspaces.value.firstOrNull() ?: ProjectWorkspace(id = "default", name = "Default", path = java.io.File(java.io.File(System.getProperty("user.home") ?: "."), "workspaces").absolutePath))
@@ -813,9 +816,13 @@ class AppRepository {
             if (liveModels.isNotEmpty()) {
                 val merged = ModelCatalog.mergeModels(liveModels)
                 _models.value = merged
+                _modelFetchError.value = null
                 executeTerminalCommand("Auto-discovered ${liveModels.size} live models across provider gateways (Total catalog: ${merged.size})")
+            } else {
+                _modelFetchError.value = "No models discovered from configured gateways"
             }
         } catch (e: Exception) {
+            _modelFetchError.value = "Model discovery failed: ${e.message}"
             executeTerminalCommand("Model discovery exception: ${e.message}")
         } finally {
             _isFetchingModels.value = false

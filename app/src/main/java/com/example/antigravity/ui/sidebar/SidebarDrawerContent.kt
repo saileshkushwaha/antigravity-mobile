@@ -633,21 +633,21 @@ fun SidebarDrawerContent(
         }
 
         // 9. Section: RECENT CONVERSATIONS
-        if (conversations.isNotEmpty()) {
-            item {
-                HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "RECENT CONVERSATIONS",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AntigravityColors.TextMuted,
-                        modifier = Modifier.padding(start = 2.dp)
-                    )
+        item {
+            HorizontalDivider(color = AntigravityColors.DividerColor, modifier = Modifier.padding(vertical = 4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "RECENT CONVERSATIONS",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AntigravityColors.TextMuted,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+                if (conversations.isNotEmpty()) {
                     Text(
                         text = "${conversations.size}",
                         fontSize = 9.sp,
@@ -656,7 +656,50 @@ fun SidebarDrawerContent(
                     )
                 }
             }
+        }
 
+        if (conversations.isEmpty()) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AntigravityColors.SurfaceElevated,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.ChatBubbleOutline,
+                            contentDescription = null,
+                            tint = AntigravityColors.TextMuted,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "No conversations yet",
+                            fontSize = 11.sp,
+                            color = AntigravityColors.TextSecondary
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = AntigravityColors.ElectricCyan.copy(alpha = 0.15f),
+                            modifier = Modifier.clickable { onNewConversation() }
+                        ) {
+                            Text(
+                                text = "Start New Session",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AntigravityColors.ElectricCyan,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
             items(conversations, key = { it.id }) { conv ->
                 val isSelected = conv.id == activeConversationId
                 Surface(
