@@ -327,8 +327,15 @@ class OpenAiGatewayService {
             val response = client.newCall(requestBuilder.build()).execute()
             val body = response.body?.string() ?: ""
             if (response.isSuccessful) {
-                val json = JSONObject(body)
-                val count = json.optJSONArray("data")?.length() ?: json.optJSONArray("models")?.length() ?: 0
+                val trimmedBody = body.trim()
+                val count = try {
+                    if (trimmedBody.startsWith("[")) {
+                        org.json.JSONArray(trimmedBody).length()
+                    } else {
+                        val json = JSONObject(trimmedBody)
+                        json.optJSONArray("data")?.length() ?: json.optJSONArray("models")?.length() ?: 0
+                    }
+                } catch (_: Exception) { 0 }
                 Result.success("Valid — $count models via ${gateway.displayName}")
             } else {
                 val msg = when (response.code) {
