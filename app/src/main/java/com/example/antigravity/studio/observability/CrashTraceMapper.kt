@@ -66,7 +66,7 @@ object CrashTraceMapper {
 
         if (rootFrame != null) {
             val matchingFile = findFileInWorkspace(workspaceDir, rootFrame.fileName)
-            if (matchingFile != null && matchingFile.exists()) {
+            if (matchingFile != null && matchingFile.exists() && matchingFile.length() <= 1_000_000) {
                 val fileLines = matchingFile.readLines()
                 val targetLine = rootFrame.lineNumber
                 val start = (targetLine - 3).coerceAtLeast(1)
@@ -101,22 +101,23 @@ object CrashTraceMapper {
     }
 
     private fun findFileInWorkspace(dir: File, targetFileName: String): File? {
-        return findFileInWorkspace(dir, targetFileName, mutableSetOf())
-    }
-
-    private fun findFileInWorkspace(dir: File, targetFileName: String, visitedPaths: MutableSet<String>): File? {
         if (!dir.exists() || !dir.isDirectory) return null
-        val canonicalDir = runCatching { dir.canonicalFile }.getOrDefault(dir)
-        if (!visitedPaths.add(canonicalDir.path)) return null
-        val files = dir.listFiles() ?: return null
-        for (f in files) {
-            if (f.isDirectory) {
-                if (!f.name.startsWith(".") && f.name != "build") {
-                    val found = findFileInWorkspace(f, targetFileName, visitedPaths)
-                    if (found != null) return found
+        val queue = ArrayDeque<File>()
+        val visited = mutableSetOf<String>()
+        queue.addLast(dir)
+        while (queue.isNotEmpty()) {
+            val current = queue.removeFirst()
+            val canonical = runCatching { current.canonicalFile }.getOrDefault(current)
+            if (!visited.add(canonical.path)) continue
+            val files = current.listFiles() ?: continue
+            for (f in files) {
+                if (f.isDirectory) {
+                    if (!f.name.startsWith(".") && f.name != "build") {
+                        queue.addLast(f)
+                    }
+                } else if (f.name.equals(targetFileName, ignoreCase = true)) {
+                    return f
                 }
-            } else if (f.name.equals(targetFileName, ignoreCase = true)) {
-                return f
             }
         }
         return null

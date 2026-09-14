@@ -32,12 +32,19 @@ object GitDiffManager {
     /**
      * Computes line-by-line diff between original text and modified text using Longest Common Subsequence (LCS).
      */
+    private const val MAX_DIFF_LINES = 2000
+
     fun computeDiff(fileName: String, originalText: String, modifiedText: String): FileDiffResult {
         val originalLines = if (originalText.isEmpty()) emptyList() else originalText.lines()
         val modifiedLines = if (modifiedText.isEmpty()) emptyList() else modifiedText.lines()
 
         val n = originalLines.size
         val m = modifiedLines.size
+
+        // Guard against OOM on large files — LCS is O(n*m) memory
+        if (n > MAX_DIFF_LINES || m > MAX_DIFF_LINES) {
+            return FileDiffResult(fileName, emptyList(), 0, 0)
+        }
 
         // DP table for LCS
         val dp = Array(n + 1) { IntArray(m + 1) }

@@ -102,22 +102,24 @@ object ApiStudioManager {
             }
 
             val okResponse = httpClient.newCall(reqBuilder.build()).execute()
-            val latency = System.currentTimeMillis() - startTime
-            val respHeaders = mutableMapOf<String, String>()
-            for (i in 0 until okResponse.headers.size) {
-                respHeaders[okResponse.headers.name(i)] = okResponse.headers.value(i)
-            }
-            val respBody = okResponse.body?.string() ?: ""
+            okResponse.use { resp ->
+                val latency = System.currentTimeMillis() - startTime
+                val respHeaders = mutableMapOf<String, String>()
+                for (i in 0 until resp.headers.size) {
+                    respHeaders[resp.headers.name(i)] = resp.headers.value(i)
+                }
+                val respBody = resp.body?.string() ?: ""
 
-            ApiResponseResult(
-                statusCode = okResponse.code,
-                statusMessage = okResponse.message.ifEmpty { if (okResponse.isSuccessful) "OK" else "Error" },
-                headers = respHeaders,
-                body = formatJsonIfPossible(respBody),
-                latencyMs = latency,
-                timestamp = now,
-                isSuccess = okResponse.isSuccessful
-            )
+                ApiResponseResult(
+                    statusCode = resp.code,
+                    statusMessage = resp.message.ifEmpty { if (resp.isSuccessful) "OK" else "Error" },
+                    headers = respHeaders,
+                    body = formatJsonIfPossible(respBody),
+                    latencyMs = latency,
+                    timestamp = now,
+                    isSuccess = resp.isSuccessful
+                )
+            }
         } catch (e: Exception) {
             val latency = System.currentTimeMillis() - startTime
             ApiResponseResult(
@@ -297,7 +299,12 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
             val dir = File(workspaceDir, ".antigravity")
             dir.mkdirs()
             File(dir, "requests.json").writeText(arr.toString(2))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            com.example.antigravity.enterprise.EnterpriseAuditLogger.log(
+                category = com.example.antigravity.enterprise.AuditCategory.SDLC_OPERATION,
+                action = "API_SAVE_FAILED",
+                details = "Failed to save API requests: ${e.message}"
+            )
         }
     }
 

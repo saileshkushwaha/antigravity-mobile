@@ -52,7 +52,7 @@ fun ChatInputBar(
     var attachedFile by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
-    val voiceManager = remember { VoiceProgrammingManager(context) }
+    val voiceManager = remember(context) { VoiceProgrammingManager(context) }
     var isListening by remember { mutableStateOf(false) }
     var showPersonaChip by remember { mutableStateOf(!activePersonaName.isNullOrBlank()) }
 
