@@ -271,8 +271,8 @@ fun ChatCanvas(
                                             )
                                         }
                                     } else {
-                                        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                                            items(filteredDropdownModels, key = { "${it.gateway.name}_${it.providerName}_${it.id}" }) { model ->
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            filteredDropdownModels.forEach { model ->
                                                 val isSelected = model.id.equals(activeModelId, ignoreCase = true) ||
                                                         model.name.equals(activeModel, ignoreCase = true)
 
