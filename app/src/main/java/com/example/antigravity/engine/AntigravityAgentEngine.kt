@@ -20,6 +20,11 @@ class AntigravityAgentEngine(
     private val repository: AppRepository,
     private val scope: CoroutineScope
 ) {
+
+    companion object {
+        private const val MAX_PROMPT_SKILLS = 30
+    }
+
     private val demoEngine = AutonomousDemoEngine(repository)
     private val geminiService = GeminiApiService()
     private val openAiGatewayService = OpenAiGatewayService()
@@ -107,7 +112,7 @@ class AntigravityAgentEngine(
             ${persona.recommendedSkills.joinToString(", ")}
             
             Loaded & Enabled Platform Skills (${enabledSkills.size}):
-            ${enabledSkills.take(30).joinToString(", ")}${if (enabledSkills.size > 30) "... and ${enabledSkills.size - 30} more" else ""}
+            ${enabledSkills.take(MAX_PROMPT_SKILLS).joinToString(", ")}${if (enabledSkills.size > MAX_PROMPT_SKILLS) "... and ${enabledSkills.size - MAX_PROMPT_SKILLS} more" else ""}
         """.trimIndent()
     }
 

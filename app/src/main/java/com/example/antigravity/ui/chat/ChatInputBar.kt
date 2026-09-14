@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.antigravity.model.MentionItem
 import com.example.antigravity.model.SlashCommand
 import com.example.antigravity.studio.voice.VoiceProgrammingManager
@@ -422,12 +424,23 @@ fun ChatInputBar(
             )
 
             // Voice Dictation / Programming Button (Phase 3)
+            var hasVoicePermission by remember { mutableStateOf(
+                androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) }
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                hasVoicePermission = granted
+                if (granted) voiceManager.startListening()
+            }
             IconButton(
                 onClick = {
                     if (isListening) {
                         voiceManager.stopListening()
-                    } else {
+                    } else if (hasVoicePermission) {
                         voiceManager.startListening()
+                    } else {
+                        permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
                     }
                 },
                 modifier = Modifier

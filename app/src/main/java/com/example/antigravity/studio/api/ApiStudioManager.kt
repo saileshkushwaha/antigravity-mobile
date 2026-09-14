@@ -58,11 +58,39 @@ object ApiStudioManager {
         return emptyList()
     }
 
+    private fun isUrlSafe(urlString: String): Boolean {
+        return try {
+            val url = java.net.URL(urlString)
+            val host = url.host?.lowercase() ?: return false
+            // Block private/loopback IP ranges
+            if (host == "localhost" || host == "127.0.0.1" || host == "::1") return false
+            if (host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("172.")) return false
+            // Block metadata endpoints
+            if (host == "169.254.169.254") return false
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     suspend fun executeRequest(request: ApiRequestItem): ApiResponseResult = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
 
         try {
+            // SSRF protection: validate URL is not targeting internal network
+            if (!isUrlSafe(request.url)) {
+                return@withContext ApiResponseResult(
+                    statusCode = 0,
+                    statusMessage = "Error: Request blocked — URL targets internal network (SSRF protection)",
+                    headers = emptyMap(),
+                    body = "",
+                    latencyMs = 0,
+                    timestamp = now,
+                    isSuccess = false
+                )
+            }
+
             // Build URL with query params
             val urlBuilder = request.url.toHttpUrlOrNull()?.newBuilder()
             if (urlBuilder != null) {

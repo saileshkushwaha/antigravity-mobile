@@ -35,10 +35,24 @@ import com.example.antigravity.security.BiometricAuthManager
 import com.example.antigravity.security.BiometricHardwareStatus
 import com.example.antigravity.theme.AntigravityColors
 
-private fun hashPin(pin: String): String {
-    return MessageDigest.getInstance("SHA-256")
-        .digest(pin.toByteArray())
-        .joinToString("") { "%02x".format(it) }
+private const val PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256"
+private const val PBKDF2_ITERATIONS = 100_000
+private const val PBKDF2_SALT_LENGTH = 16
+private const val PIN_PREFS_KEY = "enclave_pin_hash"
+private const val PIN_SALT_KEY = "enclave_pin_salt"
+
+private fun generateSalt(): ByteArray {
+    val secureRandom = java.security.SecureRandom()
+    val salt = ByteArray(PBKDF2_SALT_LENGTH)
+    secureRandom.nextBytes(salt)
+    return salt
+}
+
+private fun hashPin(pin: String, salt: ByteArray): String {
+    val factory = javax.crypto.SecretKeyFactory.getInstance(PBKDF2_ALGORITHM)
+    val spec = javax.crypto.spec.PBEKeySpec(pin.toCharArray(), salt, PBKDF2_ITERATIONS, 256)
+    val secret = factory.generateSecret(spec)
+    return secret.encoded.joinToString("") { "%02x".format(it) }
 }
 
 @Composable
@@ -57,7 +71,14 @@ fun BiometricLockScreen(
         context.getSharedPreferences("antigravity_security_prefs", android.content.Context.MODE_PRIVATE)
     }
     var enrolledPin by remember {
-        mutableStateOf(sharedPrefs.getString("enclave_pin_hash", null))
+        mutableStateOf(sharedPrefs.getString(PIN_PREFS_KEY, null))
+    }
+    val pinSalt by remember {
+        val storedSalt = sharedPrefs.getString(PIN_SALT_KEY, null)
+        mutableStateOf(
+            if (storedSalt != null) android.util.Base64.decode(storedSalt, android.util.Base64.DEFAULT)
+            else null
+        )
     }
 
     var showPinDialog by remember { mutableStateOf(false) }
@@ -536,13 +557,18 @@ fun BiometricLockScreen(
                             } else if (enteredPin != confirmPin) {
                                 pinErrorText = "PINs do not match"
                             } else {
-                                sharedPrefs.edit { putString("enclave_pin_hash", hashPin(enteredPin)) }
-                                enrolledPin = hashPin(enteredPin)
+                                val salt = generateSalt()
+                                val hashedPin = hashPin(enteredPin, salt)
+                                sharedPrefs.edit {
+                                    putString(PIN_PREFS_KEY, hashedPin)
+                                    putString(PIN_SALT_KEY, android.util.Base64.encodeToString(salt, android.util.Base64.DEFAULT))
+                                }
+                                enrolledPin = hashedPin
                                 showPinDialog = false
                                 onUnlock()
                             }
                         } else {
-                            if (enrolledPin != null && hashPin(enteredPin) == enrolledPin) {
+                            if (enrolledPin != null && pinSalt != null && hashPin(enteredPin, pinSalt!!) == enrolledPin) {
                                 showPinDialog = false
                                 onUnlock()
                             } else {

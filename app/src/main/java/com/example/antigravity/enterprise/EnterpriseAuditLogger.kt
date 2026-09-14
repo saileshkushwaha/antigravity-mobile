@@ -38,6 +38,8 @@ data class AuditEvent(
 
 object EnterpriseAuditLogger {
 
+    private const val MAX_AUDIT_EVENTS = 500
+
     private val _events = MutableStateFlow<List<AuditEvent>>(emptyList())
     val events: StateFlow<List<AuditEvent>> = _events.asStateFlow()
 
@@ -55,7 +57,7 @@ object EnterpriseAuditLogger {
             details = details,
             severity = severity
         )
-        _events.value = listOf(newEvent) + _events.value.take(499)
+        _events.value = listOf(newEvent) + _events.value.take(MAX_AUDIT_EVENTS)
         sqlEngineRef?.recordAgentAudit(
             agentName = category.name,
             actionTaken = action,

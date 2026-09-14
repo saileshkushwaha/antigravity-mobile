@@ -88,16 +88,41 @@ object CloudSandboxService {
                     } else {
                         listOf("sh", "-c", command)
                     })
-                    .redirectErrorStream(true)
+                    .redirectErrorStream(false)
                     .start()
 
-                val reader = process.inputStream.bufferedReader()
-                var line: String? = reader.readLine()
-                while (line != null) {
-                    lines.add(line)
-                    onOutputLine?.invoke(line)
-                    line = reader.readLine()
+                // Read stdout on a separate thread to prevent buffer deadlock
+                val stdoutThread = Thread {
+                    try {
+                        val reader = process.inputStream.bufferedReader()
+                        var line: String? = reader.readLine()
+                        while (line != null) {
+                            synchronized(lines) { lines.add(line) }
+                            onOutputLine?.invoke(line)
+                            line = reader.readLine()
+                        }
+                    } catch (_: Exception) {}
                 }
+                stdoutThread.isDaemon = true
+                stdoutThread.start()
+
+                // Read stderr on a separate thread
+                val stderrThread = Thread {
+                    try {
+                        val reader = process.errorStream.bufferedReader()
+                        var line: String? = reader.readLine()
+                        while (line != null) {
+                            synchronized(lines) { lines.add("[STDERR] $line") }
+                            onOutputLine?.invoke("[STDERR] $line")
+                            line = reader.readLine()
+                        }
+                    } catch (_: Exception) {}
+                }
+                stderrThread.isDaemon = true
+                stderrThread.start()
+
+                stdoutThread.join()
+                stderrThread.join()
                 val finished = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                     process.waitFor(config.timeoutSeconds.toLong(), TimeUnit.SECONDS)
                 } else {

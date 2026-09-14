@@ -17,6 +17,10 @@ import java.util.UUID
 
 class AppRepository {
 
+    companion object {
+        const val MAX_DEFAULT_WORKSPACES = 6
+    }
+
     private val geminiService = GeminiApiService()
     private val openAiGatewayService = OpenAiGatewayService()
 
@@ -359,7 +363,7 @@ class AppRepository {
                                 )
                             )
                             wsIndex++
-                            if (wsIndex > 6) break
+                            if (wsIndex > MAX_DEFAULT_WORKSPACES) break
                         }
                     }
                 }
@@ -799,9 +803,8 @@ class AppRepository {
                     })
                 }
 
-                deferreds.forEach { job ->
+                deferreds.awaitAll().forEach { result ->
                     try {
-                        val result = job.await()
                         liveModels.addAll(result)
                     } catch (_: Exception) {}
                 }
