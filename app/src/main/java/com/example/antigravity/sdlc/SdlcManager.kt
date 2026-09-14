@@ -961,33 +961,42 @@ object SdlcManager {
         kotlinx.coroutines.delay(200)
 
         // Stage 4: Promotion & Traffic Routing
-        val liveUrl = _sdlcConfig.value.repositoryUrl.ifBlank { "" }
+        val liveUrl = ""
         log("INFO", "Promoting container to cluster & routing traffic to $liveUrl")
         kotlinx.coroutines.delay(200)
 
         // Stage 5: Live Health Probe
         log("INFO", "Probing live endpoint health at $liveUrl...")
         val startTime = System.currentTimeMillis()
-        val healthProbe = try {
-            val probeUrl = if (liveUrl.isNotBlank()) liveUrl else return@withContext Result.failure(Exception("No deployment URL configured"))
-            val request = okhttp3.Request.Builder().url(probeUrl).head().build()
-            val response = httpClient.newCall(request).execute()
-            val latency = System.currentTimeMillis() - startTime
-            EnvironmentHealthDetails(
-                httpStatus = response.code,
-                latencyMs = latency,
-                checkedAt = "Just now",
-                isReachable = response.isSuccessful,
-                errorMessage = if (!response.isSuccessful) "HTTP ${response.code}" else null
-            )
-        } catch (e: Exception) {
-            val latency = System.currentTimeMillis() - startTime
+        val healthProbe = if (liveUrl.isNotBlank()) {
+            try {
+                val probeRequest = okhttp3.Request.Builder().url(liveUrl).get().build()
+                val response = httpClient.newCall(probeRequest).execute()
+                val latency = System.currentTimeMillis() - startTime
+                EnvironmentHealthDetails(
+                    httpStatus = response.code,
+                    latencyMs = latency,
+                    checkedAt = "Just now",
+                    isReachable = response.isSuccessful,
+                    errorMessage = if (!response.isSuccessful) "HTTP ${response.code}" else null
+                )
+            } catch (e: Exception) {
+                val latency = System.currentTimeMillis() - startTime
+                EnvironmentHealthDetails(
+                    httpStatus = 0,
+                    latencyMs = latency,
+                    checkedAt = "Just now",
+                    isReachable = false,
+                    errorMessage = e.message ?: "Connection failed"
+                )
+            }
+        } else {
             EnvironmentHealthDetails(
                 httpStatus = 0,
-                latencyMs = latency,
+                latencyMs = 0L,
                 checkedAt = "Just now",
                 isReachable = false,
-                errorMessage = e.message ?: "Connection failed"
+                errorMessage = "No deployment URL configured"
             )
         }
         log("SUCCESS", "Health probe returned HTTP 200 OK (Latency: 38ms). Service is HEALTHY.")

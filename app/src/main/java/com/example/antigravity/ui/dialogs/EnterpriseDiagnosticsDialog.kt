@@ -139,7 +139,8 @@ fun EnterpriseDiagnosticsDialog(
                 ) {
                     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("ENTERPRISE SECURITY POSTURE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
-                        val isSandboxEnabled = com.example.antigravity.data.AppSettings().terminalSandbox
+                        val settings = com.example.antigravity.data.AppRepository.settings.value
+                        val isSandboxEnabled = settings.terminalSandbox
                         SecurityStatusRow("Sandbox Execution Container", if (isSandboxEnabled) "ENFORCED" else "DISABLED", if (isSandboxEnabled) AntigravityColors.StatusSuccess else AntigravityColors.StatusWarning)
                         SecurityStatusRow("Destructive Commands Denylist", "ACTIVE", AntigravityColors.StatusSuccess)
                         val activeWorkspace = com.example.antigravity.data.AppRepository.activeWorkspace.value

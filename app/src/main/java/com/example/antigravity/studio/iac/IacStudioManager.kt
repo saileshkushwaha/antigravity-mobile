@@ -142,7 +142,7 @@ services:
     environment:
       - POSTGRES_DB=antigravity
       - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=$${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
