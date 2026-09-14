@@ -535,7 +535,7 @@ fun BiometricLockScreen(
                                 onUnlock()
                             }
                         } else {
-                            if (enteredPin == enrolledPin || (enrolledPin == null && enteredPin == "0000")) {
+                            if (enrolledPin != null && enteredPin == enrolledPin) {
                                 showPinDialog = false
                                 onUnlock()
                             } else {

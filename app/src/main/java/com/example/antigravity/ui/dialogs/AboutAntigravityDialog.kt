@@ -68,7 +68,7 @@ fun AboutAntigravityDialog(
                     border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.4f))
                 ) {
                     Text(
-                        text = "Enterprise Edition • v2.4.0",
+                        text = "Enterprise Edition \u2022 v${com.example.antigravity.BuildConfig.VERSION_NAME}",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = AntigravityColors.ElectricCyan,

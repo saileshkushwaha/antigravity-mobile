@@ -244,7 +244,7 @@ fun LandingScreen(
                         border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.ElectricCyan.copy(alpha = 0.4f))
                     ) {
                         Text(
-                            text = "v2.5.0 ENTERPRISE",
+                            text = "v${com.example.antigravity.BuildConfig.VERSION_NAME} ENTERPRISE",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = AntigravityColors.ElectricCyan,

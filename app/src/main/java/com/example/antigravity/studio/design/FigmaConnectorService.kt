@@ -61,31 +61,10 @@ object FigmaConnectorService {
             return@withContext Result.failure(IllegalArgumentException("Figma File Key is required."))
         }
 
-        // Demo / offline mode fallback
+        // Require valid Figma credentials
         if (fileKey == "sample-design-file" || personalAccessToken.isBlank()) {
-            val sampleStyles = listOf(
-                FigmaStyleItem("Primary Brand", "#00E5FF"),
-                FigmaStyleItem("Secondary Accent", "#BB86FC"),
-                FigmaStyleItem("Surface Dark", "#1E293B"),
-                FigmaStyleItem("Success Emerald", "#10B981")
-            )
-            val demoTokens = DesignTokens(
-                primaryColorHex = "#00E5FF",
-                secondaryColorHex = "#BB86FC",
-                surfaceColorHex = "#1E293B",
-                cornerRadiusDp = 12,
-                headerFontSizeSp = 18,
-                bodyFontSizeSp = 13,
-                elevationDp = 4
-            )
-            return@withContext Result.success(
-                FigmaExtractResult(
-                    documentName = if (fileKey == "sample-design-file") "Antigravity Mobile Design System (Figma)" else "Document $fileKey",
-                    lastModified = "Today at 18:30 UTC",
-                    stylesExtractedCount = sampleStyles.size,
-                    extractedStyles = sampleStyles,
-                    tokens = demoTokens
-                )
+            return@withContext Result.failure(
+                IllegalArgumentException("Figma Personal Access Token is required. Please configure your token in Settings > API Keys.")
             )
         }
 

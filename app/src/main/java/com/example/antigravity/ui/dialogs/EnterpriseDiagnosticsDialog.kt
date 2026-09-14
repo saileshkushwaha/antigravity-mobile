@@ -139,9 +139,12 @@ fun EnterpriseDiagnosticsDialog(
                 ) {
                     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("ENTERPRISE SECURITY POSTURE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
-                        SecurityStatusRow("Sandbox Execution Container", "ENFORCED", AntigravityColors.StatusSuccess)
+                        val isSandboxEnabled = com.example.antigravity.data.AppSettings().terminalSandbox
+                        SecurityStatusRow("Sandbox Execution Container", if (isSandboxEnabled) "ENFORCED" else "DISABLED", if (isSandboxEnabled) AntigravityColors.StatusSuccess else AntigravityColors.StatusWarning)
                         SecurityStatusRow("Destructive Commands Denylist", "ACTIVE", AntigravityColors.StatusSuccess)
-                        SecurityStatusRow("Workspace Root Confinement", "SECURED", AntigravityColors.StatusSuccess)
+                        val activeWorkspace = com.example.antigravity.data.AppRepository.activeWorkspace.value
+                        val isConfinement = activeWorkspace?.path?.contains("/storage/") == true || activeWorkspace?.path?.contains("/data/") == true
+                        SecurityStatusRow("Workspace Root Confinement", if (isConfinement) "SECURED" else "UNCONFIRMED", if (isConfinement) AntigravityColors.StatusSuccess else AntigravityColors.StatusWarning)
                         SecurityStatusRow("Credential Masking", "COMPLIANT", AntigravityColors.StatusSuccess)
                     }
                 }

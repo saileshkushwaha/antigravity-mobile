@@ -435,7 +435,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: "kilo/qwen-2.5-coder-32b",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
             ModelGateway.OPENCODE -> {
@@ -446,7 +447,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: "opencode/deepseek-coder-v2-lite",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
             ModelGateway.OPENROUTER -> {
@@ -461,7 +463,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: "meta-llama/llama-3.3-70b-instruct:free",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
             ModelGateway.GROQ -> {
@@ -476,7 +479,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: "llama-3.3-70b-versatile",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
             ModelGateway.OPENAI -> {
@@ -492,7 +496,8 @@ class AntigravityAgentEngine(
                         modelId = modelInfo?.id ?: "gpt-4o",
                         prompt = prompt,
                         systemInstruction = sysInstruction,
-                        history = previousMessages
+                        history = previousMessages,
+                        temperature = settings.temperature
                     )
                 } else {
                     Result.failure(Exception("OpenAI API key is required. Please add your key in Settings -> Model Gateways."))
@@ -505,7 +510,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: "llama3.3:latest",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
             ModelGateway.HUGGINGFACE -> {
@@ -520,7 +526,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
             ModelGateway.CUSTOM -> {
@@ -542,7 +549,8 @@ class AntigravityAgentEngine(
                     modelId = modelInfo?.id ?: settings.activeModelId,
                     prompt = prompt,
                     systemInstruction = sysInstruction,
-                    history = previousMessages
+                    history = previousMessages,
+                    temperature = settings.temperature
                 )
             }
         }

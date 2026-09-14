@@ -45,7 +45,7 @@ fun ResearchHubScreen(
     val researchService = remember { ResearchService() }
     val crawlerService = remember { WebCrawlerService() }
 
-    var searchQuery by remember { mutableStateOf("Autonomous LLM Agents") }
+    var searchQuery by remember { mutableStateOf("") }
     var selectedSourceIndex by remember { mutableIntStateOf(0) } // 0: All, 1: arXiv, 2: PubMed, 3: Web Crawler
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }

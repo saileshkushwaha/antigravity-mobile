@@ -39,6 +39,8 @@ data class SandboxExecutionResult(
     val runnerType: SandboxRunnerType
 )
 
+class SandboxExecutionException(message: String, val result: SandboxExecutionResult) : Exception(message)
+
 /**
  * Cloud Sandbox & Remote Execution Bridge.
  * Allows mobile developers to dispatch heavy compilation and test commands
@@ -121,19 +123,16 @@ object CloudSandboxService {
                     )
                 )
             } catch (e: Exception) {
-                // Fallback simulation when direct host sub-processes are restricted by sandbox
                 val duration = System.currentTimeMillis() - startTime
-                val simulatedMsg = "Executed '$command' via mobile execution bridge.\nResult: Clean verification."
-                onOutputLine?.invoke(simulatedMsg)
-                Result.success(
-                    SandboxExecutionResult(
-                        exitCode = 0,
-                        stdout = simulatedMsg,
-                        stderr = "",
-                        durationMs = duration,
-                        runnerType = SandboxRunnerType.LOCAL_FALLBACK
-                    )
-                )
+                val errorMsg = "Command execution failed: ${e.message ?: "Unknown error"}"
+                onOutputLine?.invoke(errorMsg)
+                Result.failure(SandboxExecutionException(errorMsg, SandboxExecutionResult(
+                    exitCode = 1,
+                    stdout = "",
+                    stderr = errorMsg,
+                    durationMs = duration,
+                    runnerType = SandboxRunnerType.LOCAL_FALLBACK
+                )))
             }
         }
 

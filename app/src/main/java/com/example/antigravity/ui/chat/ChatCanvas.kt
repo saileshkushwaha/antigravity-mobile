@@ -402,7 +402,7 @@ fun ChatCanvas(
                                                     color = AntigravityColors.NeonViolet
                                                 )
                                                 Text(
-                                                    text = "All 100+ models, specs & custom providers",
+                                                    text = "${models.size} models, specs & custom providers",
                                                     fontSize = 10.sp,
                                                     color = AntigravityColors.TextSecondary
                                                 )

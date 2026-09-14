@@ -349,7 +349,7 @@ fun ChatInputBar(
                 }
             }
 
-            items(listOf("/goal", "/schedule", "/grill-me", "/boost", "@files")) { chip ->
+            items(slashCommands.take(4).map { it.name } + mentionItems.take(1).map { it.name }) { chip ->
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = AntigravityColors.CardBackground,

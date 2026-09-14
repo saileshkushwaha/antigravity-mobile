@@ -104,7 +104,7 @@ fun PersonaSelectionDialog(
                                     color = AntigravityColors.VioletNebula.copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = "${PersonaCatalog.allPersonas.size} ROLES",
+                                        text = "${personas.size} ROLES",
                                         color = AntigravityColors.VioletNebula,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,

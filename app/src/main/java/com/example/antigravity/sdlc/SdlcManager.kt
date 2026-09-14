@@ -35,103 +35,11 @@ object SdlcManager {
     val lastSyncTimestamp: StateFlow<String> = _lastSyncTimestamp.asStateFlow()
 
     // --- Deployments ---
-    private val _deployments = MutableStateFlow<List<DeploymentRecord>>(
-        listOf(
-            DeploymentRecord(
-                id = "dep-prod-240",
-                environment = EnvironmentType.PRODUCTION,
-                versionTag = "v2.4.0",
-                commitHash = "7403b1e",
-                deployedBy = "system",
-                timestamp = "Today at 00:04",
-                status = DeploymentStatus.DEPLOYED,
-                healthStatus = HealthStatus.HEALTHY,
-                liveUrl = "https://app.production.internal",
-                rollbackVersion = "v2.3.9"
-            ),
-            DeploymentRecord(
-                id = "dep-stage-241",
-                environment = EnvironmentType.STAGING,
-                versionTag = "v2.4.1-rc1",
-                commitHash = "e23b3c4",
-                deployedBy = "automated-pipeline",
-                timestamp = "Today at 00:10",
-                status = DeploymentStatus.DEPLOYED,
-                healthStatus = HealthStatus.HEALTHY,
-                liveUrl = "https://staging.app.internal",
-                rollbackVersion = "v2.4.0"
-            ),
-            DeploymentRecord(
-                id = "dep-dev-latest",
-                environment = EnvironmentType.DEVELOPMENT,
-                versionTag = "v2.5.0-dev",
-                commitHash = "HEAD",
-                deployedBy = "local-runner",
-                timestamp = "15 mins ago",
-                status = DeploymentStatus.DEPLOYED,
-                healthStatus = HealthStatus.HEALTHY,
-                liveUrl = "http://localhost:8080",
-                rollbackVersion = null
-            )
-        )
-    )
+    private val _deployments = MutableStateFlow<List<DeploymentRecord>>(emptyList())
     val deployments: StateFlow<List<DeploymentRecord>> = _deployments.asStateFlow()
 
     // --- Integration Tools Hub ---
-    private val _integrationTools = MutableStateFlow<List<IntegrationTool>>(
-        listOf(
-            IntegrationTool(
-                id = "tool-github-actions",
-                name = "GitHub Actions",
-                category = IntegrationCategory.CI_CD,
-                description = "Automated APK build, test matrix, and release packaging workflow",
-                state = ConnectionState.CONNECTED,
-                webhookUrl = "https://api.github.com/repos/{owner}/{repo}/dispatches",
-                lastPingStatus = "200 OK - Active Runner",
-                lastSyncTime = "3m ago"
-            ),
-            IntegrationTool(
-                id = "tool-slack-alerts",
-                name = "Slack Notifications",
-                category = IntegrationCategory.COMMUNICATION,
-                description = "Post build summaries, deployment gates, and PR approvals to #dev-alerts",
-                state = ConnectionState.CONNECTED,
-                webhookUrl = "https://hooks.slack.com/services/T00/B00/XXXXX",
-                lastPingStatus = "200 OK - Verified",
-                lastSyncTime = "12m ago"
-            ),
-            IntegrationTool(
-                id = "tool-jira",
-                name = "Jira Software",
-                category = IntegrationCategory.ISSUE_TRACKING,
-                description = "Bi-directional sync between Antigravity agent tasks and Jira tickets",
-                state = ConnectionState.DISCONNECTED,
-                webhookUrl = "https://company.atlassian.net/rest/api/3/webhook",
-                lastPingStatus = "Disconnected",
-                lastSyncTime = "Never"
-            ),
-            IntegrationTool(
-                id = "tool-sentry",
-                name = "Sentry Error Tracking",
-                category = IntegrationCategory.OBSERVABILITY,
-                description = "Real-time crash reporting and ANR telemetry for Android clients",
-                state = ConnectionState.CONNECTED,
-                webhookUrl = "https://o0.ingest.sentry.io/api/000000/envelope/",
-                lastPingStatus = "Telemetry Active",
-                lastSyncTime = "1m ago"
-            ),
-            IntegrationTool(
-                id = "tool-sonarqube",
-                name = "SonarQube & SAIF",
-                category = IntegrationCategory.CODE_QUALITY,
-                description = "Static analysis, SAIF security policy compliance, and test coverage gating",
-                state = ConnectionState.CONNECTED,
-                webhookUrl = "https://sonarqube.internal/api/ce/task",
-                lastPingStatus = "Quality Gate: Passed",
-                lastSyncTime = "25m ago"
-            )
-        )
-    )
+    private val _integrationTools = MutableStateFlow<List<IntegrationTool>>(emptyList())
     val integrationTools: StateFlow<List<IntegrationTool>> = _integrationTools.asStateFlow()
 
     // --- Customizable SDLC Configuration ---
@@ -145,7 +53,7 @@ object SdlcManager {
     private val _discoveredRepositories = MutableStateFlow<List<GitHubRepositoryInfo>>(emptyList())
     val discoveredRepositories: StateFlow<List<GitHubRepositoryInfo>> = _discoveredRepositories.asStateFlow()
 
-    private val _availableBranches = MutableStateFlow<List<String>>(listOf("main"))
+    private val _availableBranches = MutableStateFlow<List<String>>(emptyList())
     val availableBranches: StateFlow<List<String>> = _availableBranches.asStateFlow()
 
     private val _isFetchingRepos = MutableStateFlow(false)
@@ -385,8 +293,8 @@ object SdlcManager {
             status = PrStatus.OPEN,
             reviewStatus = PrReviewStatus.REVIEW_REQUIRED,
             ciStatus = CiStatus.RUNNING,
-            additions = 15,
-            deletions = 2,
+            additions = 0,
+            deletions = 0,
             createdAt = "Just now",
             commentsCount = 0
         )
@@ -991,12 +899,7 @@ object SdlcManager {
             timestamp = "Just now",
             status = DeploymentStatus.DEPLOYED,
             healthStatus = HealthStatus.HEALTHY,
-            liveUrl = when (environment) {
-                EnvironmentType.PRODUCTION -> "https://app.production.internal"
-                EnvironmentType.STAGING -> "https://staging.app.internal"
-                EnvironmentType.DEVELOPMENT -> "http://localhost:8080"
-                EnvironmentType.CANARY -> "https://canary.app.internal"
-            },
+            liveUrl = "",
             rollbackVersion = currentActive?.versionTag
         )
         _deployments.update { list ->
@@ -1058,24 +961,35 @@ object SdlcManager {
         kotlinx.coroutines.delay(200)
 
         // Stage 4: Promotion & Traffic Routing
-        val liveUrl = when (environment) {
-            EnvironmentType.PRODUCTION -> "https://antigravity.production.internal"
-            EnvironmentType.STAGING -> "https://staging.antigravity.internal"
-            EnvironmentType.DEVELOPMENT -> "http://localhost:8080"
-            EnvironmentType.CANARY -> "https://canary.antigravity.internal"
-        }
+        val liveUrl = _sdlcConfig.value.repositoryUrl.ifBlank { "" }
         log("INFO", "Promoting container to cluster & routing traffic to $liveUrl")
         kotlinx.coroutines.delay(200)
 
         // Stage 5: Live Health Probe
         log("INFO", "Probing live endpoint health at $liveUrl...")
-        val healthProbe = EnvironmentHealthDetails(
-            httpStatus = 200,
-            latencyMs = 38L,
-            checkedAt = "Just now",
-            isReachable = true,
-            errorMessage = null
-        )
+        val startTime = System.currentTimeMillis()
+        val healthProbe = try {
+            val probeUrl = if (liveUrl.isNotBlank()) liveUrl else return@withContext Result.failure(Exception("No deployment URL configured"))
+            val request = okhttp3.Request.Builder().url(probeUrl).head().build()
+            val response = httpClient.newCall(request).execute()
+            val latency = System.currentTimeMillis() - startTime
+            EnvironmentHealthDetails(
+                httpStatus = response.code,
+                latencyMs = latency,
+                checkedAt = "Just now",
+                isReachable = response.isSuccessful,
+                errorMessage = if (!response.isSuccessful) "HTTP ${response.code}" else null
+            )
+        } catch (e: Exception) {
+            val latency = System.currentTimeMillis() - startTime
+            EnvironmentHealthDetails(
+                httpStatus = 0,
+                latencyMs = latency,
+                checkedAt = "Just now",
+                isReachable = false,
+                errorMessage = e.message ?: "Connection failed"
+            )
+        }
         log("SUCCESS", "Health probe returned HTTP 200 OK (Latency: 38ms). Service is HEALTHY.")
         log("SUCCESS", "Deployment of $versionTag to ${environment.displayName} completed successfully.")
 
@@ -1218,14 +1132,32 @@ object SdlcManager {
     }
 
     fun testPingIntegration(toolId: String): String {
-        var resultMsg = "Connection check completed (Verified)"
+        var resultMsg = "Connection check completed"
         _integrationTools.update { list ->
             list.map { tool ->
                 if (tool.id == toolId) {
-                    resultMsg = "Ping to ${tool.name} succeeded (Latency: 38ms)"
+                    val startTime = System.currentTimeMillis()
+                    val isReachable = try {
+                        val url = java.net.URL(tool.webhookUrl)
+                        val conn = url.openConnection() as java.net.HttpURLConnection
+                        conn.connectTimeout = 5000
+                        conn.requestMethod = "HEAD"
+                        conn.connect()
+                        val code = conn.responseCode
+                        conn.disconnect()
+                        code in 200..299
+                    } catch (e: Exception) {
+                        false
+                    }
+                    val latency = System.currentTimeMillis() - startTime
+                    resultMsg = if (isReachable) {
+                        "Ping to ${tool.name} succeeded (Latency: ${latency}ms)"
+                    } else {
+                        "Ping to ${tool.name} failed"
+                    }
                     tool.copy(
-                        state = ConnectionState.CONNECTED,
-                        lastPingStatus = "200 OK - Verified",
+                        state = if (isReachable) ConnectionState.CONNECTED else ConnectionState.DISCONNECTED,
+                        lastPingStatus = if (isReachable) "200 OK" else "Unreachable",
                         lastSyncTime = "Just now"
                     )
                 } else tool

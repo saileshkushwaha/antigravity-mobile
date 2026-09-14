@@ -38,22 +38,7 @@ data class AuditEvent(
 
 object EnterpriseAuditLogger {
 
-    private val _events = MutableStateFlow<List<AuditEvent>>(
-        listOf(
-            AuditEvent(
-                category = AuditCategory.SECURITY_POLICY,
-                action = "WORKSPACE_INITIALIZED",
-                details = "Enterprise Sandbox container active. Dynamic workspace environment initialized.",
-                severity = AuditSeverity.INFO
-            ),
-            AuditEvent(
-                category = AuditCategory.SECURITY_POLICY,
-                action = "ALLOWLIST_ENFORCED",
-                details = "Destructive commands (rm -rf, mkfs, DROP) actively restricted.",
-                severity = AuditSeverity.INFO
-            )
-        )
-    )
+    private val _events = MutableStateFlow<List<AuditEvent>>(emptyList())
     val events: StateFlow<List<AuditEvent>> = _events.asStateFlow()
 
     var sqlEngineRef: com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = null

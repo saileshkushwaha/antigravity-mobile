@@ -29,7 +29,8 @@ class OpenAiGatewayService {
         modelId: String,
         prompt: String,
         systemInstruction: String? = null,
-        history: List<ChatMessage> = emptyList()
+        history: List<ChatMessage> = emptyList(),
+        temperature: Float = 0.7f
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
@@ -72,7 +73,7 @@ class OpenAiGatewayService {
             val requestJson = JSONObject().apply {
                 put("model", modelId)
                 put("messages", messagesArray)
-                put("temperature", 0.7)
+                put("temperature", temperature.toDouble())
             }
 
             val body = requestJson.toString().toRequestBody("application/json".toMediaType())

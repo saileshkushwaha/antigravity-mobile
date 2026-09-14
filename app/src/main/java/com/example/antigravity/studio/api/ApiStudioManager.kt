@@ -55,31 +55,7 @@ object ApiStudioManager {
         .build()
 
     fun getSampleRequests(): List<ApiRequestItem> {
-        return listOf(
-            ApiRequestItem(
-                id = "req-1",
-                name = "GitHub Zen",
-                method = HttpMethod.GET,
-                url = "https://api.github.com/zen",
-                headers = mapOf("User-Agent" to "Antigravity-Mobile-Studio")
-            ),
-            ApiRequestItem(
-                id = "req-2",
-                name = "Create Issue (Mock)",
-                method = HttpMethod.POST,
-                url = "https://api.example.com/v1/issues",
-                headers = mapOf("Content-Type" to "application/json"),
-                body = """{"title": "Bug in login flow", "severity": "HIGH", "assignee": "alex"}"""
-            ),
-            ApiRequestItem(
-                id = "req-3",
-                name = "Fetch User Profile",
-                method = HttpMethod.GET,
-                url = "https://api.example.com/v1/users/me",
-                headers = mapOf("Accept" to "application/json"),
-                bearerToken = "test_bearer_token"
-            )
-        )
+        return emptyList()
     }
 
     suspend fun executeRequest(request: ApiRequestItem): ApiResponseResult = withContext(Dispatchers.IO) {

@@ -403,17 +403,17 @@ class AppRepository {
 
     private val _mcpServers = MutableStateFlow(
         listOf(
-            McpServerItem("gemini-api-docs", "Connected", listOf("gemini_search_docs", "gemini_get_doc")),
-            McpServerItem("terminal-controller", "Connected", listOf("run_command", "manage_task")),
-            McpServerItem("workspace-filesystem", "Connected", listOf("view_file", "write_to_file", "replace_file_content", "grep_search", "find_by_name")),
-            McpServerItem("git-inspector", "Connected", listOf("git_status", "git_diff", "git_commit"))
+            McpServerItem("gemini-api-docs", "Disconnected", listOf("gemini_search_docs", "gemini_get_doc")),
+            McpServerItem("terminal-controller", "Disconnected", listOf("run_command", "manage_task")),
+            McpServerItem("workspace-filesystem", "Disconnected", listOf("view_file", "write_to_file", "replace_file_content", "grep_search", "find_by_name")),
+            McpServerItem("git-inspector", "Disconnected", listOf("git_status", "git_diff", "git_commit"))
         )
     )
     val mcpServers: StateFlow<List<McpServerItem>> = _mcpServers.asStateFlow()
 
     private val _terminalLogs = MutableStateFlow<List<String>>(
         listOf(
-            "Antigravity Studio Shell v2.4.0 (x86_64-windows)",
+            "Antigravity Studio Shell ${android.os.Build.VERSION.RELEASE} (${android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64"})",
             "Active Workspace: ${_workspaces.value.firstOrNull()?.name ?: "default"} (Branch: ${_workspaces.value.firstOrNull()?.branch ?: "main"})",
             "System initialized. Type 'help' or commands to execute.",
             "> "
@@ -1271,10 +1271,10 @@ class AppRepository {
 
     fun resetMcpServersToDefault() {
         _mcpServers.value = listOf(
-            McpServerItem("gemini-api-docs", "Connected", listOf("gemini_search_docs", "gemini_get_doc")),
-            McpServerItem("terminal-controller", "Connected", listOf("run_command", "manage_task")),
-            McpServerItem("workspace-filesystem", "Connected", listOf("view_file", "write_to_file", "replace_file_content", "grep_search", "find_by_name")),
-            McpServerItem("git-inspector", "Connected", listOf("git_status", "git_diff", "git_commit"))
+            McpServerItem("gemini-api-docs", "Disconnected", listOf("gemini_search_docs", "gemini_get_doc")),
+            McpServerItem("terminal-controller", "Disconnected", listOf("run_command", "manage_task")),
+            McpServerItem("workspace-filesystem", "Disconnected", listOf("view_file", "write_to_file", "replace_file_content", "grep_search", "find_by_name")),
+            McpServerItem("git-inspector", "Disconnected", listOf("git_status", "git_diff", "git_commit"))
         )
         persistListFile("mcp_servers.json", _mcpServers.value)
     }

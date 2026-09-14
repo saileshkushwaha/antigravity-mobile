@@ -102,7 +102,7 @@ fun PromptLibraryDialog(
                                     color = AntigravityColors.CyanElectric.copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = "${PromptLibrary.allPrompts.size} PROMPTS",
+                                        text = "${prompts.size} PROMPTS",
                                         color = AntigravityColors.CyanElectric,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,

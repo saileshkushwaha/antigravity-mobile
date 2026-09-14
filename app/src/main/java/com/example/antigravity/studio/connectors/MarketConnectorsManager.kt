@@ -92,13 +92,7 @@ class MarketConnectorsManager {
     }
 
     fun getInitialSwarmAgents(): List<SwarmAgent> {
-        return listOf(
-            SwarmAgent("arch-01", "Architect-Agent", "System Design & DAG Decomposition", "Active", "gemini-2.0-flash", 3400, stage = 1),
-            SwarmAgent("code-02", "Code-Generator", "Full-Stack Jetpack Compose & Kotlin", "Active", "gemini-2.0-flash", 7800, stage = 2),
-            SwarmAgent("test-03", "Test-Architect", "Unit & Integration Test Suite Verification", "Active", "gemini-2.0-flash", 4200, stage = 2),
-            SwarmAgent("rev-04", "Reviewer-Bot", "Static Analysis, A11y & AST Audit", "Idle", "gemini-2.0-flash", 1950, stage = 3),
-            SwarmAgent("ops-05", "DevOps-Runner", "Docker, Gradle & Git Sync Orchestrator", "Idle", "gemini-2.0-flash", 2120, stage = 4)
-        )
+        return emptyList()
     }
 
     fun registerCustomAgent(

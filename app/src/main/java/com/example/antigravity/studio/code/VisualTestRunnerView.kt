@@ -44,27 +44,7 @@ fun VisualTestRunnerView(
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, PASSED, FAILED
     var searchQuery by remember { mutableStateOf("") }
 
-    val defaultTestCases = remember {
-        listOf(
-            TestCaseResult("testInitialStateSeed", "AntigravityAppTest", 14, true),
-            TestCaseResult("testDynamicWorkspaceResolutionAndLifecycle", "AntigravityAppTest", 48, true),
-            TestCaseResult("testConversationLifecycle", "AntigravityAppTest", 22, true),
-            TestCaseResult("testTerminalCommandsExecution", "AntigravityAppTest", 31, true),
-            TestCaseResult("testScheduledTaskToggle", "AntigravityAppTest", 16, true),
-            TestCaseResult("testSlashCommandsCatalog", "AntigravityAppTest", 12, true),
-            TestCaseResult("testAgentModelsSerialization", "AntigravityAppTest", 45, true),
-            TestCaseResult("testPlanningModeApprovalLifecycle", "AntigravityAppTest", 29, true),
-            TestCaseResult("testSwarmDagTopologyAndAgents", "AntigravityAppTest", 38, true),
-            TestCaseResult("testDynamicWorkspaceDiscoveryNoHardcoding", "AntigravityAppTest", 65, true),
-            TestCaseResult("testAppConfigManagerCascadingResolution", "AntigravityAppTest", 33, true),
-            TestCaseResult("testCodebaseAstSymbolParsingKotlinAndPython", "AntigravityAppTest", 52, true),
-            TestCaseResult("testCodebaseMerkleChunkingAndSha256Hashing", "AntigravityAppTest", 41, true),
-            TestCaseResult("testAutonomousToolCallParsing", "AntigravityAppTest", 19, true),
-            TestCaseResult("testPdfStreamTextParsing", "AntigravityAppTest", 26, true),
-            TestCaseResult("testMarketConnectorsCatalog", "StudioPillarsTest", 34, true),
-            TestCaseResult("testResearchPaperModel", "StudioPillarsTest", 15, true)
-        )
-    }
+    val defaultTestCases = remember { emptyList<TestCaseResult>() }
 
     var testResults by remember { mutableStateOf(defaultTestCases) }
 

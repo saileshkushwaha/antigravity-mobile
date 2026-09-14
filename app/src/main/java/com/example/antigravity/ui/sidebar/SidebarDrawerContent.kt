@@ -133,7 +133,7 @@ fun SidebarDrawerContent(
                         }
                     }
                     Text(
-                        text = "Mobile Studio v2.4",
+                        text = "Mobile Studio v${com.example.antigravity.BuildConfig.VERSION_NAME}",
                         fontSize = 10.sp,
                         color = AntigravityColors.TextSecondary
                     )
