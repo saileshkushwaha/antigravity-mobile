@@ -84,12 +84,12 @@ class SdlcManagerTest {
     @Test
     fun testIntegrationToolsToggleAndPing() {
         // Integration tools start empty (no mock data), so add one first
-        val testTool = com.example.antigravity.sdlc.IntegrationTool(
+        val testTool = com.example.antigravity.model.IntegrationTool(
             id = "tool-jira",
             name = "Jira Software",
-            category = com.example.antigravity.sdlc.IntegrationCategory.ISSUE_TRACKING,
+            category = com.example.antigravity.model.IntegrationCategory.ISSUE_TRACKING,
             description = "Bi-directional sync between Antigravity agent tasks and Jira tickets",
-            state = com.example.antigravity.sdlc.ConnectionState.DISCONNECTED,
+            state = com.example.antigravity.model.ConnectionState.DISCONNECTED,
             webhookUrl = "",
             lastPingStatus = "Disconnected",
             lastSyncTime = "Never"
@@ -98,7 +98,7 @@ class SdlcManagerTest {
 
         val initial = SdlcManager.integrationTools.value.find { it.id == "tool-jira" }
         assertNotNull("Tool should exist after adding", initial)
-        val initialState = initial?.state ?: com.example.antigravity.sdlc.ConnectionState.DISCONNECTED
+        val initialState = initial?.state ?: com.example.antigravity.model.ConnectionState.DISCONNECTED
 
         // Toggle integration
         SdlcManager.toggleIntegration("tool-jira")
