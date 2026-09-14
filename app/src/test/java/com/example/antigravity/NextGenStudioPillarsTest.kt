@@ -1,5 +1,6 @@
 package com.example.antigravity
 
+import com.example.antigravity.model.DiffLineType
 import com.example.antigravity.studio.code.*
 import com.example.antigravity.studio.connectors.SwarmCheckpointManager
 import com.example.antigravity.studio.research.WebCrawlerService
@@ -41,8 +42,8 @@ class NextGenStudioPillarsTest {
 
         val firstHunk = diff.hunks.first()
         assertTrue("First hunk must have diff lines", firstHunk.lines.isNotEmpty())
-        assertTrue(firstHunk.lines.any { it.type == DiffLineType.ADDED })
-        assertTrue(firstHunk.lines.any { it.type == DiffLineType.REMOVED })
+        assertTrue(firstHunk.lines.any { it.type == DiffLineType.ADD })
+        assertTrue(firstHunk.lines.any { it.type == DiffLineType.REMOVE })
     }
 
     @Test
@@ -52,7 +53,7 @@ class NextGenStudioPillarsTest {
 
         assertEquals(0, diff.addedCount)
         assertEquals(0, diff.removedCount)
-        assertTrue("Hunk lines should all be unchanged", diff.hunks.flatMap { it.lines }.all { it.type == DiffLineType.UNCHANGED })
+        assertTrue("Hunk lines should all be unchanged", diff.hunks.flatMap { it.lines }.all { it.type == DiffLineType.CONTEXT })
     }
 
     // 2. WebCrawlerService HTML-to-Markdown Parser Tests

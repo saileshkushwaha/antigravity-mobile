@@ -10,7 +10,7 @@ class AppScreenNavigationTest {
 
     @Test
     fun testAllStudioScreensExist() {
-        val screens = AntigravityAppScreen.values()
+        val screens = AntigravityAppScreen.entries
         assertEquals("Must contain 14 first-class studio & system screens", 14, screens.size)
 
         val expectedTitles = setOf(
@@ -40,7 +40,7 @@ class AppScreenNavigationTest {
         assertEquals("IaC", AntigravityAppScreen.IAC.title)
 
         // Verify each screen has a non-null icon and non-empty title
-        AntigravityAppScreen.values().forEach { screen ->
+        AntigravityAppScreen.entries.forEach { screen ->
             assertNotNull("Icon for ${screen.name} must not be null", screen.icon)
             assertTrue("Screen title must not be empty", screen.title.isNotEmpty())
         }
@@ -64,7 +64,7 @@ class AppScreenNavigationTest {
         assertEquals("Secondary hubs must have 9 studios", 9, secondary.size)
 
         // Test descriptor lookups
-        AntigravityAppScreen.values().forEach { screen ->
+        AntigravityAppScreen.entries.forEach { screen ->
             val descriptor = StudioScreenRegistry.get(screen)
             assertEquals("Descriptor screen must match", screen, descriptor.screen)
             assertTrue("Descriptor badge must not be blank", descriptor.badge.isNotBlank())

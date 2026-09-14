@@ -66,7 +66,7 @@ class PersonasAndPromptsTest {
         val categories = PersonaCatalog.allPersonas.map { it.category }.toSet()
         assertEquals(
             "Every PersonaCategory enum value should be represented",
-            PersonaCategory.values().toSet(),
+            PersonaCategory.entries.toSet(),
             categories
         )
     }
