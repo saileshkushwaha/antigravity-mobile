@@ -1356,7 +1356,7 @@ fun CodeStudioScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Select execution bridge for compilation and test workloads:", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
 
-                    SandboxRunnerType.values().forEach { type ->
+                    SandboxRunnerType.entries.forEach { type ->
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = if (sandboxRunnerTypeSelection == type) AntigravityColors.ElectricCyan.copy(alpha = 0.15f) else AntigravityColors.SurfaceElevated,

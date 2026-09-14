@@ -84,7 +84,8 @@ class AntigravityAppTest {
 
         repository.executeTerminalCommand("git status")
         val statusLogs = repository.terminalLogs.value
-        assertTrue(statusLogs.any { it.contains("On branch main") })
+        val branchName = repository.activeWorkspace.value.branch.ifBlank { "main" }
+        assertTrue(statusLogs.any { it.contains("On branch $branchName") })
     }
 
     @Test

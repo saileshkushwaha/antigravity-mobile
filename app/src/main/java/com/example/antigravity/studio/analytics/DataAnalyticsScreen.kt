@@ -41,7 +41,7 @@ fun DataAnalyticsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val sqlEngine = remember(activeWorkspaceDir) {
-        AnalyticsSqlEngine(context, activeWorkspaceDir)
+        com.example.antigravity.data.AppRepository.getSqlEngine() ?: AnalyticsSqlEngine(context, activeWorkspaceDir)
     }
 
     var currentSql by remember {

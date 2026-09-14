@@ -372,7 +372,7 @@ class AppRepository {
     private val _workspaces = MutableStateFlow(createDefaultWorkspaces())
     val workspaces: StateFlow<List<ProjectWorkspace>> = _workspaces.asStateFlow()
 
-    private val _activeWorkspace = MutableStateFlow(_workspaces.value.firstOrNull() ?: ProjectWorkspace(id = "default", name = "Default", path = android.os.Environment.getExternalStorageDirectory().absolutePath))
+    private val _activeWorkspace = MutableStateFlow(_workspaces.value.firstOrNull() ?: ProjectWorkspace(id = "default", name = "Default", path = java.io.File(java.io.File(System.getProperty("user.home") ?: "."), "workspaces").absolutePath))
     val activeWorkspace: StateFlow<ProjectWorkspace> = _activeWorkspace.asStateFlow()
 
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
