@@ -17,10 +17,6 @@ import java.util.UUID
 
 class AppRepository {
 
-    companion object {
-        const val MAX_DEFAULT_WORKSPACES = 6
-    }
-
     private val geminiService = GeminiApiService()
     private val openAiGatewayService = OpenAiGatewayService()
 
@@ -178,6 +174,8 @@ class AppRepository {
     }
 
     companion object {
+        const val MAX_DEFAULT_WORKSPACES = 6
+
         data class GitRepoMetadata(
             val branch: String = "main",
             val owner: String = "",
@@ -376,7 +374,7 @@ class AppRepository {
         }
     }
 
-    private val _workspaces by lazy { MutableStateFlow(createDefaultWorkspaces()) }
+    private val _workspaces = MutableStateFlow(createDefaultWorkspaces())
     val workspaces: StateFlow<List<ProjectWorkspace>> = _workspaces.asStateFlow()
 
     private val _activeWorkspace = MutableStateFlow(_workspaces.value.firstOrNull() ?: ProjectWorkspace(id = "default", name = "Default", path = java.io.File(java.io.File(System.getProperty("user.home") ?: "."), "workspaces").absolutePath))
