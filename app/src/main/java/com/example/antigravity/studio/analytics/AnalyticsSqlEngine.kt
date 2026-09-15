@@ -58,7 +58,7 @@ data class ResearchDocRecord(
 
 class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File) {
 
-    private val dbHelper = object : SQLiteOpenHelper(context.applicationContext, "antigravity_analytics.db", null, 3) {
+    private val dbHelper = object : SQLiteOpenHelper(context.applicationContext, "antigravity_analytics.db", null, 4) {
         override fun onConfigure(db: SQLiteDatabase) {
             super.onConfigure(db)
             db.setForeignKeyConstraintsEnabled(true)
@@ -125,6 +125,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                     github_owner TEXT,
                     github_repo TEXT,
                     github_url TEXT,
+                    connected_services TEXT,
                     custom_rules TEXT,
                     updated_at TEXT NOT NULL
                 );
@@ -210,6 +211,9 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            if (oldVersion < 4) {
+                db.execSQL("ALTER TABLE project_workspaces ADD COLUMN connected_services TEXT")
+            }
             db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS app_configurations (
@@ -230,6 +234,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                     github_owner TEXT,
                     github_repo TEXT,
                     github_url TEXT,
+                    connected_services TEXT,
                     custom_rules TEXT,
                     updated_at TEXT NOT NULL
                 );
@@ -472,6 +477,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 put("github_owner", ws.githubOwner)
                 put("github_repo", ws.githubRepo)
                 put("github_url", ws.githubUrl)
+                put("connected_services", ws.connectedServices.joinToString(","))
                 put("custom_rules", ws.customRules.joinToString(","))
                 put("updated_at", now)
             }
@@ -485,9 +491,11 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         val workspaces = mutableListOf<ProjectWorkspace>()
         try {
             val db = dbHelper.readableDatabase
-            val cursor = db.rawQuery("SELECT id, name, path, branch, github_owner, github_repo, github_url, custom_rules FROM project_workspaces ORDER BY name", null)
+            val cursor = db.rawQuery("SELECT id, name, path, branch, github_owner, github_repo, github_url, connected_services, custom_rules FROM project_workspaces ORDER BY name", null)
             while (cursor.moveToNext()) {
-                val rulesStr = cursor.getString(7) ?: ""
+                val servicesStr = cursor.getString(7) ?: ""
+                val services = if (servicesStr.isNotBlank()) servicesStr.split(",").map { it.trim() } else emptyList()
+                val rulesStr = cursor.getString(8) ?: ""
                 val rules = if (rulesStr.isNotBlank()) rulesStr.split(",").map { it.trim() } else emptyList()
                 workspaces.add(
                     ProjectWorkspace(
@@ -498,6 +506,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                         githubOwner = cursor.getString(4) ?: "",
                         githubRepo = cursor.getString(5) ?: "",
                         githubUrl = cursor.getString(6) ?: "",
+                        connectedServices = services,
                         customRules = rules
                     )
                 )

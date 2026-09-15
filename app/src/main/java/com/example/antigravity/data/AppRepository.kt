@@ -213,7 +213,7 @@ class AppRepository {
                             inOrigin = false
                         } else if (inOrigin && trimmed.startsWith("url =", ignoreCase = true)) {
                             val rawUrl = trimmed.substringAfter("=").trim()
-                            val gitRegex = """(?:https?://|git@|ssh://git@)(?:[^@]+@)?([^/:]+)[:/]([^/]+)/([^/.]+?)(?:\.git)?$""".toRegex()
+                            val gitRegex = """(?:https?://|git@|ssh://git@)(?:[^@]+@)?([^/:]+)(?::\d+)?[:/]([^/]+)/([^/.]+?)(?:\.git)?$""".toRegex()
                             val match = gitRegex.find(rawUrl)
                             if (match != null) {
                                 val host = match.groupValues[1]
@@ -892,7 +892,8 @@ class AppRepository {
             val hasGit = java.io.File(targetDir, ".git").exists()
 
             if (isEmpty && !hasGit) {
-                val cloneResult = gitCloneRepository(resolvedUrl, targetDir, branch.trim().ifBlank { "main" })
+                val token = _settings.value.githubToken
+                val cloneResult = gitCloneRepository(resolvedUrl, targetDir, branch.trim().ifBlank { "main" }, token)
                 if (!cloneResult.isSuccess) {
                     android.util.Log.e("AppRepository", "Git clone failed: ${cloneResult.errorMessage}")
                 }
@@ -920,15 +921,29 @@ class AppRepository {
     fun gitCloneRepository(
         remoteUrl: String,
         targetDir: java.io.File,
-        branch: String = "main"
+        branch: String = "main",
+        token: String = ""
     ): CloneResult {
+        val authenticatedUrl = if (token.isNotBlank()) {
+            try {
+                val uri = java.net.URI(remoteUrl)
+                val host = uri.host
+                val path = uri.path
+                val scheme = uri.scheme
+                if (host != null && path != null && scheme != null) {
+                    "$scheme://${token}@$host$path"
+                } else remoteUrl
+            } catch (_: Exception) {
+                remoteUrl
+            }
+        } else remoteUrl
         return try {
             val processBuilder = ProcessBuilder(
                 "git", "clone",
                 "--branch", branch,
                 "--single-branch",
                 "--depth", "1",
-                remoteUrl,
+                authenticatedUrl,
                 targetDir.absolutePath
             )
             processBuilder.directory(targetDir.parentFile ?: java.io.File("."))
@@ -943,7 +958,27 @@ class AppRepository {
                 android.util.Log.i("AppRepository", "Git clone succeeded: $remoteUrl -> ${targetDir.absolutePath}")
                 CloneResult(isSuccess = true)
             } else {
-                CloneResult(isSuccess = false, errorMessage = "git clone exited with code $exitCode: $output")
+                val errorMsg = when {
+                    output.contains("Authentication failed", ignoreCase = true) ||
+                    output.contains("Permission denied", ignoreCase = true) ||
+                    output.contains("could not read Username", ignoreCase = true) ->
+                        "Git clone failed: Authentication error. Check your GitHub token in Settings → API Keys & Gateways."
+                    output.contains("not found", ignoreCase = true) ||
+                    output.contains("Not Found", ignoreCase = true) ->
+                        "Git clone failed: Repository not found. Verify the repository URL and access permissions."
+                    output.contains("Remote branch", ignoreCase = true) &&
+                    output.contains("not found", ignoreCase = true) ->
+                        "Git clone failed: Specified branch not found on remote. Check branch name."
+                    output.contains("already exists", ignoreCase = true) ->
+                        "Git clone failed: Target directory already exists and is not empty."
+                    output.contains("Network error", ignoreCase = true) ||
+                    output.contains("Could not resolve host", ignoreCase = true) ||
+                    output.contains("connection timed out", ignoreCase = true) ||
+                    output.contains("Failed to connect", ignoreCase = true) ->
+                        "Git clone failed: Network error. Check your internet connection."
+                    else -> "git clone exited with code $exitCode: $output"
+                }
+                CloneResult(isSuccess = false, errorMessage = errorMsg)
             }
         } catch (e: Exception) {
             CloneResult(isSuccess = false, errorMessage = e.message ?: "Unknown clone error")

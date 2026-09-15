@@ -231,7 +231,7 @@ data class ModelInfo(
     val contextWindow: String = "128k",
     val description: String = "",
     val tags: List<String> = emptyList(),
-    val providerName: String = gateway.displayName
+    val providerName: String = ""
 )
 
 @Serializable
