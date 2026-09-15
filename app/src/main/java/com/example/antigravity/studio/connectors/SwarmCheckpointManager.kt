@@ -59,8 +59,10 @@ object SwarmCheckpointManager {
         } catch (_: Exception) {}
 
         // Save metadata
-        val metaFile = File(snapshotFolder, "checkpoint_meta.txt")
-        metaFile.writeText("id=$checkpointId\ntime=$displayTime\nagent=$triggerAgent\ndesc=$description\ncount=$fileCounter")
+        try {
+            val metaFile = File(snapshotFolder, "checkpoint_meta.txt")
+            metaFile.writeText("id=$checkpointId\ntime=$displayTime\nagent=$triggerAgent\ndesc=$description\ncount=$fileCounter")
+        } catch (_: Exception) {}
 
         return SwarmCheckpoint(
             id = checkpointId,
