@@ -423,7 +423,7 @@ class AntigravityAgentEngine(
                 if (key.isNotBlank()) {
                     geminiService.generateContent(
                         apiKey = key,
-                        modelName = modelInfo?.id ?: settings.activeModelId.ifBlank { "gemini-2.0-flash" },
+                        modelName = modelInfo?.id ?: settings.activeModelId.ifBlank { ModelCatalog.firstForGateway(ModelGateway.GEMINI)?.id ?: "" },
                         prompt = prompt,
                         systemInstruction = sysInstruction,
                         history = previousMessages
@@ -437,7 +437,7 @@ class AntigravityAgentEngine(
                 openAiGatewayService.generateChatCompletion(
                     baseUrl = ModelGateway.KILOCODE.defaultBaseUrl,
                     apiKey = key,
-                    modelId = modelInfo?.id ?: "kilo/qwen-2.5-coder-32b",
+                    modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.KILOCODE)?.id ?: "",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
@@ -449,7 +449,7 @@ class AntigravityAgentEngine(
                 openAiGatewayService.generateChatCompletion(
                     baseUrl = ModelGateway.OPENCODE.defaultBaseUrl,
                     apiKey = key,
-                    modelId = modelInfo?.id ?: "opencode/deepseek-coder-v2-lite",
+                    modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.OPENCODE)?.id ?: "",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
@@ -465,7 +465,7 @@ class AntigravityAgentEngine(
                 openAiGatewayService.generateChatCompletion(
                     baseUrl = ModelGateway.OPENROUTER.defaultBaseUrl,
                     apiKey = key,
-                    modelId = modelInfo?.id ?: "meta-llama/llama-3.3-70b-instruct:free",
+                    modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.OPENROUTER)?.id ?: "",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
@@ -481,7 +481,7 @@ class AntigravityAgentEngine(
                 openAiGatewayService.generateChatCompletion(
                     baseUrl = ModelGateway.GROQ.defaultBaseUrl,
                     apiKey = key,
-                    modelId = modelInfo?.id ?: "llama-3.3-70b-versatile",
+                    modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.GROQ)?.id ?: "",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
@@ -498,7 +498,7 @@ class AntigravityAgentEngine(
                     openAiGatewayService.generateChatCompletion(
                         baseUrl = ModelGateway.OPENAI.defaultBaseUrl,
                         apiKey = key,
-                        modelId = modelInfo?.id ?: "gpt-4o",
+                        modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.OPENAI)?.id ?: "",
                         prompt = prompt,
                         systemInstruction = sysInstruction,
                         history = previousMessages,
@@ -512,7 +512,7 @@ class AntigravityAgentEngine(
                 openAiGatewayService.generateChatCompletion(
                     baseUrl = settings.customGatewayUrl.ifBlank { ModelGateway.OLLAMA.defaultBaseUrl },
                     apiKey = settings.customGatewayApiKey,
-                    modelId = modelInfo?.id ?: "llama3.3:latest",
+                    modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.OLLAMA)?.id ?: "",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
@@ -528,7 +528,7 @@ class AntigravityAgentEngine(
                 openAiGatewayService.generateChatCompletion(
                     baseUrl = ModelGateway.HUGGINGFACE.defaultBaseUrl,
                     apiKey = key,
-                    modelId = modelInfo?.id ?: "meta-llama/Llama-3.2-3B-Instruct",
+                    modelId = modelInfo?.id ?: ModelCatalog.firstForGateway(ModelGateway.HUGGINGFACE)?.id ?: "",
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,

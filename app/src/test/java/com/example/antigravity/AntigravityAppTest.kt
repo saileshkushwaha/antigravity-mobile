@@ -160,50 +160,53 @@ class AntigravityAppTest {
     }
 
     @Test
-    fun testModelCatalogAndFreeModels() {
-        val all = ModelCatalog.allModels
-        assertTrue("Model catalog should contain models", all.isNotEmpty())
+    fun testModelCatalogMergeAndFind() {
+        // Catalog starts empty
+        assertTrue("Model catalog should start empty", ModelCatalog.allModels.isEmpty())
 
-        val freeModels = all.filter { it.isFree }
-        assertTrue("Expected multiple free models", freeModels.size >= 10)
+        // Populate via mergeModels (simulates live discovery)
+        val testModels = listOf(
+            ModelInfo(id = "test/model-a", name = "Test Model A", gateway = ModelGateway.OPENROUTER, isFree = true),
+            ModelInfo(id = "test/model-b", name = "Test Model B", gateway = ModelGateway.GROQ, isFree = true),
+            ModelInfo(id = "test/model-c", name = "Test Model C", gateway = ModelGateway.KILOCODE, isFree = false)
+        )
+        val merged = ModelCatalog.mergeModels(testModels)
+        assertEquals(3, merged.size)
 
-        // Check OpenRouter free model
-        val llamaFree = ModelCatalog.findModel("meta-llama/llama-3.3-70b-instruct:free")
-        assertNotNull(llamaFree)
-        assertTrue(llamaFree!!.isFree)
-        assertEquals(ModelGateway.OPENROUTER, llamaFree.gateway)
+        // findModel by id
+        val found = ModelCatalog.findModel("test/model-a")
+        assertNotNull(found)
+        assertEquals("Test Model A", found?.name)
 
-        // Check Groq free model
-        val groqModel = ModelCatalog.findModel("llama-3.3-70b-versatile")
-        assertNotNull(groqModel)
-        assertEquals(ModelGateway.GROQ, groqModel!!.gateway)
-        assertTrue(groqModel.isFree)
+        // findModel by name
+        val foundByName = ModelCatalog.findModel("Test Model B")
+        assertNotNull(foundByName)
+        assertEquals("test/model-b", foundByName?.id)
 
-        // Check Ollama local model
-        val ollamaModel = ModelCatalog.findModel("llama3.3:latest")
-        assertNotNull(ollamaModel)
-        assertEquals(ModelGateway.OLLAMA, ollamaModel!!.gateway)
-        assertTrue(ollamaModel.isFree)
+        // findModel by short id
+        val foundByShort = ModelCatalog.findModel("model-c")
+        assertNotNull(foundByShort)
 
-        // Check KiloCode free model
-        val kiloModel = ModelCatalog.findModel("kilo/qwen-2.5-coder-32b")
-        assertNotNull("KiloCode free model must exist in catalog", kiloModel)
-        assertEquals(ModelGateway.KILOCODE, kiloModel!!.gateway)
-        assertTrue(kiloModel.isFree)
+        // firstForGateway
+        val firstOpenRouter = ModelCatalog.firstForGateway(ModelGateway.OPENROUTER)
+        assertNotNull(firstOpenRouter)
+        assertEquals("test/model-a", firstOpenRouter?.id)
 
-        val kiloR1 = ModelCatalog.findModel("kilo/deepseek-r1-distill-qwen-32b")
-        assertNotNull("KiloCode DeepSeek R1 model must exist in catalog", kiloR1)
-        assertTrue(kiloR1!!.isFree)
+        // merge enriches existing
+        val enriched = listOf(
+            ModelInfo(id = "test/model-a", name = "Test Model A Updated", gateway = ModelGateway.OPENROUTER, isFree = true, tags = listOf("new-tag"))
+        )
+        ModelCatalog.mergeModels(enriched)
+        val updated = ModelCatalog.findModel("test/model-a")
+        assertEquals("Test Model A Updated", updated?.name)
+        assertTrue(updated?.tags?.contains("new-tag") == true)
 
-        // Check OpenCode free model
-        val openCodeModel = ModelCatalog.findModel("opencode/deepseek-coder-v2-lite")
-        assertNotNull("OpenCode free model must exist in catalog", openCodeModel)
-        assertEquals(ModelGateway.OPENCODE, openCodeModel!!.gateway)
-        assertTrue(openCodeModel.isFree)
-
-        val openCodeGlm = ModelCatalog.findModel("opencode/glm-4-flash-free")
-        assertNotNull("OpenCode GLM-4 Flash free model must exist in catalog", openCodeGlm)
-        assertTrue(openCodeGlm!!.isFree)
+        // merge adds new
+        val newModel = listOf(
+            ModelInfo(id = "test/model-d", name = "Test Model D", gateway = ModelGateway.OLLAMA, isFree = true)
+        )
+        ModelCatalog.mergeModels(newModel)
+        assertEquals(4, ModelCatalog.allModels.size)
     }
 
     @Test
@@ -251,19 +254,19 @@ class AntigravityAppTest {
 
     @Test
     fun testModelSelectionDropdownAndCatalogResolution() {
-        // 1. Verify Zen Internal models are present in ModelCatalog
-        val zenBigPickle = ModelCatalog.findModel("opencode/zen-bigpickle")
+        // Ensure catalog has models for this test
+        if (ModelCatalog.allModels.isEmpty()) {
+            ModelCatalog.mergeModels(listOf(
+                ModelInfo(id = "test/zen-bigpickle", name = "Zen BigPickle Internal", gateway = ModelGateway.OPENCODE, isFree = true),
+                ModelInfo(id = "test/gemini-flash", name = "Gemini Flash", gateway = ModelGateway.GEMINI, isFree = true)
+            ))
+        }
+
+        // 1. Verify model is discoverable
+        val zenBigPickle = ModelCatalog.findModel("test/zen-bigpickle")
         assertNotNull("Zen BigPickle must be discoverable in catalog", zenBigPickle)
         assertEquals(ModelGateway.OPENCODE, zenBigPickle?.gateway)
         assertTrue(zenBigPickle?.isFree == true)
-
-        val zenCoder = ModelCatalog.findModel("zen-coder-internal")
-        assertNotNull("Zen Coder must be resolvable by short ID", zenCoder)
-        assertEquals(ModelGateway.OPENCODE, zenCoder?.gateway)
-
-        val zenByName = ModelCatalog.findModel("Zen BigPickle Internal (OpenCode)")
-        assertNotNull("Zen must be resolvable by friendly name", zenByName)
-        assertEquals(zenBigPickle?.id, zenByName?.id)
 
         // 2. Test selecting a model via AppRepository
         val targetModel = zenBigPickle!!
@@ -278,7 +281,7 @@ class AntigravityAppTest {
 
         // 3. Test conversation switching model sync
         val newConvId = repository.createNewConversation("Second Conversation")
-        val geminiModel = ModelCatalog.findModel("gemini-2.0-flash") ?: ModelCatalog.allModels.first { it.gateway == ModelGateway.GEMINI }
+        val geminiModel = ModelCatalog.findModel("test/gemini-flash") ?: ModelCatalog.allModels.first()
         repository.selectModel(geminiModel)
         assertEquals(geminiModel.name, repository.settings.value.activeModel)
 
@@ -445,14 +448,10 @@ class AntigravityAppTest {
 
         // 2. Cascading settings resolution
         val defaultSettings = AppSettings(
-            apiKey = "",
-            activeModel = "Gemini 2.0 Flash",
-            activeModelId = "gemini-2.0-flash"
+            apiKey = ""
         )
         val resolved = com.example.antigravity.config.AppConfigManager.resolveEffectiveSettings(defaultSettings, java.io.File(baseDir))
         assertNotNull(resolved)
-        assertTrue("Model name should remain valid", resolved.activeModel.isNotBlank())
-        assertTrue("Model ID should remain valid", resolved.activeModelId.isNotBlank())
     }
 
     @Test

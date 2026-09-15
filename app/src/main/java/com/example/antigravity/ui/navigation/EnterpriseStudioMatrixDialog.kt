@@ -329,7 +329,7 @@ fun EnterpriseStudioMatrixDialog(
                             color = AntigravityColors.SurfaceElevated
                         ) {
                             Text(
-                                text = if (activeModel.isNotBlank()) activeModel else "Gemini 2.0 Flash",
+                                text = activeModel.ifBlank { "No model selected" },
                                 fontSize = 10.sp,
                                 color = AntigravityColors.ElectricCyan,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)

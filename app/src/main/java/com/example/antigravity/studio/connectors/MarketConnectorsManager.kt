@@ -100,7 +100,7 @@ class MarketConnectorsManager {
         name: String,
         role: String,
         stage: Int = 2,
-        model: String = "gemini-2.0-flash"
+        model: String = ""
     ): List<SwarmAgent> {
         val newAgent = SwarmAgent(
             id = "custom-${System.currentTimeMillis() % 10000}",

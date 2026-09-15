@@ -182,10 +182,10 @@ object AppConfigManager {
                 getString("TARGET_BRANCH", "main")
             },
             activeModel = current.activeModel.ifBlank {
-                getString("ACTIVE_MODEL", "Gemini 2.0 Flash")
+                getString("ACTIVE_MODEL", "")
             },
             activeModelId = current.activeModelId.ifBlank {
-                getString("ACTIVE_MODEL_ID", "gemini-2.0-flash")
+                getString("ACTIVE_MODEL_ID", "")
             },
             toolExecutionPolicy = current.toolExecutionPolicy.ifBlank {
                 getString("TOOL_EXECUTION_POLICY", "request-review")

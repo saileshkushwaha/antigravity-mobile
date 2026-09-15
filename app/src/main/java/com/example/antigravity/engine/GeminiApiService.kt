@@ -38,12 +38,15 @@ class GeminiApiService {
         var endpointModel = resolveEndpointModel(modelName)
         var result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
 
-        // If 404 (model not found), attempt fallback to gemini-1.5-flash (guaranteed across all Google AI Studio tiers)
-        if (result.isFailure && endpointModel != "gemini-1.5-flash") {
+        // If 404 (model not found), attempt fallback to first available Gemini model
+        if (result.isFailure) {
             val err = result.exceptionOrNull()?.message ?: ""
             if (err.contains("404") || err.contains("not found", ignoreCase = true)) {
-                endpointModel = "gemini-1.5-flash"
-                result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
+                val fallback = com.example.antigravity.model.ModelCatalog.firstForGateway(com.example.antigravity.model.ModelGateway.GEMINI)
+                if (fallback != null && endpointModel != fallback.id) {
+                    endpointModel = fallback.id
+                    result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
+                }
             }
         }
 
@@ -52,18 +55,8 @@ class GeminiApiService {
 
     private fun resolveEndpointModel(rawModel: String): String {
         val clean = rawModel.trim().removePrefix("models/")
-        return when {
-            clean.equals("gemini-2.5-flash", ignoreCase = true) -> "gemini-2.0-flash"
-            clean.equals("gemini-2.5-flash-lite", ignoreCase = true) -> "gemini-2.0-flash"
-            clean.equals("gemini-2.5-pro", ignoreCase = true) -> "gemini-1.5-pro"
-            clean.startsWith("gemini-", ignoreCase = true) || clean.startsWith("gemma-", ignoreCase = true) -> clean
-            clean.contains("1.5", ignoreCase = true) && clean.contains("pro", ignoreCase = true) -> "gemini-1.5-pro"
-            clean.contains("1.5", ignoreCase = true) -> "gemini-1.5-flash"
-            clean.contains("2.0", ignoreCase = true) -> "gemini-2.0-flash"
-            clean.contains("Pro", ignoreCase = true) || clean.contains("Ultra", ignoreCase = true) -> "gemini-1.5-pro"
-            clean.contains("Flash", ignoreCase = true) -> "gemini-2.0-flash"
-            else -> "gemini-2.0-flash"
-        }
+        return if (clean.isNotBlank()) clean
+        else com.example.antigravity.model.ModelCatalog.firstForGateway(com.example.antigravity.model.ModelGateway.GEMINI)?.id ?: ""
     }
 
     private fun buildGeminiContents(history: List<ChatMessage>, currentPrompt: String): JSONArray {

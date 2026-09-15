@@ -32,8 +32,8 @@ class AppRepository {
     private val _settings = MutableStateFlow(
         AppSettings(
             apiKey = "",
-            activeModel = "Gemini 2.0 Flash",
-            activeModelId = "gemini-2.0-flash",
+            activeModel = "",
+            activeModelId = "",
             toolExecutionPolicy = "request-review",
             terminalSandbox = true,
             isOfflineDemoMode = false,
@@ -63,19 +63,12 @@ class AppRepository {
             e.printStackTrace()
         }
 
-        // 2. Load and sanitize SharedPreferences settings
+        // 2. Load SharedPreferences settings
         val savedJson = sharedPrefs?.getString("app_settings", null)
         if (savedJson != null) {
             try {
                 val parsed = kotlinx.serialization.json.Json.decodeFromString(AppSettings.serializer(), savedJson)
-                var safeSettings = parsed
-                if (safeSettings.activeModelId.equals("gemini-2.5-flash", ignoreCase = true) || safeSettings.activeModel.equals("Gemini 2.5 Flash", ignoreCase = true)) {
-                    safeSettings = safeSettings.copy(
-                        activeModel = "Gemini 2.0 Flash",
-                        activeModelId = "gemini-2.0-flash"
-                    )
-                }
-                _settings.value = safeSettings
+                _settings.value = parsed
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -817,14 +810,15 @@ class AppRepository {
                 }
             }
 
-            if (liveModels.isNotEmpty()) {
-                val merged = ModelCatalog.mergeModels(liveModels)
-                _models.value = merged
-                _modelFetchError.value = null
-                executeTerminalCommand("Auto-discovered ${liveModels.size} live models across provider gateways (Total catalog: ${merged.size})")
-            } else {
-                _modelFetchError.value = "No models discovered from configured gateways"
-            }
+        if (liveModels.isNotEmpty()) {
+            val merged = ModelCatalog.mergeModels(liveModels)
+            _models.value = merged
+            _modelFetchError.value = null
+            executeTerminalCommand("Auto-discovered ${liveModels.size} live models across provider gateways (Total catalog: ${merged.size})")
+        } else {
+            _models.value = ModelCatalog.allModels
+            _modelFetchError.value = "No models discovered from configured gateways"
+        }
         } catch (e: Exception) {
             _modelFetchError.value = "Model discovery failed: ${e.message}"
             executeTerminalCommand("Model discovery exception: ${e.message}")

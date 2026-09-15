@@ -310,8 +310,8 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
 
     private fun seedInitialData(db: SQLiteDatabase) {
         val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('DEFAULT_MODEL', 'Gemini 2.0 Flash', 'MODEL', '$now')")
-        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('DEFAULT_MODEL_ID', 'gemini-2.0-flash', 'MODEL', '$now')")
+        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('DEFAULT_MODEL', '', 'MODEL', '$now')")
+        db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('DEFAULT_MODEL_ID', '', 'MODEL', '$now')")
         db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('TOOL_EXECUTION_POLICY', 'request-review', 'POLICY', '$now')")
         db.execSQL("INSERT OR IGNORE INTO app_configurations (config_key, config_value, category, updated_at) VALUES ('TERMINAL_SANDBOX', 'true', 'SECURITY', '$now')")
 
