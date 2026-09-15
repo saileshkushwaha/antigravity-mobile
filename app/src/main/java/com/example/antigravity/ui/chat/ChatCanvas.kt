@@ -21,7 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -660,7 +660,7 @@ fun UserMessageCard(
     onUseInContext: ((String) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -696,14 +696,14 @@ fun UserMessageCard(
                             text = { Text("Copy Text", fontSize = 13.sp) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
-                                clipboardManager.setText(AnnotatedString(message.text))
+                                clipboard.setText(AnnotatedString(message.text))
                                 showMenu = false
                             }
                         )
                         if (onUseInContext != null) {
                             DropdownMenuItem(
                                 text = { Text("Use in Context", fontSize = 13.sp) },
-                                leadingIcon = { Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(16.dp)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp)) },
                                 onClick = {
                                     onUseInContext(message.text)
                                     showMenu = false
@@ -726,7 +726,7 @@ fun AgentMessageCard(
     onUseInContext: ((String) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -781,14 +781,14 @@ fun AgentMessageCard(
                             text = { Text("Copy Text", fontSize = 13.sp) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
-                                clipboardManager.setText(AnnotatedString(message.text))
+                                clipboard.setText(AnnotatedString(message.text))
                                 showMenu = false
                             }
                         )
                         if (onUseInContext != null) {
                             DropdownMenuItem(
                                 text = { Text("Use in Context", fontSize = 13.sp) },
-                                leadingIcon = { Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(16.dp)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp)) },
                                 onClick = {
                                     onUseInContext(message.text)
                                     showMenu = false

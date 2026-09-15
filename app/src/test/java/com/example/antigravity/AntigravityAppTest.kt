@@ -161,8 +161,9 @@ class AntigravityAppTest {
 
     @Test
     fun testModelCatalogMergeAndFind() {
-        // Catalog starts empty
-        assertTrue("Model catalog should start empty", ModelCatalog.allModels.isEmpty())
+        // Clear catalog (singleton may be populated by other tests)
+        ModelCatalog.setModels(emptyList())
+        assertTrue("Model catalog should be empty after clear", ModelCatalog.allModels.isEmpty())
 
         // Populate via mergeModels (simulates live discovery)
         val testModels = listOf(
