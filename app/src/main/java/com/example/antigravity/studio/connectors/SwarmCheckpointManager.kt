@@ -39,20 +39,24 @@ object SwarmCheckpointManager {
         if (!snapshotFolder.exists()) snapshotFolder.mkdirs()
 
         var fileCounter = 0
-        if (workspaceDir.exists() && workspaceDir.isDirectory) {
-            workspaceDir.walkTopDown().forEach { f ->
-                if (f == workspaceDir) return@forEach
-                val rel = f.relativeTo(workspaceDir).path
-                if (rel == ".antigravity" || rel.startsWith(".antigravity/")) return@forEach
-                if (f.name == "build" && f.isDirectory) return@forEach
-                if (f.isFile) {
-                    val destFile = File(snapshotFolder, rel)
-                    destFile.parentFile?.mkdirs()
-                    f.copyTo(destFile, overwrite = true)
-                    fileCounter++
+        try {
+            if (workspaceDir.exists() && workspaceDir.isDirectory) {
+                workspaceDir.walkTopDown().forEach { f ->
+                    if (f == workspaceDir) return@forEach
+                    val rel = f.relativeTo(workspaceDir).path
+                    if (rel == ".antigravity" || rel.startsWith(".antigravity/")) return@forEach
+                    if (f.name == "build" && f.isDirectory) return@forEach
+                    if (f.isFile) {
+                        val destFile = File(snapshotFolder, rel)
+                        destFile.parentFile?.mkdirs()
+                        try {
+                            f.copyTo(destFile, overwrite = true)
+                            fileCounter++
+                        } catch (_: Exception) {}
+                    }
                 }
             }
-        }
+        } catch (_: Exception) {}
 
         // Save metadata
         val metaFile = File(snapshotFolder, "checkpoint_meta.txt")
@@ -79,18 +83,22 @@ object SwarmCheckpointManager {
         return folders.mapNotNull { folder ->
             val metaFile = File(folder, "checkpoint_meta.txt")
             if (metaFile.exists()) {
-                val lines = metaFile.readLines().associate { line ->
-                    val parts = line.split("=", limit = 2)
-                    if (parts.size == 2) parts[0] to parts[1] else "" to ""
+                try {
+                    val lines = metaFile.readLines().associate { line ->
+                        val parts = line.split("=", limit = 2)
+                        if (parts.size == 2) parts[0] to parts[1] else "" to ""
+                    }
+                    SwarmCheckpoint(
+                        id = lines["id"] ?: folder.name,
+                        timestamp = lines["time"] ?: "Unknown time",
+                        triggerAgent = lines["agent"] ?: "Swarm",
+                        description = lines["desc"] ?: "Autonomous snapshot",
+                        fileCount = lines["count"]?.toIntOrNull() ?: 0,
+                        snapshotDir = folder
+                    )
+                } catch (_: Exception) {
+                    null
                 }
-                SwarmCheckpoint(
-                    id = lines["id"] ?: folder.name,
-                    timestamp = lines["time"] ?: "Unknown time",
-                    triggerAgent = lines["agent"] ?: "Swarm",
-                    description = lines["desc"] ?: "Autonomous snapshot",
-                    fileCount = lines["count"]?.toIntOrNull() ?: 0,
-                    snapshotDir = folder
-                )
             } else {
                 null
             }

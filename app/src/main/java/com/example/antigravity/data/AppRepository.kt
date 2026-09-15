@@ -882,10 +882,11 @@ class AppRepository {
 
         val targetDir = java.io.File(safePath)
 
+        if (!targetDir.exists()) {
+            targetDir.mkdirs()
+        }
+
         if (cloneIfRemote && resolvedUrl.isNotBlank()) {
-            if (!targetDir.exists()) {
-                targetDir.mkdirs()
-            }
             val dirContents = targetDir.listFiles()
             val isEmpty = dirContents.isNullOrEmpty()
             val hasGit = java.io.File(targetDir, ".git").exists()
@@ -896,16 +897,12 @@ class AppRepository {
                     android.util.Log.e("AppRepository", "Git clone failed: ${cloneResult.errorMessage}")
                 }
             }
-        } else {
-            if (!targetDir.exists()) {
-                targetDir.mkdirs()
-            }
         }
 
         val newWorkspace = ProjectWorkspace(
             id = "ws-${System.currentTimeMillis()}",
             name = safeName,
-            path = targetDir.canonicalPath,
+            path = targetDir.absolutePath,
             branch = branch.trim().ifBlank { "main" },
             customRules = customRules,
             githubOwner = githubOwner.trim(),
