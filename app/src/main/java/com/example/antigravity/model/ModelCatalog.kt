@@ -16,7 +16,7 @@ object ModelCatalog {
                 val existing = result[existingIndex]
                 val mergedTags = (existing.tags + live.tags).distinct()
                 result[existingIndex] = existing.copy(
-                    name = if (existing.name.isBlank() || existing.name == existing.id) live.name else existing.name,
+                    name = if (live.name.isNotBlank()) live.name else existing.name,
                     tags = mergedTags,
                     contextWindow = if (live.contextWindow.isNotBlank() && live.contextWindow != "128k") live.contextWindow else existing.contextWindow,
                     providerName = if (live.providerName.isNotBlank()) live.providerName else existing.providerName,
