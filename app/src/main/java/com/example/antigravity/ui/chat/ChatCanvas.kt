@@ -57,7 +57,8 @@ fun ChatCanvas(
     onOpenPromptLibrary: (() -> Unit)? = null,
     onOpenWorkspaceManager: () -> Unit = {},
     onLockStudio: (() -> Unit)? = null,
-    autoScroll: Boolean = true
+    autoScroll: Boolean = true,
+    isFetchingModels: Boolean = false
 ) {
     val listState = rememberLazyListState()
     var showModelDropdown by remember { mutableStateOf(false) }
@@ -109,6 +110,13 @@ fun ChatCanvas(
                                         tint = AntigravityColors.ElectricCyan,
                                         modifier = Modifier.size(13.dp)
                                     )
+                                    if (isFetchingModels) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(10.dp),
+                                            strokeWidth = 1.5.dp,
+                                            color = AntigravityColors.ElectricCyan
+                                        )
+                                    }
                                     Text(
                                         text = activeModel,
                                         fontSize = 11.sp,
@@ -277,6 +285,27 @@ fun ChatCanvas(
                                         }
                                     } else {
                                         Column(modifier = Modifier.fillMaxWidth()) {
+                                            if (isFetchingModels) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(12.dp),
+                                                        strokeWidth = 1.5.dp,
+                                                        color = AntigravityColors.ElectricCyan
+                                                    )
+                                                    Text(
+                                                        text = "Discovering models from gateways…",
+                                                        fontSize = 10.sp,
+                                                        color = AntigravityColors.TextSecondary
+                                                    )
+                                                }
+                                                HorizontalDivider(color = AntigravityColors.DividerColor)
+                                            }
                                             filteredDropdownModels.forEach { model ->
                                                 val isSelected = model.id.equals(activeModelId, ignoreCase = true) ||
                                                         model.name.equals(activeModel, ignoreCase = true)
@@ -382,6 +411,24 @@ fun ChatCanvas(
                                         }
                                     }
                                 }
+
+                                HorizontalDivider(color = AntigravityColors.DividerColor)
+
+                                // Model count summary
+                                val freeCount = models.count { it.isFree }
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "${models.size} models available ($freeCount free)",
+                                            fontSize = 10.sp,
+                                            color = AntigravityColors.TextSecondary,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    },
+                                    onClick = {},
+                                    enabled = false,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
 
                                 HorizontalDivider(color = AntigravityColors.DividerColor)
 

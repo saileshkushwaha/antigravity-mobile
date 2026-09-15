@@ -535,6 +535,7 @@ fun AntigravityMainScreen(
                                         },
                                         onLockStudio = onLockStudio,
                                         autoScroll = settings.autoScrollChat,
+                                        isFetchingModels = isFetchingModels,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
