@@ -530,6 +530,9 @@ fun AntigravityMainScreen(
                                         onRejectPlan = { messageId ->
                                             agentEngine.rejectPlan(messageId)
                                         },
+                                        onUseInContext = { text ->
+                                            inputText = text
+                                        },
                                         onLockStudio = onLockStudio,
                                         autoScroll = settings.autoScrollChat,
                                         modifier = Modifier.fillMaxSize()

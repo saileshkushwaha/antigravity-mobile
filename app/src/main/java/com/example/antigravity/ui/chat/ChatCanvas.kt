@@ -1,8 +1,10 @@
 package com.example.antigravity.ui.chat
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,6 +45,7 @@ fun ChatCanvas(
     auxiliaryActiveCount: Int,
     onApprovePlan: (String) -> Unit,
     onRejectPlan: (String) -> Unit,
+    onUseInContext: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     activePersona: AgentPersona? = null,
     activeWorkspace: ProjectWorkspace? = null,
@@ -550,11 +555,15 @@ fun ChatCanvas(
             ) {
                 items(conversation.messages, key = { it.id }) { msg ->
                     when (msg.sender) {
-                        MessageSender.USER -> UserMessageCard(message = msg)
+                        MessageSender.USER -> UserMessageCard(
+                            message = msg,
+                            onUseInContext = onUseInContext
+                        )
                         MessageSender.AGENT -> AgentMessageCard(
                             message = msg,
                             onApprovePlan = { onApprovePlan(msg.id) },
-                            onRejectPlan = { onRejectPlan(msg.id) }
+                            onRejectPlan = { onRejectPlan(msg.id) },
+                            onUseInContext = onUseInContext
                         )
                         MessageSender.SYSTEM -> SystemMessageCard(message = msg)
                     }
@@ -597,8 +606,15 @@ fun StatusBadge(agentState: AgentRunState) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun UserMessageCard(message: ChatMessage) {
+fun UserMessageCard(
+    message: ChatMessage,
+    onUseInContext: ((String) -> Unit)? = null
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -610,27 +626,61 @@ fun UserMessageCard(message: ChatMessage) {
             Surface(
                 shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
                 color = AntigravityColors.SurfaceElevated,
-                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder)
+                border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
+                modifier = Modifier.combinedClickable(
+                    onClick = {},
+                    onLongClick = { showMenu = true }
+                )
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = message.text,
-                        fontSize = 14.sp,
-                        color = AntigravityColors.TextPrimary,
-                        lineHeight = 20.sp
-                    )
+                Box {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = message.text,
+                            fontSize = 14.sp,
+                            color = AntigravityColors.TextPrimary,
+                            lineHeight = 20.sp
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Copy Text", fontSize = 13.sp) },
+                            leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(message.text))
+                                showMenu = false
+                            }
+                        )
+                        if (onUseInContext != null) {
+                            DropdownMenuItem(
+                                text = { Text("Use in Context", fontSize = 13.sp) },
+                                leadingIcon = { Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(16.dp)) },
+                                onClick = {
+                                    onUseInContext(message.text)
+                                    showMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AgentMessageCard(
     message: ChatMessage,
     onApprovePlan: () -> Unit,
-    onRejectPlan: () -> Unit
+    onRejectPlan: () -> Unit,
+    onUseInContext: ((String) -> Unit)? = null
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -665,10 +715,40 @@ fun AgentMessageCard(
                 shape = RoundedCornerShape(12.dp),
                 color = AntigravityColors.CardBackground,
                 border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { showMenu = true }
+                    )
             ) {
-                Box(modifier = Modifier.padding(12.dp)) {
-                    MarkdownRenderer(text = message.text)
+                Box {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        MarkdownRenderer(text = message.text)
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Copy Text", fontSize = 13.sp) },
+                            leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(message.text))
+                                showMenu = false
+                            }
+                        )
+                        if (onUseInContext != null) {
+                            DropdownMenuItem(
+                                text = { Text("Use in Context", fontSize = 13.sp) },
+                                leadingIcon = { Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(16.dp)) },
+                                onClick = {
+                                    onUseInContext(message.text)
+                                    showMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         } else if (message.isStreaming) {
