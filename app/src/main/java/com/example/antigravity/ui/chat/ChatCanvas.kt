@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import android.content.ClipData
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
@@ -32,6 +33,7 @@ import com.example.antigravity.engine.AgentRunState
 import com.example.antigravity.model.*
 import com.example.antigravity.theme.AntigravityColors
 import com.example.antigravity.ui.common.MarkdownRenderer
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -662,6 +664,7 @@ fun UserMessageCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -697,7 +700,9 @@ fun UserMessageCard(
                             text = { Text("Copy Text", fontSize = 13.sp) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
-                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("message", message.text)))
+                                coroutineScope.launch {
+                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("message", message.text)))
+                                }
                                 showMenu = false
                             }
                         )
@@ -728,6 +733,7 @@ fun AgentMessageCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -782,7 +788,9 @@ fun AgentMessageCard(
                             text = { Text("Copy Text", fontSize = 13.sp) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
-                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("message", message.text)))
+                                coroutineScope.launch {
+                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("message", message.text)))
+                                }
                                 showMenu = false
                             }
                         )
