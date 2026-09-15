@@ -336,7 +336,11 @@ class OpenAiGatewayService {
                         json.optJSONArray("data")?.length() ?: json.optJSONArray("models")?.length() ?: 0
                     }
                 } catch (_: Exception) { 0 }
-                Result.success("Valid — $count models via ${gateway.displayName}")
+
+                val finalCount = if (count > 0) count else {
+                    com.example.antigravity.model.ModelCatalog.allModels.count { it.gateway == gateway }
+                }
+                Result.success("Valid — $finalCount models via ${gateway.displayName}")
             } else {
                 val msg = when (response.code) {
                     401 -> "Invalid API key (HTTP 401)"
