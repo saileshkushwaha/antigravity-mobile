@@ -656,15 +656,17 @@ class AntigravityAgentEngine(
                     if (remoteUrl.isBlank()) {
                         Result.failure(Exception("git_clone: URL argument is required"))
                     } else {
+                        val workspaceDir = java.io.File(repository.activeWorkspace.value.path)
                         val targetDir = if (targetPath.isBlank()) {
-                            java.io.File(repository.activeWorkspace.value.path, remoteUrl.substringAfterLast("/").removeSuffix(".git"))
+                            java.io.File(workspaceDir, remoteUrl.substringAfterLast("/").removeSuffix(".git"))
                         } else {
-                            java.io.File(targetPath)
+                            val f = java.io.File(targetPath)
+                            if (f.isAbsolute) f else java.io.File(workspaceDir, targetPath)
                         }
                         val token = repository.settings.value.githubToken
                         val cloneResult = repository.gitCloneRepository(remoteUrl, targetDir, branch, token)
                         if (cloneResult.isSuccess) {
-                            Result.success("Cloned $remoteUrl into $targetDir")
+                            Result.success("Cloned $remoteUrl into ${targetDir.absolutePath}")
                         } else {
                             Result.failure(Exception(cloneResult.errorMessage))
                         }
