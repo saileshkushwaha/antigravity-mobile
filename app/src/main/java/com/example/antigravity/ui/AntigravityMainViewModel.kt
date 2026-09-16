@@ -32,8 +32,7 @@ class AntigravityMainViewModel : ViewModel() {
         val showAbout: Boolean = false,
         val showChatPersona: Boolean = false,
         val showChatPrompt: Boolean = false,
-        val showAddWorkspace: Boolean = false,
-        val showStudioMatrix: Boolean = false
+        val showAddWorkspace: Boolean = false
     )
 
     private val _dialogs = MutableStateFlow(DialogStates())

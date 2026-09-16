@@ -51,7 +51,6 @@ import com.example.antigravity.studio.observability.ObservabilityStudioScreen
 import com.example.antigravity.studio.architecture.ArchitectureStudioScreen
 import com.example.antigravity.studio.iac.IacStudioScreen
 import com.example.antigravity.ui.navigation.AntigravityAppScreen
-import com.example.antigravity.ui.navigation.EnterpriseStudioMatrixDialog
 import com.example.antigravity.ui.navigation.StudioScreenRegistry
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
@@ -442,10 +441,6 @@ fun AntigravityMainScreen(
                         onOpenApiKeyCsv = {
                             showApiKeyCsvDialog = true
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
-                        },
-                        onOpenStudioMatrix = {
-                            showAllStudiosModal = true
-                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         }
                     )
                 }
@@ -722,23 +717,6 @@ fun AntigravityMainScreen(
                 }
             }
         }
-    }
-
-    // All Enterprise Studios & Hubs Dialog (1-Tap Direct Switcher)
-    if (showAllStudiosModal) {
-        EnterpriseStudioMatrixDialog(
-            currentScreen = currentScreen,
-            onSelectStudio = { selectedScreen ->
-                currentScreen = selectedScreen
-            },
-            onDismiss = { showAllStudiosModal = false },
-            activeModel = settings.activeModel,
-            activeWorkspaceName = activeWorkspace.name,
-            activeBranch = activeWorkspace.branch,
-            skillsCount = skills.count { it.isEnabled },
-            mcpCount = mcpServers.count { it.isEnabled },
-            subagentsCount = subagents.count { it.state == com.example.antigravity.model.SubagentState.RUNNING }
-        )
     }
 
     // Model Selection Dialog (with Search & Free Filters)

@@ -68,8 +68,7 @@ fun SidebarDrawerContent(
     currentScreen: AntigravityAppScreen = AntigravityAppScreen.CHAT,
     onOpenChatStudio: () -> Unit = {},
     onOpenModelSelection: () -> Unit = {},
-    onOpenApiKeyCsv: () -> Unit = {},
-    onOpenStudioMatrix: () -> Unit = {}
+    onOpenApiKeyCsv: () -> Unit = {}
 ) {
     var showWorkspaceMenu by remember { mutableStateOf(false) }
     var showAddWorkspaceDialog by remember { mutableStateOf(false) }
@@ -577,13 +576,6 @@ fun SidebarDrawerContent(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                SidebarIconTile(
-                    icon = Icons.Default.Apps,
-                    label = "All Studios Matrix",
-                    tint = AntigravityColors.ElectricCyan,
-                    onClick = onOpenStudioMatrix,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
 
@@ -1005,7 +997,6 @@ data class SidebarCallbacks(
     val onLockStudio: () -> Unit = {},
     val onOpenChatStudio: () -> Unit = {},
     val onOpenModelSelection: () -> Unit = {},
-    val onOpenApiKeyCsv: () -> Unit = {},
-    val onOpenStudioMatrix: () -> Unit = {}
+    val onOpenApiKeyCsv: () -> Unit = {}
 )
 
