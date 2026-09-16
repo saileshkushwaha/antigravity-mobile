@@ -61,7 +61,7 @@ fun SidebarDrawerContent(
     onOpenObservability: () -> Unit = {},
     onOpenArchitecture: () -> Unit = {},
     onOpenIacStudio: () -> Unit = {},
-    onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
+    onAddWorkspace: (name: String, path: String, branch: String, githubUrl: String) -> Unit = { _, _, _, _ -> },
     onDeleteWorkspace: (String) -> Unit = {},
     onOpenAddProjectOrFolder: () -> Unit = {},
     onLockStudio: () -> Unit = {},
@@ -76,6 +76,7 @@ fun SidebarDrawerContent(
     var newWsName by remember { mutableStateOf("") }
     var newWsPath by remember { mutableStateOf("") }
     var newWsBranch by remember { mutableStateOf("main") }
+    var newWsGithubUrl by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = modifier
@@ -844,6 +845,23 @@ fun SidebarDrawerContent(
                             )
                         )
                     }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("GitHub Repository URL (Optional)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                        OutlinedTextField(
+                            value = newWsGithubUrl,
+                            onValueChange = { newWsGithubUrl = it },
+                            placeholder = { Text("https://github.com/owner/repo.git", fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -853,7 +871,7 @@ fun SidebarDrawerContent(
                         val finalPath = newWsPath.trim().ifBlank {
                             com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
                         }
-                        onAddWorkspace(finalName, finalPath, newWsBranch.trim().ifBlank { "main" })
+                        onAddWorkspace(finalName, finalPath, newWsBranch.trim().ifBlank { "main" }, newWsGithubUrl.trim())
                         showAddWorkspaceDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)
@@ -981,7 +999,7 @@ data class SidebarCallbacks(
     val onOpenObservability: () -> Unit = {},
     val onOpenArchitecture: () -> Unit = {},
     val onOpenIacStudio: () -> Unit = {},
-    val onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
+    val onAddWorkspace: (name: String, path: String, branch: String, githubUrl: String) -> Unit = { _, _, _, _ -> },
     val onDeleteWorkspace: (String) -> Unit = {},
     val onOpenAddProjectOrFolder: () -> Unit = {},
     val onLockStudio: () -> Unit = {},

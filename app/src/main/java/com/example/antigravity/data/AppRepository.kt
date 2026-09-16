@@ -104,6 +104,19 @@ class AppRepository {
                 } else {
                     _workspaces.value.forEach { _sqlEngine?.saveWorkspace(it) }
                 }
+
+                // Load conversations from SQLite (replaces seeded default if saved ones exist)
+                try {
+                    val dbConvs = _sqlEngine?.loadConversations() ?: emptyList()
+                    if (dbConvs.isNotEmpty()) {
+                        _conversations.value = dbConvs
+                        val savedActiveId = sharedPrefs?.getString("active_conversation_id", null)
+                        val lastActive = if (savedActiveId != null) dbConvs.find { it.id == savedActiveId } else null
+                        _activeConversationId.value = lastActive?.id ?: dbConvs.firstOrNull()?.id ?: _activeConversationId.value
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -471,6 +484,7 @@ class AppRepository {
 
     fun switchConversation(id: String) {
         _activeConversationId.value = id
+        sharedPrefs?.edit { putString("active_conversation_id", id) }
         val conv = _conversations.value.find { it.id == id }
         if (conv != null) {
             // 1. Sync Active Model
@@ -556,6 +570,8 @@ class AppRepository {
         _conversations.update { listOf(newConv) + it }
         _activeConversationId.value = newId
         _activeWorkspace.value = targetWs
+        _sqlEngine?.saveConversation(newConv)
+        sharedPrefs?.edit { putString("active_conversation_id", newId) }
 
         if (safeOwner.isNotBlank() && safeRepo.isNotBlank()) {
         _settings.update { it.copy(githubOwner = safeOwner, githubRepo = safeRepo, targetBranch = safeBranch) }
@@ -571,11 +587,14 @@ class AppRepository {
     }
 
     fun deleteConversation(id: String) {
+        _sqlEngine?.deleteConversation(id)
         val filtered = _conversations.value.filter { it.id != id }
         _conversations.value = filtered
         if (_activeConversationId.value == id) {
             _activeConversationId.value = filtered.firstOrNull()?.id ?: createNewConversation()
         }
+        sharedPrefs?.edit { remove("active_conversation_id") }
+        filtered.firstOrNull()?.let { sharedPrefs?.edit { putString("active_conversation_id", it.id) } }
     }
 
     fun addMessage(message: ChatMessage) {
@@ -590,6 +609,7 @@ class AppRepository {
             )
             current[index] = updatedConv
             _conversations.value = current
+            _sqlEngine?.saveConversation(updatedConv)
         }
     }
 
@@ -604,6 +624,7 @@ class AppRepository {
                 updatedMessages[msgIndex] = transform(updatedMessages[msgIndex])
                 current[index] = conv.copy(messages = updatedMessages)
                 _conversations.value = current
+                _sqlEngine?.saveConversation(current[index])
             }
         }
     }
@@ -655,6 +676,7 @@ class AppRepository {
             if (index != -1) {
                 current[index] = currentConv.copy(messages = currentConv.messages.toMutableList(), activeModel = model.name, activeModelId = model.id)
                 _conversations.value = current
+                _sqlEngine?.saveConversation(current[index])
             }
         }
     }
@@ -859,6 +881,7 @@ class AppRepository {
             if (index != -1) {
                 current[index] = updatedConv
                 _conversations.value = current
+                _sqlEngine?.saveConversation(updatedConv)
             }
         }
         loadWorkspaceScopedConfig()
@@ -1198,11 +1221,27 @@ class AppRepository {
                 }
             }
             else -> {
-                currentLogs.add("Executed: $trimmed [Exit Code 0]")
+                try {
+                    val processBuilder = ProcessBuilder("sh", "-c", trimmed)
+                    processBuilder.directory(java.io.File("."))
+                    processBuilder.redirectErrorStream(true)
+                    processBuilder.environment()["GIT_TERMINAL_PROMPT"] = "0"
+                    val process = processBuilder.start()
+                    val output = process.inputStream.bufferedReader().readText()
+                    val exitCode = process.waitFor()
+                    currentLogs.add("Executed: $trimmed [Exit Code $exitCode]")
+                    output.lines().takeLast(50).forEach { currentLogs.add(it) }
+                } catch (e: Exception) {
+                    currentLogs.add("Executed: $trimmed [Error: ${e.message}]")
+                }
             }
         }
         currentLogs.add("> ")
         _terminalLogs.value = currentLogs
+    }
+
+    fun executeGitClone(remoteUrl: String, targetDir: java.io.File, branch: String = "main", token: String = ""): CloneResult {
+        return gitCloneRepository(remoteUrl, targetDir, branch, token)
     }
 
     // Persona CRUD
@@ -1379,14 +1418,16 @@ class AppRepository {
         _conversations.update { list ->
             list.map { conv ->
                 if (conv.id == activeId) {
-                    conv.copy(messages = mutableListOf(
+                    val cleared = conv.copy(messages = mutableListOf(
                         ChatMessage(
                             id = java.util.UUID.randomUUID().toString(),
                             sender = MessageSender.SYSTEM,
                             text = "Session history cleared. Ready for instructions.",
                             timestamp = System.currentTimeMillis()
                         )
-                    ))
+                    ), updatedAt = System.currentTimeMillis())
+                    _sqlEngine?.saveConversation(cleared)
+                    cleared
                 } else conv
             }
         }

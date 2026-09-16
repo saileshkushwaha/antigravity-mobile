@@ -89,6 +89,7 @@ class AntigravityAgentEngine(
             <tool_call name="list_dir" path="subfolder" />
             <tool_call name="grep_search" query="searchTerm" />
             <tool_call name="git_status" />
+            <tool_call name="git_clone" url="https://github.com/owner/repo.git" path="local/path" branch="main" />
             <tool_call name="execute_sql" query="SELECT ..." />
             <tool_call name="run_command" command="command_name" />
             The engine executes these tools directly on the workspace and returns observations in <tool_result>.
@@ -648,6 +649,27 @@ class AntigravityAgentEngine(
                     val logs = repository.terminalLogs.value.takeLast(10).joinToString("\n")
                     Result.success(logs.ifBlank { "Git status: clean working tree" })
                 }
+                "git_clone" -> {
+                    val remoteUrl = tool.arguments["url"] ?: tool.arguments["remote"] ?: tool.arguments["repo"] ?: ""
+                    val targetPath = tool.arguments["path"] ?: tool.arguments["directory"] ?: tool.arguments["dir"] ?: ""
+                    val branch = tool.arguments["branch"] ?: "main"
+                    if (remoteUrl.isBlank()) {
+                        Result.failure(Exception("git_clone: URL argument is required"))
+                    } else {
+                        val targetDir = if (targetPath.isBlank()) {
+                            java.io.File(repository.activeWorkspace.value.path, remoteUrl.substringAfterLast("/").removeSuffix(".git"))
+                        } else {
+                            java.io.File(targetPath)
+                        }
+                        val token = repository.settings.value.githubToken
+                        val cloneResult = repository.gitCloneRepository(remoteUrl, targetDir, branch, token)
+                        if (cloneResult.isSuccess) {
+                            Result.success("Cloned $remoteUrl into $targetDir")
+                        } else {
+                            Result.failure(Exception(cloneResult.errorMessage))
+                        }
+                    }
+                }
                 "execute_sql" -> {
                     val sql = tool.arguments["query"] ?: tool.arguments["sql"] ?: ""
                     val engine = repository.getSqlEngine()
@@ -667,8 +689,8 @@ class AntigravityAgentEngine(
                 "run_command" -> {
                     val cmd = tool.arguments["command"] ?: tool.arguments["cmd"] ?: ""
                     repository.executeTerminalCommand(cmd)
-                    val lastLogs = repository.terminalLogs.value.takeLast(8).joinToString("\n")
-                    Result.success("Executed: $cmd\n$lastLogs")
+                    val logs = repository.terminalLogs.value.takeLast(50).joinToString("\n")
+                    Result.success("Executed: $cmd\n$logs")
                 }
                 else -> {
                     Result.failure(Exception("Unknown tool: ${tool.name}"))

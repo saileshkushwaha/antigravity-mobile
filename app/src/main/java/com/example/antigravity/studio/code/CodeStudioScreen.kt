@@ -39,7 +39,7 @@ fun CodeStudioScreen(
     modifier: Modifier = Modifier,
     workspaces: List<ProjectWorkspace> = emptyList(),
     onSelectWorkspace: (ProjectWorkspace) -> Unit = {},
-    onAddWorkspace: (name: String, path: String, branch: String) -> Unit = { _, _, _ -> },
+    onAddWorkspace: (name: String, path: String, branch: String, githubUrl: String) -> Unit = { _, _, _, _ -> },
     onOpenDrawer: () -> Unit = {},
     onExecuteCommand: (String) -> Unit = {},
     terminalLogs: List<String> = emptyList()
@@ -70,6 +70,7 @@ fun CodeStudioScreen(
     var newWsName by remember { mutableStateOf("") }
     var newWsPath by remember { mutableStateOf("") }
     var newWsBranch by remember { mutableStateOf("main") }
+    var newWsGithubUrl by remember { mutableStateOf("") }
     var showTerminalDrawer by remember { mutableStateOf(false) }
     var terminalInput by remember { mutableStateOf("") }
     var showFileTreePane by remember { mutableStateOf(true) }
@@ -1187,6 +1188,7 @@ fun CodeStudioScreen(
                             newWsName = ""
                             newWsPath = com.example.antigravity.data.AppRepository.resolveWorkspacePath("my-project")
                             newWsBranch = "main"
+                            newWsGithubUrl = ""
                             showAddWorkspaceDialog = true
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -1277,6 +1279,23 @@ fun CodeStudioScreen(
                             )
                         )
                     }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("GitHub Repository URL (Optional)", fontSize = 11.sp, color = AntigravityColors.TextSecondary)
+                        OutlinedTextField(
+                            value = newWsGithubUrl,
+                            onValueChange = { newWsGithubUrl = it },
+                            placeholder = { Text("https://github.com/owner/repo.git", fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = AntigravityColors.TextPrimary,
+                                unfocusedTextColor = AntigravityColors.TextPrimary,
+                                focusedBorderColor = AntigravityColors.ElectricCyan,
+                                unfocusedBorderColor = AntigravityColors.CardBorder
+                            )
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -1286,7 +1305,7 @@ fun CodeStudioScreen(
                         val finalPath = newWsPath.trim().ifBlank {
                             com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
                         }
-                        onAddWorkspace(finalName, finalPath, newWsBranch.trim().ifBlank { "main" })
+                        onAddWorkspace(finalName, finalPath, newWsBranch.trim().ifBlank { "main" }, newWsGithubUrl.trim())
                         showAddWorkspaceDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.ElectricCyan)

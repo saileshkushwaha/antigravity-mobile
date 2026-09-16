@@ -325,8 +325,8 @@ fun AntigravityMainScreen(
                             repository.switchWorkspace(it)
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
-                        onAddWorkspace = { name, path, branch ->
-                            repository.addWorkspace(name, path, branch)
+                        onAddWorkspace = { name, path, branch, githubUrl ->
+                            repository.addWorkspace(name, path, branch, githubUrl = githubUrl)
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
                         onDeleteWorkspace = { wsId ->
@@ -544,7 +544,7 @@ fun AntigravityMainScreen(
                                         activeWorkspace = activeWorkspace,
                                         workspaces = workspaces,
                                         onSelectWorkspace = { repository.switchWorkspace(it) },
-                                        onAddWorkspace = { name, path, branch -> repository.addWorkspace(name, path, branch) },
+                                        onAddWorkspace = { name, path, branch, githubUrl -> repository.addWorkspace(name, path, branch, githubUrl = githubUrl) },
                                         onOpenDrawer = handleOpenDrawer,
                                         onExecuteCommand = { repository.executeTerminalCommand(it) },
                                         terminalLogs = terminalLogs,

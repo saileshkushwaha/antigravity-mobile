@@ -523,6 +523,105 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         } catch (_: Exception) {}
     }
 
+    // --- Conversation Persistence ---
+    fun saveConversation(conv: Conversation) {
+        try {
+            val db = dbHelper.writableDatabase
+            val values = ContentValues().apply {
+                put("id", conv.id)
+                put("title", conv.title)
+                put("model", conv.activeModel)
+                put("workspace_id", conv.workspaceId)
+                put("workspace_name", conv.workspaceName)
+                put("github_owner", conv.githubOwner)
+                put("github_repo", conv.githubRepo)
+                put("github_branch", conv.githubBranch)
+                put("created_at", conv.createdAt)
+                put("updated_at", conv.updatedAt)
+            }
+            db.insertWithOnConflict("conversations", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            db.delete("chat_messages", "conversation_id = ?", arrayOf(conv.id))
+            for (msg in conv.messages) {
+                val msgValues = ContentValues().apply {
+                    put("id", msg.id)
+                    put("conversation_id", conv.id)
+                    put("sender", msg.sender.name)
+                    put("text", msg.text)
+                    put("timestamp", msg.timestamp)
+                    put("is_streaming", if (msg.isStreaming) 1 else 0)
+                }
+                db.insert("chat_messages", null, msgValues)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun loadConversations(): List<Conversation> {
+        val conversations = mutableListOf<Conversation>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT id, title, model, workspace_id, workspace_name, github_owner, github_repo, github_branch, created_at, updated_at FROM conversations ORDER BY updated_at DESC",
+                null
+            )
+            while (cursor.moveToNext()) {
+                val convId = cursor.getString(0)
+                val messages = loadMessagesForConversation(convId)
+                conversations.add(
+                    Conversation(
+                        id = convId,
+                        title = cursor.getString(1) ?: "",
+                        activeModel = cursor.getString(2) ?: "",
+                        activeModelId = "",
+                        createdAt = cursor.getLong(8),
+                        updatedAt = cursor.getLong(9),
+                        workspaceName = cursor.getString(4) ?: "",
+                        workspaceId = cursor.getString(3) ?: "",
+                        githubOwner = cursor.getString(5) ?: "",
+                        githubRepo = cursor.getString(6) ?: "",
+                        githubBranch = cursor.getString(7) ?: "main",
+                        messages = messages
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return conversations
+    }
+
+    private fun loadMessagesForConversation(conversationId: String): MutableList<ChatMessage> {
+        val messages = mutableListOf<ChatMessage>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT id, sender, text, timestamp, is_streaming FROM chat_messages WHERE conversation_id = ? ORDER BY timestamp ASC",
+                arrayOf(conversationId)
+            )
+            while (cursor.moveToNext()) {
+                messages.add(
+                    ChatMessage(
+                        id = cursor.getString(0),
+                        sender = MessageSender.valueOf(cursor.getString(1) ?: "USER"),
+                        text = cursor.getString(2) ?: "",
+                        timestamp = cursor.getLong(3),
+                        isStreaming = cursor.getInt(4) == 1
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return messages
+    }
+
+    fun deleteConversation(id: String) {
+        try {
+            val db = dbHelper.writableDatabase
+            db.delete("chat_messages", "conversation_id = ?", arrayOf(id))
+            db.delete("conversations", "id = ?", arrayOf(id))
+        } catch (_: Exception) {}
+    }
+
     // --- LLM Metrics Recording in Database ---
     fun recordLlmMetric(
         modelName: String,
