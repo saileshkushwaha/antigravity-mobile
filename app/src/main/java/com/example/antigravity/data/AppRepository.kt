@@ -1177,6 +1177,117 @@ class AppRepository {
         persistListFile("skills.json", _skills.value)
     }
 
+    // CLI Tool Manager
+    data class CliTool(
+        val id: String,
+        val name: String,
+        val description: String,
+        val version: String,
+        val downloadUrl: String,
+        val fileName: String,
+        val isArchive: Boolean = true
+    )
+
+    private val availableCliTools = listOf(
+        CliTool("node", "Node.js", "JavaScript runtime & npm", "v20.11.0",
+            "https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-arm64.tar.xz", "node-v20.11.0-linux-arm64.tar.xz"),
+        CliTool("python", "Python", "Python 3 interpreter & pip", "3.11.6",
+            "https://github.com/nicbarker/clay/raw/main/build/linux-arm64/python-3.11.6-linux-aarch64.tar.gz", "python-3.11.6.tar.gz"),
+        CliTool("jq", "jq", "Lightweight command-line JSON processor", "1.7",
+            "https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux-arm64", "jq", isArchive = false),
+        CliTool("ripgrep", "ripgrep", "Fast recursive grep", "14.1.0",
+            "https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-aarch64-unknown-linux-gnu.tar.gz", "ripgrep.tar.gz"),
+        CliTool("tree", "tree", "Directory tree listing", "2.1.1",
+            "https://github.com/nicbarker/tree/releases/download/2.1.1/tree-linux-arm64", "tree", isArchive = false),
+        CliTool("git", "Git (native)", "Native git binary via JGit wrapper", "2.43.0",
+            "https://github.com/nicbarker/git-arm64/releases/download/v2.43.0/git-arm64.tar.gz", "git-arm64.tar.gz")
+    )
+
+    private val _installedTools = MutableStateFlow<Set<String>>(emptySet())
+    val installedTools: StateFlow<Set<String>> = _installedTools.asStateFlow()
+
+    fun getAvailableCliTools() = availableCliTools
+    fun getInstalledTools() = _installedTools.value
+
+    suspend fun installCliTool(toolId: String, workspaceDir: java.io.File): String {
+        val tool = availableCliTools.find { it.id == toolId }
+            ?: return "Unknown tool: $toolId. Available: ${availableCliTools.joinToString { it.id }}"
+
+        val toolsDir = java.io.File(workspaceDir, ".antigravity/tools")
+        toolsDir.mkdirs()
+        val targetDir = java.io.File(toolsDir, toolId)
+
+        if (targetDir.exists() && targetDir.listFiles()?.isNotEmpty() == true) {
+            return "${tool.name} is already installed. Use 'tool remove $toolId' first to reinstall."
+        }
+
+        return try {
+            withContext(Dispatchers.IO) {
+                targetDir.mkdirs()
+                val tempFile = java.io.File(toolsDir, tool.fileName)
+
+                val url = java.net.URL(tool.downloadUrl)
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 30000
+                conn.readTimeout = 60000
+                conn.connect()
+
+                val totalSize = conn.contentLengthLong
+                val input = conn.inputStream
+                val output = tempFile.outputStream()
+                val buffer = ByteArray(8192)
+                var downloaded = 0L
+                var bytesRead: Int
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    downloaded += bytesRead
+                }
+                output.close()
+                input.close()
+                conn.disconnect()
+
+                if (tool.isArchive) {
+                    // Extract archive
+                    try {
+                        val process = ProcessBuilder("tar", "xf", tempFile.absolutePath, "-C", targetDir.absolutePath)
+                            .redirectErrorStream(true).start()
+                        process.waitFor()
+                    } catch (_: Exception) {
+                        // Fallback: try unzip for .zip files
+                        try {
+                            val process = ProcessBuilder("unzip", "-o", tempFile.absolutePath, "-d", targetDir.absolutePath)
+                                .redirectErrorStream(true).start()
+                            process.waitFor()
+                        } catch (_: Exception) {
+                            // Just keep the raw file
+                            tempFile.copyTo(java.io.File(targetDir, tool.fileName), overwrite = true)
+                        }
+                    }
+                    tempFile.delete()
+                } else {
+                    // Single binary - make executable
+                    tempFile.copyTo(java.io.File(targetDir, tool.fileName), overwrite = true)
+                    tempFile.delete()
+                    java.io.File(targetDir, tool.fileName).setExecutable(true)
+                }
+
+                _installedTools.update { it + toolId }
+                "${tool.name} ${tool.version} installed successfully to ${targetDir.absolutePath}"
+            }
+        } catch (e: Exception) {
+            "Failed to install ${tool.name}: ${e.message}"
+        }
+    }
+
+    fun removeCliTool(toolId: String, workspaceDir: java.io.File): String {
+        val toolsDir = java.io.File(workspaceDir, ".antigravity/tools/$toolId")
+        if (!toolsDir.exists()) return "$toolId is not installed."
+        return if (toolsDir.deleteRecursively()) {
+            _installedTools.update { it - toolId }
+            "$toolId removed."
+        } else "Failed to remove $toolId."
+    }
+
     fun executeTerminalCommand(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
@@ -1210,6 +1321,10 @@ class AppRepository {
                 currentLogs.add("  mv <src> <dest>        Move/rename file")
                 currentLogs.add("  find <pattern>         Find files by name")
                 currentLogs.add("  pwd                    Print working directory")
+                currentLogs.add("  tool list              List available CLI tools")
+                currentLogs.add("  tool install <id>      Install a tool (e.g. node, jq)")
+                currentLogs.add("  tool remove <id>       Remove installed tool")
+                currentLogs.add("  tool run <id> [args]   Run an installed tool")
                 currentLogs.add("  tasks                  List background tasks")
                 currentLogs.add("  subagents              List active subagents")
                 currentLogs.add("  skills                 List loaded skills")
@@ -1540,6 +1655,77 @@ class AppRepository {
             trimmed.startsWith("skills", ignoreCase = true) -> {
                 currentLogs.add("Active skills: ${_skills.value.count { it.isEnabled }}")
                 _skills.value.filter { it.isEnabled }.forEach { currentLogs.add("  - ${it.name} (${it.category})") }
+            }
+            // --- TOOL MANAGER ---
+            trimmed.equals("tool", ignoreCase = true) || trimmed.equals("tool list", ignoreCase = true) -> {
+                currentLogs.add("Available CLI tools:")
+                availableCliTools.forEach { t ->
+                    val status = if (t.id in _installedTools.value) " [installed]" else ""
+                    currentLogs.add("  ${t.id.padEnd(12)} ${t.name.padEnd(16)} ${t.version}$status")
+                    currentLogs.add("              ${t.description}")
+                }
+                currentLogs.add("")
+                currentLogs.add("Usage: tool install <id> | tool remove <id> | tool run <id> <args>")
+            }
+            trimmed.startsWith("tool install ", ignoreCase = true) -> {
+                val toolId = trimmed.removePrefix("tool install ").trim()
+                if (toolId.isBlank()) {
+                    currentLogs.add("Usage: tool install <tool-id>")
+                    currentLogs.add("Available: ${availableCliTools.joinToString { it.id }}")
+                } else {
+                    currentLogs.add("Installing $toolId...")
+                    // Run install in background
+                    val ws = _activeWorkspace.value
+                    val wsDir = java.io.File(ws.path)
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        val result = installCliTool(toolId, wsDir)
+                        val current = _terminalLogs.value.toMutableList()
+                        current.add(result)
+                        current.add("> ")
+                        _terminalLogs.value = current
+                    }
+                }
+            }
+            trimmed.startsWith("tool remove ", ignoreCase = true) -> {
+                val toolId = trimmed.removePrefix("tool remove ").trim()
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                currentLogs.add(removeCliTool(toolId, wsDir))
+            }
+            trimmed.startsWith("tool run ", ignoreCase = true) -> {
+                val args = trimmed.removePrefix("tool run ").trim().split("\\s+".toRegex())
+                if (args.isEmpty() || args[0].isBlank()) {
+                    currentLogs.add("Usage: tool run <tool-id> [args...]")
+                } else {
+                    val toolId = args[0]
+                    val toolArgs = if (args.size > 1) args.drop(1).joinToString(" ") else ""
+                    val ws = _activeWorkspace.value
+                    val wsDir = java.io.File(ws.path)
+                    val toolDir = java.io.File(wsDir, ".antigravity/tools/$toolId")
+                    if (!toolDir.exists()) {
+                        currentLogs.add("$toolId is not installed. Run: tool install $toolId")
+                    } else {
+                        // Find the executable
+                        val executable = toolDir.listFiles()?.find { it.canExecute() && it.isFile }
+                            ?: toolDir.listFiles()?.firstOrNull()
+                        if (executable == null) {
+                            currentLogs.add("No executable found for $toolId")
+                        } else {
+                            try {
+                                val pb = ProcessBuilder(listOf(executable.absolutePath) + toolArgs.split("\\s+".toRegex()).filter { it.isNotBlank() })
+                                pb.directory(wsDir)
+                                pb.redirectErrorStream(true)
+                                val proc = pb.start()
+                                val output = proc.inputStream.bufferedReader().readText()
+                                val exitCode = proc.waitFor()
+                                output.lines().takeLast(50).forEach { currentLogs.add(it) }
+                                currentLogs.add("[Exit code: $exitCode]")
+                            } catch (e: Exception) {
+                                currentLogs.add("Error running $toolId: ${e.message}")
+                            }
+                        }
+                    }
+                }
             }
             else -> {
                 currentLogs.add("Command not recognized: '$trimmed'. Type 'help' for available commands.")
