@@ -986,7 +986,7 @@ fun ConnectorsAndSwarmScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                record.completedAt ?: "In progress",
+                                                record.completedAt,
                                                 color = Color(0xFF94A3B8),
                                                 fontSize = 9.sp,
                                                 fontFamily = FontFamily.Monospace
