@@ -327,6 +327,7 @@ fun AntigravityMainScreen(
                         },
                         onAddWorkspace = { name, path, branch, githubUrl ->
                             repository.addWorkspace(name, path, branch, githubUrl = githubUrl)
+                            currentScreen = AntigravityAppScreen.CODE
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
                         onDeleteWorkspace = { wsId ->

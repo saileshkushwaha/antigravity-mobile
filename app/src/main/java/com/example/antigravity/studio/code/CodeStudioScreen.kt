@@ -52,6 +52,11 @@ fun CodeStudioScreen(
     var fileTree by remember(workspaceDir) {
         mutableStateOf(CodeStudioManager.buildFileTree(workspaceDir))
     }
+
+    // Refresh file tree when workspace changes (handles post-clone scenario)
+    LaunchedEffect(activeWorkspace.path) {
+        fileTree = CodeStudioManager.buildFileTree(workspaceDir)
+    }
     var expandedPaths by remember { mutableStateOf(setOf<String>()) }
     var selectedFile by remember(workspaceDir) { mutableStateOf<File?>(null) }
     var fileContent by remember(workspaceDir) { mutableStateOf("") }
