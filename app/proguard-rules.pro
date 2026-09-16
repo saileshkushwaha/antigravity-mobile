@@ -51,3 +51,11 @@
 -keep,allowobfuscation,allowshrinking interface kotlinx.coroutines.flow.Flow
 -keep,allowobfuscation,allowshrinking interface kotlinx.coroutines.flow.StateFlow
 -keep,allowobfuscation,allowshrinking interface kotlinx.coroutines.flow.SharedFlow
+
+# Keep JGit (pure Java git implementation)
+-keep class org.eclipse.jgit.** { *; }
+-dontwarn org.eclipse.jgit.**
+-keep class org.eclipse.jgit.ssh.** { *; }
+-dontwarn org.eclipse.jgit.ssh.**
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**

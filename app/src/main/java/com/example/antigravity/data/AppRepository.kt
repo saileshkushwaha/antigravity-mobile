@@ -947,64 +947,67 @@ class AppRepository {
         branch: String = "main",
         token: String = ""
     ): CloneResult {
-        val authenticatedUrl = if (token.isNotBlank()) {
-            try {
-                val uri = java.net.URI(remoteUrl)
-                val host = uri.host
-                val path = uri.path
-                val scheme = uri.scheme
-                if (host != null && path != null && scheme != null) {
-                    "$scheme://${token}@$host$path"
-                } else remoteUrl
-            } catch (_: Exception) {
-                remoteUrl
-            }
-        } else remoteUrl
         return try {
-            val processBuilder = ProcessBuilder(
-                "git", "clone",
-                "--branch", branch,
-                "--single-branch",
-                "--depth", "1",
-                authenticatedUrl,
-                targetDir.absolutePath
-            )
-            processBuilder.directory(targetDir.parentFile ?: java.io.File("."))
-            processBuilder.redirectErrorStream(true)
-            processBuilder.environment()["GIT_TERMINAL_PROMPT"] = "0"
+            val authenticatedUrl = if (token.isNotBlank()) {
+                try {
+                    val uri = java.net.URI(remoteUrl)
+                    val host = uri.host
+                    val path = uri.path
+                    val scheme = uri.scheme
+                    if (host != null && path != null && scheme != null) {
+                        "$scheme://${token}@$host$path"
+                    } else remoteUrl
+                } catch (_: Exception) { remoteUrl }
+            } else remoteUrl
 
-            val process = processBuilder.start()
-            val output = process.inputStream.bufferedReader().readText()
-            val exitCode = process.waitFor()
-
-            if (exitCode == 0) {
-                android.util.Log.i("AppRepository", "Git clone succeeded: $remoteUrl -> ${targetDir.absolutePath}")
-                CloneResult(isSuccess = true)
-            } else {
-                val errorMsg = when {
-                    output.contains("Authentication failed", ignoreCase = true) ||
-                    output.contains("Permission denied", ignoreCase = true) ||
-                    output.contains("could not read Username", ignoreCase = true) ->
-                        "Git clone failed: Authentication error. Check your GitHub token in Settings → API Keys & Gateways."
-                    output.contains("not found", ignoreCase = true) ||
-                    output.contains("Not Found", ignoreCase = true) ->
-                        "Git clone failed: Repository not found. Verify the repository URL and access permissions."
-                    output.contains("Remote branch", ignoreCase = true) &&
-                    output.contains("not found", ignoreCase = true) ->
-                        "Git clone failed: Specified branch not found on remote. Check branch name."
-                    output.contains("already exists", ignoreCase = true) ->
-                        "Git clone failed: Target directory already exists and is not empty."
-                    output.contains("Network error", ignoreCase = true) ||
-                    output.contains("Could not resolve host", ignoreCase = true) ||
-                    output.contains("connection timed out", ignoreCase = true) ||
-                    output.contains("Failed to connect", ignoreCase = true) ->
-                        "Git clone failed: Network error. Check your internet connection."
-                    else -> "git clone exited with code $exitCode: $output"
-                }
-                CloneResult(isSuccess = false, errorMessage = errorMsg)
+            if (targetDir.exists() && targetDir.listFiles()?.isNotEmpty() == true) {
+                return CloneResult(isSuccess = false, errorMessage = "Git clone failed: Target directory already exists and is not empty.")
             }
+
+            val cloneCommand = org.eclipse.jgit.api.Git.cloneRepository()
+                .setURI(authenticatedUrl)
+                .setDirectory(targetDir)
+                .setBranch(branch)
+                .setDepth(1)
+                .setCloneAllBranches(false)
+                .setNoCheckout(false)
+
+            if (token.isNotBlank()) {
+                cloneCommand.setCredentialsProvider(
+                    org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider(token, "")
+                )
+            }
+
+            cloneCommand.call()
+            android.util.Log.i("AppRepository", "JGit clone succeeded: $remoteUrl -> ${targetDir.absolutePath}")
+            CloneResult(isSuccess = true)
+        } catch (e: org.eclipse.jgit.api.errors.InvalidConfigurationException) {
+            val msg = e.message ?: ""
+            CloneResult(isSuccess = false, errorMessage = when {
+                msg.contains("not found", ignoreCase = true) || msg.contains("Not Found", ignoreCase = true) ->
+                    "Git clone failed: Repository not found. Verify the repository URL and access permissions."
+                else -> "Git clone failed: $msg"
+            })
+        } catch (e: org.eclipse.jgit.api.errors.TransportException) {
+            val msg = e.message ?: ""
+            CloneResult(isSuccess = false, errorMessage = when {
+                msg.contains("Authentication", ignoreCase = true) || msg.contains("Permission denied", ignoreCase = true) ->
+                    "Git clone failed: Authentication error. Check your GitHub token in Settings."
+                msg.contains("not found", ignoreCase = true) ->
+                    "Git clone failed: Repository not found. Verify the URL and access permissions."
+                msg.contains("Connection", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
+                    "Git clone failed: Network error. Check your internet connection."
+                else -> "Git clone failed: $msg"
+            })
         } catch (e: Exception) {
-            CloneResult(isSuccess = false, errorMessage = e.message ?: "Unknown clone error")
+            val msg = e.message ?: ""
+            CloneResult(isSuccess = false, errorMessage = when {
+                msg.contains("already exists", ignoreCase = true) ->
+                    "Git clone failed: Target directory already exists."
+                msg.contains("Remote branch", ignoreCase = true) && msg.contains("not found", ignoreCase = true) ->
+                    "Git clone failed: Specified branch not found on remote."
+                else -> "Git clone failed: $msg"
+            })
         }
     }
 
@@ -1188,18 +1191,182 @@ class AppRepository {
             trimmed.equals("help", ignoreCase = true) -> {
                 currentLogs.add("Available commands:")
                 currentLogs.add("  git status       Check repository branch and status")
-                currentLogs.add("  gradlew build    Run project build")
+                currentLogs.add("  git log          Show recent commits")
+                currentLogs.add("  git branch       List branches")
+                currentLogs.add("  git diff         Show uncommitted changes")
+                currentLogs.add("  ls               List files in workspace")
+                currentLogs.add("  cat <file>       Show file contents")
                 currentLogs.add("  tasks            List background tasks")
                 currentLogs.add("  subagents        List active subagents")
                 currentLogs.add("  skills           List loaded skills")
                 currentLogs.add("  clear            Clear terminal console")
             }
-            trimmed.startsWith("git status", ignoreCase = true) -> {
-                currentLogs.add("On branch ${_activeWorkspace.value.branch}")
-                currentLogs.add("Your branch is up to date with 'origin/${_activeWorkspace.value.branch}'.")
-                currentLogs.add("Changes not staged for commit:")
-                _fileDiffs.value.forEach {
-                    currentLogs.add("  modified:   ${it.filePath}")
+            trimmed.equals("git status", ignoreCase = true) -> {
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
+                    currentLogs.add("Not a git repository. Use 'git clone' or create a workspace first.")
+                } else {
+                    try {
+                        val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                            .setGitDir(java.io.File(wsDir, ".git"))
+                            .readEnvironment()
+                            .findGitDir()
+                            .build()
+                        val git = org.eclipse.jgit.api.Git(repo)
+                        val status = git.status().call()
+                        val branch = repo.branch
+                        currentLogs.add("On branch $branch")
+                        if (status.isClean) {
+                            currentLogs.add("nothing to commit, working tree clean")
+                        } else {
+                            if (status.added.isNotEmpty()) {
+                                currentLogs.add("Changes to be committed:")
+                                status.added.forEach { currentLogs.add("  new file:   $it") }
+                            }
+                            if (status.changed.isNotEmpty()) {
+                                currentLogs.add("Changes not staged for commit:")
+                                status.changed.forEach { currentLogs.add("  modified:   $it") }
+                            }
+                            if (status.removed.isNotEmpty()) {
+                                currentLogs.add("Changes not staged for commit:")
+                                status.removed.forEach { currentLogs.add("  deleted:    $it") }
+                            }
+                            if (status.untracked.isNotEmpty()) {
+                                currentLogs.add("Untracked files:")
+                                status.untracked.forEach { currentLogs.add("  $it") }
+                            }
+                        }
+                        git.close()
+                    } catch (e: Exception) {
+                        currentLogs.add("Error reading git status: ${e.message}")
+                    }
+                }
+            }
+            trimmed.startsWith("git log", ignoreCase = true) -> {
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
+                    currentLogs.add("Not a git repository.")
+                } else {
+                    try {
+                        val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                            .setGitDir(java.io.File(wsDir, ".git"))
+                            .readEnvironment()
+                            .findGitDir()
+                            .build()
+                        val git = org.eclipse.jgit.api.Git(repo)
+                        val log = git.log().setMaxCount(10).call()
+                        var count = 0
+                        for (commit in log) {
+                            val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+                                .format(java.util.Date(commit.commitTime.toLong() * 1000))
+                            currentLogs.add("${commit.id.name().substring(0, 7)} $date ${commit.shortMessage}")
+                            count++
+                        }
+                        if (count == 0) currentLogs.add("No commits yet.")
+                        git.close()
+                    } catch (e: Exception) {
+                        currentLogs.add("Error reading git log: ${e.message}")
+                    }
+                }
+            }
+            trimmed.startsWith("git branch", ignoreCase = true) -> {
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
+                    currentLogs.add("Not a git repository.")
+                } else {
+                    try {
+                        val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                            .setGitDir(java.io.File(wsDir, ".git"))
+                            .readEnvironment()
+                            .findGitDir()
+                            .build()
+                        val git = org.eclipse.jgit.api.Git(repo)
+                        val branches = git.branchList().call()
+                        val currentBranch = repo.branch
+                        for (b in branches) {
+                            val name = b.name.removePrefix("refs/heads/")
+                            currentLogs.add(if (name == currentBranch) "* $name" else "  $name")
+                        }
+                        if (branches.isEmpty()) currentLogs.add("No branches found.")
+                        git.close()
+                    } catch (e: Exception) {
+                        currentLogs.add("Error listing branches: ${e.message}")
+                    }
+                }
+            }
+            trimmed.equals("git diff", ignoreCase = true) -> {
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
+                    currentLogs.add("Not a git repository.")
+                } else {
+                    try {
+                        val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                            .setGitDir(java.io.File(wsDir, ".git"))
+                            .readEnvironment()
+                            .findGitDir()
+                            .build()
+                        val git = org.eclipse.jgit.api.Git(repo)
+                        val diff = git.diff().call()
+                        if (diff.isEmpty()) {
+                            currentLogs.add("No changes.")
+                        } else {
+                            diff.take(20).forEach { d ->
+                                val changeType = when (d.changeType) {
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.ADD -> "new file"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.MODIFY -> "modified"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.DELETE -> "deleted"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.RENAME -> "renamed"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.COPY -> "copied"
+                                    else -> "changed"
+                                }
+                                currentLogs.add("  $changeType: ${d.newPath}")
+                            }
+                            if (diff.size > 20) currentLogs.add("... ${diff.size - 20} more files changed")
+                        }
+                        git.close()
+                    } catch (e: Exception) {
+                        currentLogs.add("Error reading diff: ${e.message}")
+                    }
+                }
+            }
+            trimmed.startsWith("ls", ignoreCase = true) -> {
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                if (!wsDir.exists()) {
+                    currentLogs.add("Workspace directory does not exist.")
+                } else {
+                    val files = wsDir.listFiles()
+                    if (files.isNullOrEmpty()) {
+                        currentLogs.add("(empty)")
+                    } else {
+                        files.sortedBy { it.name }.forEach { f ->
+                            val prefix = if (f.isDirectory) "d " else "  "
+                            currentLogs.add("$prefix${f.name}")
+                        }
+                    }
+                }
+            }
+            trimmed.startsWith("cat ", ignoreCase = true) -> {
+                val fileName = trimmed.removePrefix("cat ").trim()
+                val ws = _activeWorkspace.value
+                val wsDir = java.io.File(ws.path)
+                val file = java.io.File(wsDir, fileName)
+                if (!file.exists()) {
+                    currentLogs.add("File not found: $fileName")
+                } else if (!file.isFile) {
+                    currentLogs.add("Not a file: $fileName")
+                } else {
+                    try {
+                        val content = file.readText()
+                        content.lines().take(200).forEach { currentLogs.add(it) }
+                        if (content.lines().size > 200) currentLogs.add("... (${content.lines().size - 200} more lines)")
+                    } catch (e: Exception) {
+                        currentLogs.add("Error reading file: ${e.message}")
+                    }
                 }
             }
             trimmed.startsWith("tasks", ignoreCase = true) -> {
@@ -1221,19 +1388,7 @@ class AppRepository {
                 }
             }
             else -> {
-                try {
-                    val processBuilder = ProcessBuilder("sh", "-c", trimmed)
-                    processBuilder.directory(java.io.File("."))
-                    processBuilder.redirectErrorStream(true)
-                    processBuilder.environment()["GIT_TERMINAL_PROMPT"] = "0"
-                    val process = processBuilder.start()
-                    val output = process.inputStream.bufferedReader().readText()
-                    val exitCode = process.waitFor()
-                    currentLogs.add("Executed: $trimmed [Exit Code $exitCode]")
-                    output.lines().takeLast(50).forEach { currentLogs.add(it) }
-                } catch (e: Exception) {
-                    currentLogs.add("Executed: $trimmed [Error: ${e.message}]")
-                }
+                currentLogs.add("Command not recognized: '$trimmed'. Type 'help' for available commands.")
             }
         }
         currentLogs.add("> ")

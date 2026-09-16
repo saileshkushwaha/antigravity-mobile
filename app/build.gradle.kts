@@ -72,6 +72,10 @@ dependencies {
   // Network & Serialization
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
+
+  // JGit - pure Java git implementation for Android (no native git binary needed)
+  implementation("org.eclipse.jgit:org.eclipse.jgit:7.1.0.202411261347-r")
+  implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.1.0.202411261347-r")
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests
