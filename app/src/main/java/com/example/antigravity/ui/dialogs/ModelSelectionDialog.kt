@@ -281,24 +281,28 @@ fun ModelSelectionDialog(
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Search models, providers, tags...", fontSize = 12.sp, color = AntigravityColors.TextMuted) },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Search, contentDescription = null, tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(14.dp))
                             }
                         }
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = AntigravityColors.TextPrimary),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AntigravityColors.ElectricCyan,
                         unfocusedBorderColor = AntigravityColors.CardBorder,
                         focusedContainerColor = AntigravityColors.SurfaceElevated,
                         unfocusedContainerColor = AntigravityColors.SurfaceElevated
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .padding(horizontal = 2.dp)
                 )
 
                 // Gateway Filter Chips Row
