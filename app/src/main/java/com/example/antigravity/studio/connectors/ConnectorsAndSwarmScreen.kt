@@ -58,6 +58,12 @@ fun ConnectorsAndSwarmScreen(
     var swarmStageText by remember { mutableStateOf<String?>(null) }
     var showAddAgentDialog by remember { mutableStateOf(false) }
     var checkpoints by remember(activeWorkspaceDir) { mutableStateOf(SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)) }
+    var runHistory by remember { mutableStateOf(sqlEngine.loadSwarmRuns()) }
+    var expandedRunId by remember { mutableStateOf<String?>(null) }
+    var currentRunLogs by remember { mutableStateOf<List<String>>(emptyList()) }
+    var liveAgentTokens by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var currentRunProgress by remember { mutableIntStateOf(0) }
+    var currentRunTotal by remember { mutableIntStateOf(0) }
     val swarmMissions = remember {
         listOf(
             "Full-Stack Feature Implementation & Verification",
@@ -318,44 +324,140 @@ fun ConnectorsAndSwarmScreen(
                                 onClick = {
                                     if (!isSwarmRunning) {
                                         isSwarmRunning = true
+                                        currentRunLogs = emptyList()
+                                        liveAgentTokens = emptyMap()
+                                        currentRunProgress = 0
+                                        val enabledCount = agents.count { it.isEnabled }
+                                        currentRunTotal = enabledCount
+                                        val runStartTime = System.currentTimeMillis()
+                                        val runStartDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(runStartTime))
+                                        val runId = "run_${System.currentTimeMillis()}"
+
                                         coroutineScope.launch {
-                                            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
                                             val activeMission = swarmMissions[selectedMissionIndex]
+                                            val stageResults = mutableListOf<String>()
+                                            val agentSnapshots = mutableListOf<com.example.antigravity.studio.connectors.SwarmAgentRunSnapshot>()
 
-                                            // Pre-run snapshot checkpoint
-                                            SwarmCheckpointManager.createCheckpoint(
-                                                workspaceDir = activeWorkspaceDir,
-                                                triggerAgent = "Architect-Agent",
-                                                description = "Pre-run snapshot for: $activeMission"
-                                            )
+                                            currentRunLogs = currentRunLogs + "[$runStartDate] Swarm mission started: $activeMission"
+                                            currentRunLogs = currentRunLogs + "[$runStartDate] Enabled agents: $enabledCount across 4 stages"
+
+                                            withContext(Dispatchers.IO) {
+                                                SwarmCheckpointManager.createCheckpoint(
+                                                    workspaceDir = activeWorkspaceDir,
+                                                    triggerAgent = "Architect-Agent",
+                                                    description = "Pre-run snapshot for: $activeMission"
+                                                )
+                                            }
                                             checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
+                                            currentRunLogs = currentRunLogs + "[Pre-run] Workspace checkpoint captured"
 
-                                            // Execute dynamic stages (1 through 4)
                                             for (stageNum in 1..4) {
                                                 val stageAgents = agents.filter { it.stage == stageNum && it.isEnabled }
                                                 if (stageAgents.isNotEmpty()) {
                                                     val names = stageAgents.joinToString(", ") { it.name }
                                                     swarmStageText = "Stage $stageNum/4: Running [$names] for '$activeMission'..."
+                                                    val stageStart = System.currentTimeMillis()
+                                                    val stageStartStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+                                                    currentRunLogs = currentRunLogs + "[$stageStartStr] Stage $stageNum started: $names"
+                                                    stageResults.add("Stage $stageNum: $names - RUNNING")
 
-                                                    // Mark executing
                                                     agents = agents.map { agent ->
                                                         if (agent.stage == stageNum && agent.isEnabled) {
-                                                            agent.copy(state = "Executing", tokensUsed = agent.tokensUsed + (300..900).random())
+                                                            agent.copy(
+                                                                state = "Executing",
+                                                                startedAtMs = System.currentTimeMillis(),
+                                                                executionLog = "Starting execution...",
+                                                                tokensUsed = agent.tokensUsed
+                                                            )
                                                         } else agent
                                                     }
-                                                    delay(900)
 
-                                                    // Log SQLite audit events
+                                                    for (agent in stageAgents) {
+                                                        val agentStartMs = System.currentTimeMillis()
+
+                                                        val actions = when (agent.role) {
+                                                            "System design, module decomposition, API contract definition" -> listOf(
+                                                                "Analyzing workspace structure...",
+                                                                "Decomposing modules...",
+                                                                "Defining API contracts...",
+                                                                "Generating architecture diagram...",
+                                                                "Stage 1 decomposition complete"
+                                                            )
+                                                            "Feature implementation, business logic, DTOs & models" -> listOf(
+                                                                "Reading source files...",
+                                                                "Implementing business logic...",
+                                                                "Writing code...",
+                                                                "Generating DTOs and model classes...",
+                                                                "Stage 2 code generation complete"
+                                                            )
+                                                            "Unit test generation, edge-case coverage, mutation testing" -> listOf(
+                                                                "Scanning testable functions...",
+                                                                "Generating test cases...",
+                                                                "Edge-case coverage analysis...",
+                                                                "Mutation testing score calculation...",
+                                                                "Stage 2 test generation complete"
+                                                            )
+                                                            "PR review, lint compliance, security vulnerability scan" -> listOf(
+                                                                "Running lint checks...",
+                                                                "Security scan...",
+                                                                "Code review suggestions...",
+                                                                "Compliance check passed...",
+                                                                "Stage 3 review complete"
+                                                            )
+                                                            "CI/CD pipeline, Docker build, deployment verification" -> listOf(
+                                                                "Building Docker image...",
+                                                                "Running CI pipeline...",
+                                                                "Deploying to staging...",
+                                                                "Health check: PASS...",
+                                                                "Stage 4 deployment complete"
+                                                            )
+                                                            else -> listOf("Processing...", "Analyzing...", "Executing...", "Complete")
+                                                        }
+
+                                                        for ((stepIdx, action) in actions.withIndex()) {
+                                                            delay(250L + (0..200).random().toLong())
+                                                            val stepTime = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+                                                            currentRunLogs = currentRunLogs + "[$stepTime] [${agent.name}] $action"
+                                                            val stepTokens = (80..300).random()
+                                                            liveAgentTokens = liveAgentTokens + (agent.id to (liveAgentTokens[agent.id] ?: 0) + stepTokens)
+                                                            agents = agents.map { a ->
+                                                                if (a.id == agent.id) a.copy(
+                                                                    executionLog = action,
+                                                                    tokensUsed = liveAgentTokens[agent.id] ?: a.tokensUsed
+                                                                ) else a
+                                                            }
+                                                            currentRunProgress = (currentRunProgress + 1).coerceAtMost(currentRunTotal * actions.size)
+                                                        }
+
+                                                        val agentEndMs = System.currentTimeMillis()
+                                                        agentSnapshots.add(
+                                                            com.example.antigravity.studio.connectors.SwarmAgentRunSnapshot(
+                                                                id = agent.id,
+                                                                name = agent.name,
+                                                                role = agent.role,
+                                                                state = "Complete",
+                                                                model = agent.model,
+                                                                tokensUsed = liveAgentTokens[agent.id] ?: 0,
+                                                                stage = agent.stage,
+                                                                executionLog = agent.executionLog,
+                                                                durationMs = agentEndMs - agentStartMs
+                                                            )
+                                                        )
+                                                    }
+
                                                     stageAgents.forEach { ag ->
                                                         sqlEngine.recordAgentAudit(
                                                             agentName = ag.name,
                                                             actionTaken = "Stage $stageNum execution: ${ag.role}",
                                                             status = "SUCCESS",
-                                                            executionTimeMs = 350L
+                                                            executionTimeMs = System.currentTimeMillis() - stageStart
                                                         )
                                                     }
 
-                                                    // Mark complete
+                                                    val stageEndStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+                                                    currentRunLogs = currentRunLogs + "[$stageEndStr] Stage $stageNum completed in ${System.currentTimeMillis() - stageStart}ms"
+                                                    stageResults[stageResults.lastIndex] = "Stage $stageNum: $names - COMPLETE (${System.currentTimeMillis() - stageStart}ms)"
+
                                                     agents = agents.map { agent ->
                                                         if (agent.stage == stageNum && agent.isEnabled) {
                                                             agent.copy(state = "Complete")
@@ -364,19 +466,39 @@ fun ConnectorsAndSwarmScreen(
                                                 }
                                             }
 
-                                            // Post-run snapshot checkpoint
-                                            SwarmCheckpointManager.createCheckpoint(
-                                                workspaceDir = activeWorkspaceDir,
-                                                triggerAgent = "DevOps-Runner",
-                                                description = "Post-run verified swarm checkpoint for: $activeMission"
-                                            )
+                                            withContext(Dispatchers.IO) {
+                                                SwarmCheckpointManager.createCheckpoint(
+                                                    workspaceDir = activeWorkspaceDir,
+                                                    triggerAgent = "DevOps-Runner",
+                                                    description = "Post-run verified swarm checkpoint for: $activeMission"
+                                                )
+                                            }
                                             checkpoints = SwarmCheckpointManager.listCheckpoints(activeWorkspaceDir)
 
+                                            val runEndTime = System.currentTimeMillis()
+                                            val runEndStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(runEndTime))
+                                            val totalTokens = liveAgentTokens.values.sum()
+
+                                            currentRunLogs = currentRunLogs + "[$runEndStr] Swarm mission complete. Total tokens: $totalTokens"
+
+                                            val runRecord = com.example.antigravity.studio.connectors.SwarmRunRecord(
+                                                id = runId,
+                                                mission = activeMission,
+                                                startedAt = runStartDate,
+                                                completedAt = runEndStr,
+                                                totalDurationMs = runEndTime - runStartTime,
+                                                totalTokens = totalTokens,
+                                                agentSnapshots = agentSnapshots,
+                                                stageResults = stageResults,
+                                                status = "SUCCESS"
+                                            )
+                                            sqlEngine.saveSwarmRun(runRecord)
+                                            runHistory = sqlEngine.loadSwarmRuns()
+
                                             delay(500)
-                                            agents = agents.map { it.copy(state = "Active") }
+                                            agents = agents.map { it.copy(state = "Active", executionLog = "", startedAtMs = 0L, completedAtMs = 0L) }
                                             swarmStageText = null
                                             isSwarmRunning = false
-                                            Toast.makeText(context, "Swarm mission complete! Checkpoint saved.", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 },
@@ -732,6 +854,202 @@ fun ConnectorsAndSwarmScreen(
                                             Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text("Rollback", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Section: Run History
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.History,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        "Run History (${runHistory.size})",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                }
+
+                                if (runHistory.isNotEmpty()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            runHistory.forEach { sqlEngine.deleteSwarmRun(it.id) }
+                                            runHistory = emptyList()
+                                            Toast.makeText(context, "Run history cleared", Toast.LENGTH_SHORT).show()
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.6f)),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Clear All", color = Color(0xFFEF4444), fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        if (runHistory.isEmpty()) {
+                            item {
+                                Card(
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "No swarm runs recorded yet. Run the swarm to see execution history here.",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(14.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(runHistory, key = { it.id }) { record ->
+                                val isExpanded = expandedRunId == record.id
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        when (record.status) {
+                                            "SUCCESS" -> Color(0xFF10B981).copy(alpha = 0.4f)
+                                            "PARTIAL" -> Color(0xFFF59E0B).copy(alpha = 0.4f)
+                                            else -> Color(0xFFEF4444).copy(alpha = 0.4f)
+                                        }
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { expandedRunId = if (isExpanded) null else record.id }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = when (record.status) {
+                                                        "SUCCESS" -> Color(0xFF10B981).copy(alpha = 0.2f)
+                                                        "PARTIAL" -> Color(0xFFF59E0B).copy(alpha = 0.2f)
+                                                        else -> Color(0xFFEF4444).copy(alpha = 0.2f)
+                                                    }
+                                                ) {
+                                                    Text(
+                                                        record.status,
+                                                        color = when (record.status) {
+                                                            "SUCCESS" -> Color(0xFF10B981)
+                                                            "PARTIAL" -> Color(0xFFF59E0B)
+                                                            else -> Color(0xFFEF4444)
+                                                        },
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                                Text(record.mission, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(record.startedAt, color = Color(0xFF94A3B8), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                            Text(
+                                                "${record.agentSnapshots.size} agents • ${record.totalTokens} tokens • ${record.totalDurationMs}ms",
+                                                color = Color(0xFF64748B),
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                record.completedAt ?: "In progress",
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 9.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                            Icon(
+                                                if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                                contentDescription = null,
+                                                tint = Color(0xFF94A3B8),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+
+                                        if (isExpanded) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            HorizontalDivider(color = Color(0xFF1E293B))
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            if (record.stageResults.isNotEmpty()) {
+                                                Text("Stage Results", color = Color(0xFFA855F7), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                record.stageResults.forEach { stage ->
+                                                    Text(
+                                                        stage,
+                                                        color = Color(0xFFCBD5E1),
+                                                        fontSize = 10.sp,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                            }
+
+                                            Text("Agent Details", color = Color(0xFFA855F7), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            record.agentSnapshots.forEach { snap ->
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = Color(0xFF131C2E),
+                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                                ) {
+                                                    Column(modifier = Modifier.padding(8.dp)) {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(snap.name, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                            Text(
+                                                                "${snap.tokensUsed} tokens ${snap.durationMs}ms",
+                                                                color = Color(0xFF64748B),
+                                                                fontSize = 9.sp,
+                                                                fontFamily = FontFamily.Monospace
+                                                            )
+                                                        }
+                                                        if (snap.executionLog.isNotBlank()) {
+                                                            Text(
+                                                                snap.executionLog,
+                                                                color = Color(0xFF94A3B8),
+                                                                fontSize = 9.sp,
+                                                                maxLines = 2
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }

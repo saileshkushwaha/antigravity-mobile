@@ -58,7 +58,7 @@ data class ResearchDocRecord(
 
 class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File) {
 
-    private val dbHelper = object : SQLiteOpenHelper(context.applicationContext, "antigravity_analytics.db", null, 4) {
+    private val dbHelper = object : SQLiteOpenHelper(context.applicationContext, "antigravity_analytics.db", null, 5) {
         override fun onConfigure(db: SQLiteDatabase) {
             super.onConfigure(db)
             db.setForeignKeyConstraintsEnabled(true)
@@ -207,6 +207,22 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 """.trimIndent()
             )
 
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS swarm_runs (
+                    id TEXT PRIMARY KEY,
+                    mission TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    total_duration_ms INTEGER,
+                    total_tokens INTEGER,
+                    agent_snapshots TEXT,
+                    stage_results TEXT,
+                    status TEXT NOT NULL
+                );
+                """.trimIndent()
+            )
+
             seedInitialData(db)
         }
 
@@ -307,6 +323,21 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                     abstract_text TEXT,
                     full_text TEXT,
                     extracted_at TEXT
+                );
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS swarm_runs (
+                    id TEXT PRIMARY KEY,
+                    mission TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    total_duration_ms INTEGER,
+                    total_tokens INTEGER,
+                    agent_snapshots TEXT,
+                    stage_results TEXT,
+                    status TEXT NOT NULL
                 );
                 """.trimIndent()
             )
@@ -619,6 +650,74 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             val db = dbHelper.writableDatabase
             db.delete("chat_messages", "conversation_id = ?", arrayOf(id))
             db.delete("conversations", "id = ?", arrayOf(id))
+        } catch (_: Exception) {}
+    }
+
+    // --- Swarm Run History Persistence ---
+    fun saveSwarmRun(record: com.example.antigravity.studio.connectors.SwarmRunRecord) {
+        try {
+            val db = dbHelper.writableDatabase
+            val snapshotsJson = kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(com.example.antigravity.studio.connectors.SwarmAgentRunSnapshot.serializer()),
+                record.agentSnapshots
+            )
+            val values = ContentValues().apply {
+                put("id", record.id)
+                put("mission", record.mission)
+                put("started_at", record.startedAt)
+                put("completed_at", record.completedAt)
+                put("total_duration_ms", record.totalDurationMs)
+                put("total_tokens", record.totalTokens)
+                put("agent_snapshots", snapshotsJson)
+                put("stage_results", record.stageResults.joinToString("||"))
+                put("status", record.status)
+            }
+            db.insertWithOnConflict("swarm_runs", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun loadSwarmRuns(): List<com.example.antigravity.studio.connectors.SwarmRunRecord> {
+        val runs = mutableListOf<com.example.antigravity.studio.connectors.SwarmRunRecord>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT id, mission, started_at, completed_at, total_duration_ms, total_tokens, agent_snapshots, stage_results, status FROM swarm_runs ORDER BY started_at DESC LIMIT 50",
+                null
+            )
+            while (cursor.moveToNext()) {
+                val snapshotsJson = cursor.getString(6) ?: "[]"
+                val snapshots = try {
+                    kotlinx.serialization.json.Json.decodeFromString(
+                        kotlinx.serialization.builtins.ListSerializer(com.example.antigravity.studio.connectors.SwarmAgentRunSnapshot.serializer()),
+                        snapshotsJson
+                    )
+                } catch (_: Exception) { emptyList() }
+                val stageResults = cursor.getString(7)?.split("||")?.filter { it.isNotBlank() } ?: emptyList()
+                runs.add(
+                    com.example.antigravity.studio.connectors.SwarmRunRecord(
+                        id = cursor.getString(0) ?: "",
+                        mission = cursor.getString(1) ?: "",
+                        startedAt = cursor.getString(2) ?: "",
+                        completedAt = cursor.getString(3) ?: "",
+                        totalDurationMs = cursor.getLong(4),
+                        totalTokens = cursor.getInt(5),
+                        agentSnapshots = snapshots,
+                        stageResults = stageResults,
+                        status = cursor.getString(8) ?: "UNKNOWN"
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return runs
+    }
+
+    fun deleteSwarmRun(id: String) {
+        try {
+            val db = dbHelper.writableDatabase
+            db.delete("swarm_runs", "id = ?", arrayOf(id))
         } catch (_: Exception) {}
     }
 
