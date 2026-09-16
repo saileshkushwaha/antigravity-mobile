@@ -1183,6 +1183,9 @@ class AppRepository {
         val currentLogs = _terminalLogs.value.toMutableList()
         currentLogs.add("> $trimmed")
 
+        val ws = _activeWorkspace.value
+        val wsDir = java.io.File(ws.path)
+
         when {
             trimmed.equals("clear", ignoreCase = true) || trimmed.equals("cls", ignoreCase = true) -> {
                 _terminalLogs.value = listOf("> ")
@@ -1190,73 +1193,85 @@ class AppRepository {
             }
             trimmed.equals("help", ignoreCase = true) -> {
                 currentLogs.add("Available commands:")
-                currentLogs.add("  git status       Check repository branch and status")
-                currentLogs.add("  git log          Show recent commits")
-                currentLogs.add("  git branch       List branches")
-                currentLogs.add("  git diff         Show uncommitted changes")
-                currentLogs.add("  ls               List files in workspace")
-                currentLogs.add("  cat <file>       Show file contents")
-                currentLogs.add("  tasks            List background tasks")
-                currentLogs.add("  subagents        List active subagents")
-                currentLogs.add("  skills           List loaded skills")
-                currentLogs.add("  clear            Clear terminal console")
+                currentLogs.add("  git clone <url> [dir]  Clone a repository (JGit)")
+                currentLogs.add("  git status             Check branch and status")
+                currentLogs.add("  git log                Show recent commits")
+                currentLogs.add("  git branch             List branches")
+                currentLogs.add("  git diff               Show uncommitted changes")
+                currentLogs.add("  git add <file>         Stage a file")
+                currentLogs.add("  git commit -m <msg>    Commit staged changes")
+                currentLogs.add("  ls [dir]               List files")
+                currentLogs.add("  tree [dir]             Show directory tree")
+                currentLogs.add("  cat <file>             Show file contents")
+                currentLogs.add("  mkdir <dir>            Create directory")
+                currentLogs.add("  touch <file>           Create empty file")
+                currentLogs.add("  rm <file>              Delete file")
+                currentLogs.add("  cp <src> <dest>        Copy file")
+                currentLogs.add("  mv <src> <dest>        Move/rename file")
+                currentLogs.add("  find <pattern>         Find files by name")
+                currentLogs.add("  pwd                    Print working directory")
+                currentLogs.add("  tasks                  List background tasks")
+                currentLogs.add("  subagents              List active subagents")
+                currentLogs.add("  skills                 List loaded skills")
+                currentLogs.add("  clear                  Clear terminal")
             }
+            trimmed.equals("pwd", ignoreCase = true) -> {
+                currentLogs.add(wsDir.absolutePath)
+            }
+            // --- GIT CLONE ---
+            trimmed.startsWith("git clone", ignoreCase = true) -> {
+                val parts = trimmed.split("\\s+".toRegex())
+                if (parts.size < 3) {
+                    currentLogs.add("Usage: git clone <url> [directory]")
+                } else {
+                    val url = parts[2]
+                    val dirName = if (parts.size > 3) parts[3] else url.substringAfterLast("/").removeSuffix(".git")
+                    val targetDir = java.io.File(wsDir, dirName)
+                    currentLogs.add("Cloning $url into $dirName...")
+                    val token = _settings.value.githubToken
+                    val result = gitCloneRepository(url, targetDir, "main", token)
+                    if (result.isSuccess) {
+                        currentLogs.add("Clone complete: ${targetDir.absolutePath}")
+                    } else {
+                        currentLogs.add("Clone failed: ${result.errorMessage}")
+                    }
+                }
+            }
+            // --- GIT STATUS ---
             trimmed.equals("git status", ignoreCase = true) -> {
-                val ws = _activeWorkspace.value
-                val wsDir = java.io.File(ws.path)
                 if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
-                    currentLogs.add("Not a git repository. Use 'git clone' or create a workspace first.")
+                    currentLogs.add("Not a git repository. Use 'git clone' first.")
                 } else {
                     try {
                         val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
                             .setGitDir(java.io.File(wsDir, ".git"))
-                            .readEnvironment()
-                            .findGitDir()
-                            .build()
+                            .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
                         val status = git.status().call()
-                        val branch = repo.branch
-                        currentLogs.add("On branch $branch")
+                        currentLogs.add("On branch ${repo.branch}")
                         if (status.isClean) {
                             currentLogs.add("nothing to commit, working tree clean")
                         } else {
-                            if (status.added.isNotEmpty()) {
-                                currentLogs.add("Changes to be committed:")
-                                status.added.forEach { currentLogs.add("  new file:   $it") }
-                            }
-                            if (status.changed.isNotEmpty()) {
-                                currentLogs.add("Changes not staged for commit:")
-                                status.changed.forEach { currentLogs.add("  modified:   $it") }
-                            }
-                            if (status.removed.isNotEmpty()) {
-                                currentLogs.add("Changes not staged for commit:")
-                                status.removed.forEach { currentLogs.add("  deleted:    $it") }
-                            }
-                            if (status.untracked.isNotEmpty()) {
-                                currentLogs.add("Untracked files:")
-                                status.untracked.forEach { currentLogs.add("  $it") }
-                            }
+                            status.added.forEach { currentLogs.add("  new file:   $it") }
+                            status.changed.forEach { currentLogs.add("  modified:   $it") }
+                            status.removed.forEach { currentLogs.add("  deleted:    $it") }
+                            status.untracked.forEach { currentLogs.add("  untracked:  $it") }
                         }
                         git.close()
-                    } catch (e: Exception) {
-                        currentLogs.add("Error reading git status: ${e.message}")
-                    }
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
+            // --- GIT LOG ---
             trimmed.startsWith("git log", ignoreCase = true) -> {
-                val ws = _activeWorkspace.value
-                val wsDir = java.io.File(ws.path)
                 if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
                     currentLogs.add("Not a git repository.")
                 } else {
                     try {
                         val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
                             .setGitDir(java.io.File(wsDir, ".git"))
-                            .readEnvironment()
-                            .findGitDir()
-                            .build()
+                            .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        val log = git.log().setMaxCount(10).call()
+                        val log = git.log().setMaxCount(15).call()
                         var count = 0
                         for (commit in log) {
                             val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
@@ -1266,126 +1281,265 @@ class AppRepository {
                         }
                         if (count == 0) currentLogs.add("No commits yet.")
                         git.close()
-                    } catch (e: Exception) {
-                        currentLogs.add("Error reading git log: ${e.message}")
-                    }
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
+            // --- GIT BRANCH ---
             trimmed.startsWith("git branch", ignoreCase = true) -> {
-                val ws = _activeWorkspace.value
-                val wsDir = java.io.File(ws.path)
                 if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
                     currentLogs.add("Not a git repository.")
                 } else {
                     try {
                         val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
                             .setGitDir(java.io.File(wsDir, ".git"))
-                            .readEnvironment()
-                            .findGitDir()
-                            .build()
+                            .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        val branches = git.branchList().call()
                         val currentBranch = repo.branch
-                        for (b in branches) {
+                        git.branchList().call().forEach { b ->
                             val name = b.name.removePrefix("refs/heads/")
                             currentLogs.add(if (name == currentBranch) "* $name" else "  $name")
                         }
-                        if (branches.isEmpty()) currentLogs.add("No branches found.")
                         git.close()
-                    } catch (e: Exception) {
-                        currentLogs.add("Error listing branches: ${e.message}")
-                    }
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
+            // --- GIT DIFF ---
             trimmed.equals("git diff", ignoreCase = true) -> {
-                val ws = _activeWorkspace.value
-                val wsDir = java.io.File(ws.path)
                 if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
                     currentLogs.add("Not a git repository.")
                 } else {
                     try {
                         val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
                             .setGitDir(java.io.File(wsDir, ".git"))
-                            .readEnvironment()
-                            .findGitDir()
-                            .build()
+                            .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
                         val diff = git.diff().call()
-                        if (diff.isEmpty()) {
-                            currentLogs.add("No changes.")
-                        } else {
+                        if (diff.isEmpty()) currentLogs.add("No changes.")
+                        else {
                             diff.take(20).forEach { d ->
-                                val changeType = when (d.changeType) {
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.ADD -> "new file"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.MODIFY -> "modified"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.DELETE -> "deleted"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.RENAME -> "renamed"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.COPY -> "copied"
-                                    else -> "changed"
+                                val ct = when (d.changeType) {
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.ADD -> "new"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.MODIFY -> "mod"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.DELETE -> "del"
+                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.RENAME -> "ren"
+                                    else -> "chg"
                                 }
-                                currentLogs.add("  $changeType: ${d.newPath}")
+                                currentLogs.add("  [$ct] ${d.newPath}")
                             }
-                            if (diff.size > 20) currentLogs.add("... ${diff.size - 20} more files changed")
+                            if (diff.size > 20) currentLogs.add("... ${diff.size - 20} more")
                         }
                         git.close()
-                    } catch (e: Exception) {
-                        currentLogs.add("Error reading diff: ${e.message}")
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
+                }
+            }
+            // --- GIT ADD ---
+            trimmed.startsWith("git add ", ignoreCase = true) -> {
+                val fileArg = trimmed.removePrefix("git add ").trim()
+                if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
+                    currentLogs.add("Not a git repository.")
+                } else if (fileArg.isBlank()) {
+                    currentLogs.add("Usage: git add <file>")
+                } else {
+                    try {
+                        val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                            .setGitDir(java.io.File(wsDir, ".git"))
+                            .readEnvironment().findGitDir().build()
+                        val git = org.eclipse.jgit.api.Git(repo)
+                        git.add().addFilepattern(fileArg).call()
+                        currentLogs.add("Staged: $fileArg")
+                        git.close()
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
+                }
+            }
+            // --- GIT COMMIT ---
+            trimmed.startsWith("git commit", ignoreCase = true) -> {
+                val msgMatch = Regex("""-m\s+["'](.+?)["']""").find(trimmed)
+                val msg = msgMatch?.groupValues?.get(1) ?: trimmed.removePrefix("git commit").removePrefix("-m").trim()
+                if (!wsDir.exists() || !java.io.File(wsDir, ".git").exists()) {
+                    currentLogs.add("Not a git repository.")
+                } else if (msg.isBlank()) {
+                    currentLogs.add("Usage: git commit -m \"message\"")
+                } else {
+                    try {
+                        val repo = org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                            .setGitDir(java.io.File(wsDir, ".git"))
+                            .readEnvironment().findGitDir().build()
+                        val git = org.eclipse.jgit.api.Git(repo)
+                        git.commit().setMessage(msg).call()
+                        currentLogs.add("Committed: $msg")
+                        git.close()
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
+                }
+            }
+            // --- LS ---
+            trimmed.startsWith("ls", ignoreCase = true) -> {
+                val arg = trimmed.removePrefix("ls").trim()
+                val dir = if (arg.isBlank()) wsDir else java.io.File(wsDir, arg)
+                if (!dir.exists()) {
+                    currentLogs.add("Directory not found: $arg")
+                } else if (!dir.isDirectory) {
+                    currentLogs.add("Not a directory: $arg")
+                } else {
+                    val files = dir.listFiles()
+                    if (files.isNullOrEmpty()) currentLogs.add("(empty)")
+                    else files.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() }).forEach { f ->
+                        val prefix = if (f.isDirectory) "d " else "  "
+                        val size = if (f.isFile) " (${f.length()} bytes)" else ""
+                        currentLogs.add("$prefix${f.name}$size")
                     }
                 }
             }
-            trimmed.startsWith("ls", ignoreCase = true) -> {
-                val ws = _activeWorkspace.value
-                val wsDir = java.io.File(ws.path)
-                if (!wsDir.exists()) {
-                    currentLogs.add("Workspace directory does not exist.")
+            // --- TREE ---
+            trimmed.startsWith("tree", ignoreCase = true) -> {
+                val arg = trimmed.removePrefix("tree").trim()
+                val dir = if (arg.isBlank()) wsDir else java.io.File(wsDir, arg)
+                if (!dir.exists() || !dir.isDirectory) {
+                    currentLogs.add("Directory not found: $arg")
                 } else {
-                    val files = wsDir.listFiles()
-                    if (files.isNullOrEmpty()) {
-                        currentLogs.add("(empty)")
-                    } else {
-                        files.sortedBy { it.name }.forEach { f ->
-                            val prefix = if (f.isDirectory) "d " else "  "
-                            currentLogs.add("$prefix${f.name}")
+                    fun buildTree(d: java.io.File, prefix: String, maxDepth: Int) {
+                        if (maxDepth <= 0) return
+                        val children = d.listFiles()?.filter { !it.name.startsWith(".") }?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() }) ?: return
+                        children.forEachIndexed { i, f ->
+                            val isLast = i == children.lastIndex
+                            val connector = if (isLast) "└── " else "├── "
+                            val icon = if (f.isDirectory) " " else " "
+                            currentLogs.add("$prefix$connector$icon${f.name}")
+                            if (f.isDirectory) {
+                                buildTree(f, prefix + if (isLast) "    " else "│   ", maxDepth - 1)
+                            }
                         }
                     }
+                    currentLogs.add(dir.name)
+                    buildTree(dir, "", 3)
                 }
             }
+            // --- CAT ---
             trimmed.startsWith("cat ", ignoreCase = true) -> {
                 val fileName = trimmed.removePrefix("cat ").trim()
-                val ws = _activeWorkspace.value
-                val wsDir = java.io.File(ws.path)
                 val file = java.io.File(wsDir, fileName)
-                if (!file.exists()) {
-                    currentLogs.add("File not found: $fileName")
-                } else if (!file.isFile) {
-                    currentLogs.add("Not a file: $fileName")
-                } else {
+                if (!file.exists()) currentLogs.add("File not found: $fileName")
+                else if (!file.isFile) currentLogs.add("Not a file: $fileName")
+                else {
                     try {
                         val content = file.readText()
                         content.lines().take(200).forEach { currentLogs.add(it) }
                         if (content.lines().size > 200) currentLogs.add("... (${content.lines().size - 200} more lines)")
-                    } catch (e: Exception) {
-                        currentLogs.add("Error reading file: ${e.message}")
+                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
+                }
+            }
+            // --- MKDIR ---
+            trimmed.startsWith("mkdir ", ignoreCase = true) -> {
+                val dirName = trimmed.removePrefix("mkdir ").trim()
+                if (dirName.isBlank()) {
+                    currentLogs.add("Usage: mkdir <directory>")
+                } else {
+                    val target = java.io.File(wsDir, dirName)
+                    if (target.exists()) {
+                        currentLogs.add("Directory already exists: $dirName")
+                    } else {
+                        if (target.mkdirs()) currentLogs.add("Created: $dirName")
+                        else currentLogs.add("Failed to create: $dirName")
                     }
                 }
             }
+            // --- TOUCH ---
+            trimmed.startsWith("touch ", ignoreCase = true) -> {
+                val fileName = trimmed.removePrefix("touch ").trim()
+                if (fileName.isBlank()) {
+                    currentLogs.add("Usage: touch <file>")
+                } else {
+                    val target = java.io.File(wsDir, fileName)
+                    if (target.createNewFile()) currentLogs.add("Created: $fileName")
+                    else currentLogs.add("File already exists: $fileName")
+                }
+            }
+            // --- RM ---
+            trimmed.startsWith("rm ", ignoreCase = true) -> {
+                val fileName = trimmed.removePrefix("rm ").trim()
+                if (fileName.isBlank()) {
+                    currentLogs.add("Usage: rm <file>")
+                } else {
+                    val target = java.io.File(wsDir, fileName)
+                    if (!target.exists()) {
+                        currentLogs.add("File not found: $fileName")
+                    } else if (target.isDirectory) {
+                        if (target.deleteRecursively()) currentLogs.add("Deleted: $fileName/")
+                        else currentLogs.add("Failed to delete: $fileName/ (not empty?)")
+                    } else {
+                        if (target.delete()) currentLogs.add("Deleted: $fileName")
+                        else currentLogs.add("Failed to delete: $fileName")
+                    }
+                }
+            }
+            // --- CP ---
+            trimmed.startsWith("cp ", ignoreCase = true) -> {
+                val args = trimmed.removePrefix("cp ").trim().split("\\s+".toRegex())
+                if (args.size < 2) {
+                    currentLogs.add("Usage: cp <source> <destination>")
+                } else {
+                    val src = java.io.File(wsDir, args[0])
+                    val dest = java.io.File(wsDir, args[1])
+                    if (!src.exists()) currentLogs.add("Source not found: ${args[0]}")
+                    else {
+                        try {
+                            if (src.isDirectory) {
+                                src.copyRecursively(dest, overwrite = true)
+                            } else {
+                                src.copyTo(dest, overwrite = true)
+                            }
+                            currentLogs.add("Copied ${args[0]} -> ${args[1]}")
+                        } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
+                    }
+                }
+            }
+            // --- MV ---
+            trimmed.startsWith("mv ", ignoreCase = true) -> {
+                val args = trimmed.removePrefix("mv ").trim().split("\\s+".toRegex())
+                if (args.size < 2) {
+                    currentLogs.add("Usage: mv <source> <destination>")
+                } else {
+                    val src = java.io.File(wsDir, args[0])
+                    val dest = java.io.File(wsDir, args[1])
+                    if (!src.exists()) currentLogs.add("Source not found: ${args[0]}")
+                    else {
+                        if (src.renameTo(dest)) currentLogs.add("Moved ${args[0]} -> ${args[1]}")
+                        else currentLogs.add("Failed to move ${args[0]} -> ${args[1]}")
+                    }
+                }
+            }
+            // --- FIND ---
+            trimmed.startsWith("find ", ignoreCase = true) -> {
+                val pattern = trimmed.removePrefix("find ").trim()
+                if (pattern.isBlank()) {
+                    currentLogs.add("Usage: find <filename_pattern>")
+                } else {
+                    val results = mutableListOf<String>()
+                    fun search(dir: java.io.File, depth: Int) {
+                        if (depth > 5 || results.size >= 50) return
+                        dir.listFiles()?.filter { !it.name.startsWith(".") }?.forEach { f ->
+                            if (f.name.contains(pattern, ignoreCase = true)) {
+                                results.add(f.path.removePrefix(wsDir.path + "/"))
+                            }
+                            if (f.isDirectory) search(f, depth + 1)
+                        }
+                    }
+                    search(wsDir, 0)
+                    if (results.isEmpty()) currentLogs.add("No files matching '$pattern'")
+                    else results.forEach { currentLogs.add("  $it") }
+                }
+            }
+            // --- TASKS / SUBAGENTS / SKILLS ---
             trimmed.startsWith("tasks", ignoreCase = true) -> {
                 currentLogs.add("Active background tasks: ${_backgroundTasks.value.size}")
-                _backgroundTasks.value.forEach {
-                    currentLogs.add("  [${it.status}] ${it.taskId}: ${it.commandLine}")
-                }
+                _backgroundTasks.value.forEach { currentLogs.add("  [${it.status}] ${it.taskId}: ${it.commandLine}") }
             }
             trimmed.startsWith("subagents", ignoreCase = true) -> {
                 currentLogs.add("Active subagents: ${_subagents.value.size}")
-                _subagents.value.forEach {
-                    currentLogs.add("  [${it.state}] ${it.role} (${it.typeName}): ${it.lastAction}")
-                }
+                _subagents.value.forEach { currentLogs.add("  [${it.state}] ${it.role} (${it.typeName}): ${it.lastAction}") }
             }
             trimmed.startsWith("skills", ignoreCase = true) -> {
                 currentLogs.add("Active skills: ${_skills.value.count { it.isEnabled }}")
-                _skills.value.filter { it.isEnabled }.forEach {
-                    currentLogs.add("  - ${it.name} (${it.category})")
-                }
+                _skills.value.filter { it.isEnabled }.forEach { currentLogs.add("  - ${it.name} (${it.category})") }
             }
             else -> {
                 currentLogs.add("Command not recognized: '$trimmed'. Type 'help' for available commands.")
