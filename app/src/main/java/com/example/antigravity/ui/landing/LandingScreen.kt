@@ -43,7 +43,7 @@ data class CapabilityFeature(
     val badge: String,
     val accentColor: Color,
     val description: String,
-    val onClick: () -> Unit
+    val onClick: () -> Unit = {}
 )
 
 @Composable
