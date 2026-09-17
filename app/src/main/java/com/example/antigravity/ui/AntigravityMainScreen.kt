@@ -51,47 +51,9 @@ import com.example.antigravity.studio.observability.ObservabilityStudioScreen
 import com.example.antigravity.studio.architecture.ArchitectureStudioScreen
 import com.example.antigravity.studio.iac.IacStudioScreen
 import com.example.antigravity.ui.navigation.AntigravityAppScreen
-import com.example.antigravity.ui.navigation.StudioScreenRegistry
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
 import kotlinx.coroutines.launch
 import java.io.File
-
-/**
- * Holds all dialog visibility states for the main screen.
- * Extracted to reduce AntigravityMainScreen parameter count.
- */
-data class DialogStates(
-    val showSettings: Boolean = false,
-    val showApiKeyCsv: Boolean = false,
-    val showScheduledTasks: Boolean = false,
-    val showModelSelection: Boolean = false,
-    val showDiagnostics: Boolean = false,
-    val showAbout: Boolean = false,
-    val showChatPersona: Boolean = false,
-    val showChatPrompt: Boolean = false,
-    val showAddWorkspace: Boolean = false
-)
-
-@Composable
-fun rememberDialogStates(): MutableState<DialogStates> = remember { mutableStateOf(DialogStates()) }
-
-/**
- * Holds workspace creation form state.
- */
-data class WorkspaceFormState(
-    val name: String = "",
-    val path: String = "",
-    val branch: String = "main",
-    val githubOwner: String = "",
-    val githubRepo: String = "",
-    val githubUrl: String = "",
-    val showDiscoveredRepos: Boolean = false,
-    val folderInput: String = "",
-    val isAddingFolderMode: Boolean = false
-)
-
-@Composable
-fun rememberWorkspaceFormState(): MutableState<WorkspaceFormState> = remember { mutableStateOf(WorkspaceFormState()) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +74,6 @@ fun AntigravityMainScreen(
     // Current primary destination screen
     var currentScreen by remember { mutableStateOf(AntigravityAppScreen.CHAT) }
     var showLandingScreen by remember { mutableStateOf(repository.settings.value.showLandingOnStartup) }
-    var showAllStudiosModal by remember { mutableStateOf(false) }
 
     // State flows
     val workspaces by repository.workspaces.collectAsState()
@@ -421,10 +382,6 @@ fun AntigravityMainScreen(
                             currentScreen = AntigravityAppScreen.IAC
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
-                        onOpenAddProjectOrFolder = {
-                            showAddWorkspaceDialog = true
-                            if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
-                        },
                         onLockStudio = {
                             onLockStudio()
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
@@ -494,11 +451,6 @@ fun AntigravityMainScreen(
                                         activeModel = activeConversation?.activeModel?.takeIf { it.isNotBlank() } ?: settings.activeModel,
                                         activeModelId = activeConversation?.activeModelId?.takeIf { it.isNotBlank() } ?: settings.activeModelId,
                                         activePersona = activePersona,
-                                        activeWorkspace = activeWorkspace,
-                                        workspaces = workspaces,
-                                        onSelectWorkspace = { ws ->
-                                            repository.switchWorkspace(ws)
-                                        },
                                         models = models,
                                         onSelectModel = { selectedModel ->
                                             repository.selectModel(selectedModel)
@@ -511,9 +463,6 @@ fun AntigravityMainScreen(
                                         },
                                         onOpenPromptLibrary = {
                                             showChatPromptDialog = true
-                                        },
-                                        onOpenWorkspaceManager = {
-                                            showAddWorkspaceDialog = true
                                         },
                                         onOpenDrawer = handleOpenDrawer,
                                         onToggleAuxiliary = {

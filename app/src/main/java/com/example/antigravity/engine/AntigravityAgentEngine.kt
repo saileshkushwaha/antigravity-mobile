@@ -694,6 +694,69 @@ class AntigravityAgentEngine(
                     val logs = repository.terminalLogs.value.takeLast(50).joinToString("\n")
                     Result.success("Executed: $cmd\n$logs")
                 }
+                "write_to_file" -> {
+                    val filePath = tool.arguments["path"] ?: tool.arguments["file"] ?: ""
+                    val content = tool.arguments["content"] ?: tool.arguments["text"] ?: ""
+                    if (filePath.isBlank()) return Result.failure(Exception("write_to_file: path argument is required"))
+                    if (content.isBlank()) return Result.failure(Exception("write_to_file: content argument is required"))
+                    val target = if (java.io.File(filePath).isAbsolute) java.io.File(filePath) else java.io.File(wsDir, filePath)
+                    val canonicalTarget = target.canonicalFile
+                    if (!canonicalTarget.path.startsWith(wsDir.canonicalPath)) {
+                        Result.failure(Exception("Access denied: path is outside workspace"))
+                    } else {
+                        try {
+                            target.parentFile?.mkdirs()
+                            target.writeText(content)
+                            Result.success("Written ${content.length} bytes to $filePath")
+                        } catch (e: Exception) {
+                            Result.failure(Exception("Failed to write file: ${e.message}"))
+                        }
+                    }
+                }
+                "replace_file_content" -> {
+                    val filePath = tool.arguments["path"] ?: tool.arguments["file"] ?: ""
+                    val oldText = tool.arguments["old"] ?: tool.arguments["old_text"] ?: tool.arguments["search"] ?: ""
+                    val newText = tool.arguments["new"] ?: tool.arguments["new_text"] ?: tool.arguments["replace"] ?: ""
+                    if (filePath.isBlank()) return Result.failure(Exception("replace_file_content: path argument is required"))
+                    if (oldText.isBlank()) return Result.failure(Exception("replace_file_content: old text argument is required"))
+                    val target = if (java.io.File(filePath).isAbsolute) java.io.File(filePath) else java.io.File(wsDir, filePath)
+                    val canonicalTarget = target.canonicalFile
+                    if (!canonicalTarget.path.startsWith(wsDir.canonicalPath)) {
+                        Result.failure(Exception("Access denied: path is outside workspace"))
+                    } else if (!target.exists() || !target.isFile) {
+                        Result.failure(Exception("File not found: $filePath"))
+                    } else {
+                        try {
+                            val content = target.readText()
+                            if (!content.contains(oldText)) {
+                                Result.failure(Exception("Old text not found in file"))
+                            } else {
+                                val updated = content.replaceFirst(oldText, newText)
+                                target.writeText(updated)
+                                Result.success("Replaced text in $filePath")
+                            }
+                        } catch (e: Exception) {
+                            Result.failure(Exception("Failed to replace content: ${e.message}"))
+                        }
+                    }
+                }
+                "find_by_name" -> {
+                    val query = tool.arguments["name"] ?: tool.arguments["query"] ?: tool.arguments["pattern"] ?: ""
+                    if (query.isBlank()) return Result.failure(Exception("find_by_name: name argument is required"))
+                    val results = mutableListOf<String>()
+                    fun search(dir: java.io.File, depth: Int) {
+                        if (depth > 6 || results.size >= 50) return
+                        dir.listFiles()?.filter { !it.name.startsWith(".") }?.forEach { f ->
+                            if (f.name.contains(query, ignoreCase = true)) {
+                                results.add(f.relativeTo(wsDir).path)
+                            }
+                            if (f.isDirectory) search(f, depth + 1)
+                        }
+                    }
+                    search(wsDir, 0)
+                    if (results.isEmpty()) Result.success("No files matching '$query'")
+                    else Result.success("Found ${results.size} files:\n${results.take(30).joinToString("\n")}")
+                }
                 else -> {
                     Result.failure(Exception("Unknown tool: ${tool.name}"))
                 }

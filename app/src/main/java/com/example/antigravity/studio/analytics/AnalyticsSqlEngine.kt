@@ -138,6 +138,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     model TEXT NOT NULL,
+                    active_model_id TEXT,
                     workspace_id TEXT,
                     workspace_name TEXT,
                     github_owner TEXT,
@@ -242,7 +243,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             if (version < 5) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS app_configurations (config_key TEXT PRIMARY KEY, config_value TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL)")
-                db.execSQL("CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, model TEXT NOT NULL, workspace_id TEXT, workspace_name TEXT, github_owner TEXT, github_repo TEXT, github_branch TEXT, created_at INTEGER, updated_at INTEGER)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, model TEXT NOT NULL, active_model_id TEXT, workspace_id TEXT, workspace_name TEXT, github_owner TEXT, github_repo TEXT, github_branch TEXT, created_at INTEGER, updated_at INTEGER)")
                 db.execSQL("CREATE TABLE IF NOT EXISTS chat_messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, sender TEXT NOT NULL, text TEXT NOT NULL, timestamp INTEGER, is_streaming INTEGER DEFAULT 0)")
                 version = 5
             }
@@ -467,6 +468,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 put("id", conv.id)
                 put("title", conv.title)
                 put("model", conv.activeModel)
+                put("active_model_id", conv.activeModelId)
                 put("workspace_id", conv.workspaceId)
                 put("workspace_name", conv.workspaceName)
                 put("github_owner", conv.githubOwner)
@@ -498,7 +500,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         try {
             val db = dbHelper.readableDatabase
             val cursor = db.rawQuery(
-                "SELECT id, title, model, workspace_id, workspace_name, github_owner, github_repo, github_branch, created_at, updated_at FROM conversations ORDER BY updated_at DESC",
+                "SELECT id, title, model, active_model_id, workspace_id, workspace_name, github_owner, github_repo, github_branch, created_at, updated_at FROM conversations ORDER BY updated_at DESC",
                 null
             )
             while (cursor.moveToNext()) {
@@ -509,14 +511,14 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                         id = convId,
                         title = cursor.getString(1) ?: "",
                         activeModel = cursor.getString(2) ?: "",
-                        activeModelId = "",
-                        createdAt = cursor.getLong(8),
-                        updatedAt = cursor.getLong(9),
-                        workspaceName = cursor.getString(4) ?: "",
-                        workspaceId = cursor.getString(3) ?: "",
-                        githubOwner = cursor.getString(5) ?: "",
-                        githubRepo = cursor.getString(6) ?: "",
-                        githubBranch = cursor.getString(7) ?: "main",
+                        activeModelId = cursor.getString(3) ?: "",
+                        createdAt = cursor.getLong(9),
+                        updatedAt = cursor.getLong(10),
+                        workspaceName = cursor.getString(5) ?: "",
+                        workspaceId = cursor.getString(4) ?: "",
+                        githubOwner = cursor.getString(6) ?: "",
+                        githubRepo = cursor.getString(7) ?: "",
+                        githubBranch = cursor.getString(8) ?: "main",
                         messages = messages
                     )
                 )

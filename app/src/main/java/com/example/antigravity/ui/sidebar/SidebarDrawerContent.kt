@@ -63,7 +63,6 @@ fun SidebarDrawerContent(
     onOpenIacStudio: () -> Unit = {},
     onAddWorkspace: (name: String, path: String, branch: String, githubUrl: String) -> Unit = { _, _, _, _ -> },
     onDeleteWorkspace: (String) -> Unit = {},
-    onOpenAddProjectOrFolder: () -> Unit = {},
     onLockStudio: () -> Unit = {},
     currentScreen: AntigravityAppScreen = AntigravityAppScreen.CHAT,
     onOpenChatStudio: () -> Unit = {},
@@ -881,36 +880,6 @@ fun SidebarDrawerContent(
 }
 
 @Composable
-fun SidebarActionItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = AntigravityColors.TextSecondary,
-            modifier = Modifier.size(18.dp)
-        )
-        Text(
-            text = title,
-            fontSize = 13.sp,
-            color = AntigravityColors.TextPrimary,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
 fun SidebarIconTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
@@ -967,36 +936,5 @@ fun SidebarIconTile(
  * Groups all navigation callbacks for the sidebar drawer.
  * Use this instead of passing 40+ individual lambda parameters.
  */
-data class SidebarCallbacks(
-    val onSelectWorkspace: (ProjectWorkspace) -> Unit = {},
-    val onSelectConversation: (String) -> Unit = {},
-    val onNewConversation: () -> Unit = {},
-    val onDeleteConversation: (String) -> Unit = {},
-    val onOpenScheduledTasks: () -> Unit = {},
-    val onOpenSkillsMcp: () -> Unit = {},
-    val onOpenSettings: () -> Unit = {},
-    val onOpenDiagnostics: () -> Unit = {},
-    val onOpenAbout: () -> Unit = {},
-    val onOpenLandingScreen: () -> Unit = {},
-    val onOpenCodeStudio: () -> Unit = {},
-    val onOpenDesignStudio: () -> Unit = {},
-    val onOpenResearchHub: () -> Unit = {},
-    val onOpenAnalyticsStudio: () -> Unit = {},
-    val onOpenConnectorsAndSwarm: () -> Unit = {},
-    val onOpenSdlcHub: () -> Unit = {},
-    val onOpenPersonas: () -> Unit = {},
-    val onOpenPrompts: () -> Unit = {},
-    val onOpenInspector: () -> Unit = {},
-    val onOpenApiStudio: () -> Unit = {},
-    val onOpenObservability: () -> Unit = {},
-    val onOpenArchitecture: () -> Unit = {},
-    val onOpenIacStudio: () -> Unit = {},
-    val onAddWorkspace: (name: String, path: String, branch: String, githubUrl: String) -> Unit = { _, _, _, _ -> },
-    val onDeleteWorkspace: (String) -> Unit = {},
-    val onOpenAddProjectOrFolder: () -> Unit = {},
-    val onLockStudio: () -> Unit = {},
-    val onOpenChatStudio: () -> Unit = {},
-    val onOpenModelSelection: () -> Unit = {},
-    val onOpenApiKeyCsv: () -> Unit = {}
-)
+
 
