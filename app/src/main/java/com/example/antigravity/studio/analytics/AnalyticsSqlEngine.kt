@@ -227,120 +227,25 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            if (oldVersion < 4) {
-                db.execSQL("ALTER TABLE project_workspaces ADD COLUMN connected_services TEXT")
+            var version = oldVersion
+            if (version < 2) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS agent_audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, agent_name TEXT NOT NULL, action_taken TEXT NOT NULL, status TEXT NOT NULL, execution_time_ms INTEGER, recorded_at TEXT)")
+                version = 2
             }
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS app_configurations (
-                    config_key TEXT PRIMARY KEY,
-                    config_value TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS project_workspaces (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    path TEXT NOT NULL,
-                    branch TEXT NOT NULL,
-                    github_owner TEXT,
-                    github_repo TEXT,
-                    github_url TEXT,
-                    connected_services TEXT,
-                    custom_rules TEXT,
-                    updated_at TEXT NOT NULL
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS conversations (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    model TEXT NOT NULL,
-                    workspace_id TEXT,
-                    workspace_name TEXT,
-                    github_owner TEXT,
-                    github_repo TEXT,
-                    github_branch TEXT,
-                    created_at INTEGER,
-                    updated_at INTEGER
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS chat_messages (
-                    id TEXT PRIMARY KEY,
-                    conversation_id TEXT NOT NULL,
-                    sender TEXT NOT NULL,
-                    text TEXT NOT NULL,
-                    timestamp INTEGER,
-                    is_streaming INTEGER DEFAULT 0
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS codebase_symbols (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    workspace_path TEXT NOT NULL,
-                    file_path TEXT NOT NULL,
-                    symbol_name TEXT NOT NULL,
-                    symbol_kind TEXT NOT NULL,
-                    signature TEXT,
-                    line_start INTEGER,
-                    line_end INTEGER,
-                    doc_summary TEXT
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS codebase_chunks (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    workspace_path TEXT NOT NULL,
-                    file_path TEXT NOT NULL,
-                    chunk_index INTEGER,
-                    content_hash TEXT,
-                    content_text TEXT,
-                    token_count INTEGER
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS research_documents (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    authors TEXT,
-                    source TEXT,
-                    url TEXT,
-                    abstract_text TEXT,
-                    full_text TEXT,
-                    extracted_at TEXT
-                );
-                """.trimIndent()
-            )
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS swarm_runs (
-                    id TEXT PRIMARY KEY,
-                    mission TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    completed_at TEXT,
-                    total_duration_ms INTEGER,
-                    total_tokens INTEGER,
-                    agent_snapshots TEXT,
-                    stage_results TEXT,
-                    status TEXT NOT NULL
-                );
-                """.trimIndent()
-            )
+            if (version < 3) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS codebase_symbols (id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_path TEXT NOT NULL, symbol_name TEXT NOT NULL, symbol_type TEXT, file_path TEXT, line_number INTEGER)")
+                version = 3
+            }
+            if (version < 4) {
+                db.execSQL("ALTER TABLE project_workspaces ADD COLUMN connected_services TEXT")
+                version = 4
+            }
+            if (version < 5) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS app_configurations (config_key TEXT PRIMARY KEY, config_value TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, model TEXT NOT NULL, workspace_id TEXT, workspace_name TEXT, github_owner TEXT, github_repo TEXT, github_branch TEXT, created_at INTEGER, updated_at INTEGER)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS chat_messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, sender TEXT NOT NULL, text TEXT NOT NULL, timestamp INTEGER, is_streaming INTEGER DEFAULT 0)")
+                version = 5
+            }
         }
     }
 
@@ -379,40 +284,40 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
     fun executeQuery(sql: String): SqlQueryResult {
         val startTime = System.currentTimeMillis()
         val trimmed = sql.trim()
-        val db = dbHelper.writableDatabase
+        val db = dbHelper.readableDatabase
+
+        val readOnlyPrefixes = listOf("SELECT", "PRAGMA", "EXPLAIN")
+        val isReadOnly = readOnlyPrefixes.any { trimmed.startsWith(it, ignoreCase = true) }
+
+        if (!isReadOnly) {
+            val elapsed = System.currentTimeMillis() - startTime
+            return SqlQueryResult(
+                executionTimeMs = elapsed,
+                errorMessage = "Write operations are not allowed. Only SELECT, PRAGMA, and EXPLAIN queries are permitted."
+            )
+        }
 
         return try {
-            if (trimmed.startsWith("SELECT", ignoreCase = true) || trimmed.startsWith("PRAGMA", ignoreCase = true) || trimmed.startsWith("EXPLAIN", ignoreCase = true)) {
-                val cursor = db.rawQuery(trimmed, null)
-                val columns = cursor.columnNames.toList()
-                val rows = mutableListOf<List<String>>()
+            val cursor = db.rawQuery(trimmed, null)
+            val columns = cursor.columnNames.toList()
+            val rows = mutableListOf<List<String>>()
 
-                while (cursor.moveToNext()) {
-                    val row = mutableListOf<String>()
-                    for (i in 0 until cursor.columnCount) {
-                        row.add(cursor.getString(i) ?: "NULL")
-                    }
-                    rows.add(row)
+            while (cursor.moveToNext()) {
+                val row = mutableListOf<String>()
+                for (i in 0 until cursor.columnCount) {
+                    row.add(cursor.getString(i) ?: "NULL")
                 }
-                cursor.close()
-                val elapsed = System.currentTimeMillis() - startTime
-                SqlQueryResult(
-                    columns = columns,
-                    rows = rows,
-                    executionTimeMs = elapsed,
-                    rowCount = rows.size,
-                    isSelect = true
-                )
-            } else {
-                db.execSQL(trimmed)
-                val elapsed = System.currentTimeMillis() - startTime
-                SqlQueryResult(
-                    executionTimeMs = elapsed,
-                    rowCount = 0,
-                    isSelect = false,
-                    affectedRowsMsg = "Query executed successfully in ${elapsed}ms."
-                )
+                rows.add(row)
             }
+            cursor.close()
+            val elapsed = System.currentTimeMillis() - startTime
+            SqlQueryResult(
+                columns = columns,
+                rows = rows,
+                executionTimeMs = elapsed,
+                rowCount = rows.size,
+                isSelect = true
+            )
         } catch (e: Exception) {
             val elapsed = System.currentTimeMillis() - startTime
             SqlQueryResult(

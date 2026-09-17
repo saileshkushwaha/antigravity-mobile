@@ -17,6 +17,7 @@ import java.util.UUID
 
 class AppRepository {
 
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
     private val geminiService = GeminiApiService()
     private val openAiGatewayService = OpenAiGatewayService()
 
@@ -1297,6 +1298,14 @@ class AppRepository {
         val ws = _activeWorkspace.value
         val wsDir = java.io.File(ws.path)
 
+        fun safePath(userPath: String): java.io.File {
+            val target = java.io.File(wsDir, userPath).canonicalFile
+            if (!target.path.startsWith(wsDir.canonicalPath + java.io.File.separator) && target != wsDir.canonicalFile) {
+                throw SecurityException("Path traversal blocked: $userPath resolves outside workspace")
+            }
+            return target
+        }
+
         when {
             trimmed.equals("clear", ignoreCase = true) || trimmed.equals("cls", ignoreCase = true) -> {
                 _terminalLogs.value = listOf("> ")
@@ -1531,16 +1540,22 @@ class AppRepository {
             // --- CAT ---
             trimmed.startsWith("cat ", ignoreCase = true) -> {
                 val fileName = trimmed.removePrefix("cat ").trim()
-                val file = java.io.File(wsDir, fileName)
-                if (!file.exists()) currentLogs.add("File not found: $fileName")
-                else if (!file.isFile) currentLogs.add("Not a file: $fileName")
-                else {
-                    try {
-                        val content = file.readText()
-                        content.lines().take(200).forEach { currentLogs.add(it) }
-                        if (content.lines().size > 200) currentLogs.add("... (${content.lines().size - 200} more lines)")
-                    } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
-                }
+                try {
+                    val file = safePath(fileName)
+                    if (!file.exists()) currentLogs.add("File not found: $fileName")
+                    else if (!file.isFile) currentLogs.add("Not a file: $fileName")
+                    else {
+                        val size = file.length()
+                        if (size > 1_000_000) {
+                            currentLogs.add("File too large (${size / 1024}KB). Use 'head' or 'tail' for large files.")
+                        } else {
+                            val content = file.readText()
+                            content.lines().take(200).forEach { currentLogs.add(it) }
+                            if (content.lines().size > 200) currentLogs.add("... (${content.lines().size - 200} more lines)")
+                        }
+                    }
+                } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
+                  catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
             }
             // --- MKDIR ---
             trimmed.startsWith("mkdir ", ignoreCase = true) -> {
@@ -1548,13 +1563,15 @@ class AppRepository {
                 if (dirName.isBlank()) {
                     currentLogs.add("Usage: mkdir <directory>")
                 } else {
-                    val target = java.io.File(wsDir, dirName)
-                    if (target.exists()) {
-                        currentLogs.add("Directory already exists: $dirName")
-                    } else {
-                        if (target.mkdirs()) currentLogs.add("Created: $dirName")
-                        else currentLogs.add("Failed to create: $dirName")
-                    }
+                    try {
+                        val target = safePath(dirName)
+                        if (target.exists()) {
+                            currentLogs.add("Directory already exists: $dirName")
+                        } else {
+                            if (target.mkdirs()) currentLogs.add("Created: $dirName")
+                            else currentLogs.add("Failed to create: $dirName")
+                        }
+                    } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
                 }
             }
             // --- TOUCH ---
@@ -1563,9 +1580,11 @@ class AppRepository {
                 if (fileName.isBlank()) {
                     currentLogs.add("Usage: touch <file>")
                 } else {
-                    val target = java.io.File(wsDir, fileName)
-                    if (target.createNewFile()) currentLogs.add("Created: $fileName")
-                    else currentLogs.add("File already exists: $fileName")
+                    try {
+                        val target = safePath(fileName)
+                        if (target.createNewFile()) currentLogs.add("Created: $fileName")
+                        else currentLogs.add("File already exists: $fileName")
+                    } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
                 }
             }
             // --- RM ---
@@ -1574,16 +1593,18 @@ class AppRepository {
                 if (fileName.isBlank()) {
                     currentLogs.add("Usage: rm <file>")
                 } else {
-                    val target = java.io.File(wsDir, fileName)
-                    if (!target.exists()) {
-                        currentLogs.add("File not found: $fileName")
-                    } else if (target.isDirectory) {
-                        if (target.deleteRecursively()) currentLogs.add("Deleted: $fileName/")
-                        else currentLogs.add("Failed to delete: $fileName/ (not empty?)")
-                    } else {
-                        if (target.delete()) currentLogs.add("Deleted: $fileName")
-                        else currentLogs.add("Failed to delete: $fileName")
-                    }
+                    try {
+                        val target = safePath(fileName)
+                        if (!target.exists()) {
+                            currentLogs.add("File not found: $fileName")
+                        } else if (target.isDirectory) {
+                            if (target.deleteRecursively()) currentLogs.add("Deleted: $fileName/")
+                            else currentLogs.add("Failed to delete: $fileName/ (not empty?)")
+                        } else {
+                            if (target.delete()) currentLogs.add("Deleted: $fileName")
+                            else currentLogs.add("Failed to delete: $fileName")
+                        }
+                    } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
                 }
             }
             // --- CP ---
@@ -1592,19 +1613,20 @@ class AppRepository {
                 if (args.size < 2) {
                     currentLogs.add("Usage: cp <source> <destination>")
                 } else {
-                    val src = java.io.File(wsDir, args[0])
-                    val dest = java.io.File(wsDir, args[1])
-                    if (!src.exists()) currentLogs.add("Source not found: ${args[0]}")
-                    else {
-                        try {
+                    try {
+                        val src = safePath(args[0])
+                        val dest = safePath(args[1])
+                        if (!src.exists()) currentLogs.add("Source not found: ${args[0]}")
+                        else {
                             if (src.isDirectory) {
                                 src.copyRecursively(dest, overwrite = true)
                             } else {
                                 src.copyTo(dest, overwrite = true)
                             }
                             currentLogs.add("Copied ${args[0]} -> ${args[1]}")
-                        } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
-                    }
+                        }
+                    } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
+                      catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
             // --- MV ---
@@ -1613,13 +1635,15 @@ class AppRepository {
                 if (args.size < 2) {
                     currentLogs.add("Usage: mv <source> <destination>")
                 } else {
-                    val src = java.io.File(wsDir, args[0])
-                    val dest = java.io.File(wsDir, args[1])
-                    if (!src.exists()) currentLogs.add("Source not found: ${args[0]}")
-                    else {
-                        if (src.renameTo(dest)) currentLogs.add("Moved ${args[0]} -> ${args[1]}")
-                        else currentLogs.add("Failed to move ${args[0]} -> ${args[1]}")
-                    }
+                    try {
+                        val src = safePath(args[0])
+                        val dest = safePath(args[1])
+                        if (!src.exists()) currentLogs.add("Source not found: ${args[0]}")
+                        else {
+                            if (src.renameTo(dest)) currentLogs.add("Moved ${args[0]} -> ${args[1]}")
+                            else currentLogs.add("Failed to move ${args[0]} -> ${args[1]}")
+                        }
+                    } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
                 }
             }
             // --- FIND ---
@@ -1674,10 +1698,9 @@ class AppRepository {
                     currentLogs.add("Available: ${availableCliTools.joinToString { it.id }}")
                 } else {
                     currentLogs.add("Installing $toolId...")
-                    // Run install in background
-                    val ws = _activeWorkspace.value
-                    val wsDir = java.io.File(ws.path)
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    // Run install in background using repository scope
+                    val wsDir = java.io.File(_activeWorkspace.value.path)
+                    scope.launch {
                         val result = installCliTool(toolId, wsDir)
                         val current = _terminalLogs.value.toMutableList()
                         current.add(result)
