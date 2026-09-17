@@ -22,8 +22,8 @@ object AppConfigManager {
 
     private var sharedPrefs: SharedPreferences? = null
     private var sqlEngine: AnalyticsSqlEngine? = null
-    private val memoryOverrides = mutableMapOf<String, String>()
-    private val fileConfigs = mutableMapOf<String, String>()
+    private val memoryOverrides = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val fileConfigs = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     fun init(context: Context, workspaceDir: File? = null, engine: AnalyticsSqlEngine? = null) {
         sharedPrefs = context.applicationContext.getSharedPreferences("antigravity_prefs", Context.MODE_PRIVATE)

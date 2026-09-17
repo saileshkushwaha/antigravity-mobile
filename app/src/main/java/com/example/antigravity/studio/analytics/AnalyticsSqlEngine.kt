@@ -271,10 +271,16 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                     val ext = file.extension.ifBlank { if (file.isDirectory) "DIR" else "none" }
                     val modified = dateFormat.format(Date(file.lastModified()))
                     val size = if (file.isFile) file.length() else 0L
-                    val safeName = file.name.replace("'", "''")
-                    db.execSQL(
-                        "INSERT INTO workspace_files (filename, extension, size_bytes, last_modified) VALUES ('$safeName', '$ext', $size, '$modified')"
+                    val stmt = db.compileStatement(
+                        "INSERT INTO workspace_files (filename, extension, size_bytes, last_modified) VALUES (?, ?, ?, ?)"
                     )
+                    stmt.use {
+                        it.bindString(1, file.name)
+                        it.bindString(2, ext)
+                        it.bindLong(3, size)
+                        it.bindString(4, modified)
+                        it.executeInsert()
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -296,6 +302,18 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 executionTimeMs = elapsed,
                 errorMessage = "Write operations are not allowed. Only SELECT, PRAGMA, and EXPLAIN queries are permitted."
             )
+        }
+
+        if (trimmed.contains(";") && trimmed.indexOf(";") < trimmed.length - 1) {
+            val afterSemicolon = trimmed.substringAfter(";").trim()
+            val isCompoundBlocked = readOnlyPrefixes.none { afterSemicolon.startsWith(it, ignoreCase = true) }
+            if (isCompoundBlocked) {
+                val elapsed = System.currentTimeMillis() - startTime
+                return SqlQueryResult(
+                    executionTimeMs = elapsed,
+                    errorMessage = "Compound statements are not allowed."
+                )
+            }
         }
 
         return try {

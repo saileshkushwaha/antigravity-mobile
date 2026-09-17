@@ -138,11 +138,18 @@ object CloudSandboxService {
 
                 val duration = System.currentTimeMillis() - startTime
                 val exit = process.exitValue()
+                val stdoutLines: List<String>
+                val stderrOutput: String
+                synchronized(lines) {
+                    stdoutLines = lines.toList()
+                }
+                val stderrLines = stdoutLines.filter { it.startsWith("[STDERR] ") }.map { it.removePrefix("[STDERR] ") }
+                val stdoutOnly = stdoutLines.filter { !it.startsWith("[STDERR] ") }
                 Result.success(
                     SandboxExecutionResult(
                         exitCode = exit,
-                        stdout = lines.joinToString("\n"),
-                        stderr = if (exit != 0) "Process exited with code $exit" else "",
+                        stdout = stdoutOnly.joinToString("\n"),
+                        stderr = if (exit != 0) "Process exited with code $exit\n${stderrLines.joinToString("\n")}" else "",
                         durationMs = duration,
                         runnerType = SandboxRunnerType.LOCAL_FALLBACK
                     )

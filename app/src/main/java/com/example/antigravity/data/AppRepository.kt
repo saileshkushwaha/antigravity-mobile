@@ -1292,6 +1292,16 @@ class AppRepository {
     fun executeTerminalCommand(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
+
+        val securityCheck = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateCommand(trimmed)
+        if (securityCheck.isFailure) {
+            val currentLogs = _terminalLogs.value.toMutableList()
+            currentLogs.add("> $trimmed")
+            currentLogs.add("Error: ${securityCheck.exceptionOrNull()?.message}")
+            _terminalLogs.value = currentLogs
+            return
+        }
+
         val currentLogs = _terminalLogs.value.toMutableList()
         currentLogs.add("> $trimmed")
 
@@ -1498,44 +1508,48 @@ class AppRepository {
             // --- LS ---
             trimmed.startsWith("ls", ignoreCase = true) -> {
                 val arg = trimmed.removePrefix("ls").trim()
-                val dir = if (arg.isBlank()) wsDir else java.io.File(wsDir, arg)
-                if (!dir.exists()) {
-                    currentLogs.add("Directory not found: $arg")
-                } else if (!dir.isDirectory) {
-                    currentLogs.add("Not a directory: $arg")
-                } else {
-                    val files = dir.listFiles()
-                    if (files.isNullOrEmpty()) currentLogs.add("(empty)")
-                    else files.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() }).forEach { f ->
-                        val prefix = if (f.isDirectory) "d " else "  "
-                        val size = if (f.isFile) " (${f.length()} bytes)" else ""
-                        currentLogs.add("$prefix${f.name}$size")
+                try {
+                    val dir = if (arg.isBlank()) wsDir else safePath(arg)
+                    if (!dir.exists()) {
+                        currentLogs.add("Directory not found: $arg")
+                    } else if (!dir.isDirectory) {
+                        currentLogs.add("Not a directory: $arg")
+                    } else {
+                        val files = dir.listFiles()
+                        if (files.isNullOrEmpty()) currentLogs.add("(empty)")
+                        else files.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() }).forEach { f ->
+                            val prefix = if (f.isDirectory) "d " else "  "
+                            val size = if (f.isFile) " (${f.length()} bytes)" else ""
+                            currentLogs.add("$prefix${f.name}$size")
+                        }
                     }
-                }
+                } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
             }
             // --- TREE ---
             trimmed.startsWith("tree", ignoreCase = true) -> {
                 val arg = trimmed.removePrefix("tree").trim()
-                val dir = if (arg.isBlank()) wsDir else java.io.File(wsDir, arg)
-                if (!dir.exists() || !dir.isDirectory) {
-                    currentLogs.add("Directory not found: $arg")
-                } else {
-                    fun buildTree(d: java.io.File, prefix: String, maxDepth: Int) {
-                        if (maxDepth <= 0) return
-                        val children = d.listFiles()?.filter { !it.name.startsWith(".") }?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() }) ?: return
-                        children.forEachIndexed { i, f ->
-                            val isLast = i == children.lastIndex
-                            val connector = if (isLast) "└── " else "├── "
-                            val icon = if (f.isDirectory) " " else " "
-                            currentLogs.add("$prefix$connector$icon${f.name}")
-                            if (f.isDirectory) {
-                                buildTree(f, prefix + if (isLast) "    " else "│   ", maxDepth - 1)
+                try {
+                    val dir = if (arg.isBlank()) wsDir else safePath(arg)
+                    if (!dir.exists() || !dir.isDirectory) {
+                        currentLogs.add("Directory not found: $arg")
+                    } else {
+                        fun buildTree(d: java.io.File, prefix: String, maxDepth: Int) {
+                            if (maxDepth <= 0) return
+                            val children = d.listFiles()?.filter { !it.name.startsWith(".") }?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() }) ?: return
+                            children.forEachIndexed { i, f ->
+                                val isLast = i == children.lastIndex
+                                val connector = if (isLast) "└── " else "├── "
+                                val icon = if (f.isDirectory) " " else " "
+                                currentLogs.add("$prefix$connector$icon${f.name}")
+                                if (f.isDirectory) {
+                                    buildTree(f, prefix + if (isLast) "    " else "│   ", maxDepth - 1)
+                                }
                             }
                         }
+                        currentLogs.add(dir.name)
+                        buildTree(dir, "", 3)
                     }
-                    currentLogs.add(dir.name)
-                    buildTree(dir, "", 3)
-                }
+                } catch (e: SecurityException) { currentLogs.add("Access denied: ${e.message}") }
             }
             // --- CAT ---
             trimmed.startsWith("cat ", ignoreCase = true) -> {
@@ -1653,11 +1667,14 @@ class AppRepository {
                     currentLogs.add("Usage: find <filename_pattern>")
                 } else {
                     val results = mutableListOf<String>()
+                    val wsCanonical = wsDir.canonicalPath
                     fun search(dir: java.io.File, depth: Int) {
                         if (depth > 5 || results.size >= 50) return
                         dir.listFiles()?.filter { !it.name.startsWith(".") }?.forEach { f ->
+                            val canonical = f.canonicalPath
+                            if (!canonical.startsWith(wsCanonical + java.io.File.separator) && canonical != wsCanonical) return@forEach
                             if (f.name.contains(pattern, ignoreCase = true)) {
-                                results.add(f.path.removePrefix(wsDir.path + "/"))
+                                results.add(canonical.removePrefix(wsCanonical + "/"))
                             }
                             if (f.isDirectory) search(f, depth + 1)
                         }

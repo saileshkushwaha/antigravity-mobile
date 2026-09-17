@@ -39,6 +39,19 @@ class WebCrawlerService {
                 targetUrl
             }
 
+            val url = try { java.net.URL(normalizedUrl) } catch (_: Exception) {
+                return@withContext Result.failure(Exception("Invalid URL: $normalizedUrl"))
+            }
+            val host = url.host?.lowercase() ?: return@withContext Result.failure(Exception("No host in URL"))
+            if (host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0"
+                || host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("172.")
+                || host == "169.254.169.254" || host.endsWith(".local") || host.endsWith(".internal")) {
+                return@withContext Result.failure(Exception("SSRF blocked: $host is a private/internal address"))
+            }
+            if (url.protocol != "https" && url.protocol != "http") {
+                return@withContext Result.failure(Exception("SSRF blocked: protocol ${url.protocol} not allowed"))
+            }
+
             val request = Request.Builder()
                 .url(normalizedUrl)
                 .header("User-Agent", "Mozilla/5.0 (Android; Antigravity-Agent/3.0; Mobile Developer Studio)")
