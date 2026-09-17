@@ -2,8 +2,8 @@ package com.example.antigravity.model
 
 object ModelCatalog {
 
-    private val _allModels = mutableListOf<ModelInfo>()
-    val allModels: List<ModelInfo> get() = _allModels
+    private val _allModels = java.util.Collections.synchronizedList(mutableListOf<ModelInfo>())
+    val allModels: List<ModelInfo> get() = _allModels.toList()
 
     fun mergeModels(liveModels: List<ModelInfo>): List<ModelInfo> {
         val result = _allModels.toMutableList()

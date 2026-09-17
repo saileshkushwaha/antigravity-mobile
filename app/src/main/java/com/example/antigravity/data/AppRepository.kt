@@ -21,6 +21,10 @@ class AppRepository {
     private val geminiService = GeminiApiService()
     private val openAiGatewayService = OpenAiGatewayService()
 
+    fun close() {
+        scope.cancel()
+    }
+
     private val _models = MutableStateFlow<List<ModelInfo>>(ModelCatalog.allModels)
     val models: StateFlow<List<ModelInfo>> = _models.asStateFlow()
 
@@ -1233,18 +1237,15 @@ class AppRepository {
                 conn.readTimeout = 60000
                 conn.connect()
 
-                val totalSize = conn.contentLengthLong
-                val input = conn.inputStream
-                val output = tempFile.outputStream()
-                val buffer = ByteArray(8192)
-                var downloaded = 0L
-                var bytesRead: Int
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
-                    downloaded += bytesRead
+                conn.inputStream.use { input ->
+                    tempFile.outputStream().use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                        }
+                    }
                 }
-                output.close()
-                input.close()
                 conn.disconnect()
 
                 if (tool.isArchive) {
@@ -1381,17 +1382,18 @@ class AppRepository {
                             .setGitDir(java.io.File(wsDir, ".git"))
                             .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        val status = git.status().call()
-                        currentLogs.add("On branch ${repo.branch}")
-                        if (status.isClean) {
-                            currentLogs.add("nothing to commit, working tree clean")
-                        } else {
-                            status.added.forEach { currentLogs.add("  new file:   $it") }
-                            status.changed.forEach { currentLogs.add("  modified:   $it") }
-                            status.removed.forEach { currentLogs.add("  deleted:    $it") }
-                            status.untracked.forEach { currentLogs.add("  untracked:  $it") }
-                        }
-                        git.close()
+                        try {
+                            val status = git.status().call()
+                            currentLogs.add("On branch ${repo.branch}")
+                            if (status.isClean) {
+                                currentLogs.add("nothing to commit, working tree clean")
+                            } else {
+                                status.added.forEach { currentLogs.add("  new file:   $it") }
+                                status.changed.forEach { currentLogs.add("  modified:   $it") }
+                                status.removed.forEach { currentLogs.add("  deleted:    $it") }
+                                status.untracked.forEach { currentLogs.add("  untracked:  $it") }
+                            }
+                        } finally { git.close() }
                     } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
@@ -1405,16 +1407,17 @@ class AppRepository {
                             .setGitDir(java.io.File(wsDir, ".git"))
                             .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        val log = git.log().setMaxCount(15).call()
-                        var count = 0
-                        for (commit in log) {
-                            val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
-                                .format(java.util.Date(commit.commitTime.toLong() * 1000))
-                            currentLogs.add("${commit.id.name().substring(0, 7)} $date ${commit.shortMessage}")
-                            count++
-                        }
-                        if (count == 0) currentLogs.add("No commits yet.")
-                        git.close()
+                        try {
+                            val log = git.log().setMaxCount(15).call()
+                            var count = 0
+                            for (commit in log) {
+                                val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+                                    .format(java.util.Date(commit.commitTime.toLong() * 1000))
+                                currentLogs.add("${commit.id.name().substring(0, 7)} $date ${commit.shortMessage}")
+                                count++
+                            }
+                            if (count == 0) currentLogs.add("No commits yet.")
+                        } finally { git.close() }
                     } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
@@ -1428,12 +1431,13 @@ class AppRepository {
                             .setGitDir(java.io.File(wsDir, ".git"))
                             .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        val currentBranch = repo.branch
-                        git.branchList().call().forEach { b ->
-                            val name = b.name.removePrefix("refs/heads/")
-                            currentLogs.add(if (name == currentBranch) "* $name" else "  $name")
-                        }
-                        git.close()
+                        try {
+                            val currentBranch = repo.branch
+                            git.branchList().call().forEach { b ->
+                                val name = b.name.removePrefix("refs/heads/")
+                                currentLogs.add(if (name == currentBranch) "* $name" else "  $name")
+                            }
+                        } finally { git.close() }
                     } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
@@ -1447,22 +1451,23 @@ class AppRepository {
                             .setGitDir(java.io.File(wsDir, ".git"))
                             .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        val diff = git.diff().call()
-                        if (diff.isEmpty()) currentLogs.add("No changes.")
-                        else {
-                            diff.take(20).forEach { d ->
-                                val ct = when (d.changeType) {
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.ADD -> "new"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.MODIFY -> "mod"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.DELETE -> "del"
-                                    org.eclipse.jgit.diff.DiffEntry.ChangeType.RENAME -> "ren"
-                                    else -> "chg"
+                        try {
+                            val diff = git.diff().call()
+                            if (diff.isEmpty()) currentLogs.add("No changes.")
+                            else {
+                                diff.take(20).forEach { d ->
+                                    val ct = when (d.changeType) {
+                                        org.eclipse.jgit.diff.DiffEntry.ChangeType.ADD -> "new"
+                                        org.eclipse.jgit.diff.DiffEntry.ChangeType.MODIFY -> "mod"
+                                        org.eclipse.jgit.diff.DiffEntry.ChangeType.DELETE -> "del"
+                                        org.eclipse.jgit.diff.DiffEntry.ChangeType.RENAME -> "ren"
+                                        else -> "chg"
+                                    }
+                                    currentLogs.add("  [$ct] ${d.newPath}")
                                 }
-                                currentLogs.add("  [$ct] ${d.newPath}")
+                                if (diff.size > 20) currentLogs.add("... ${diff.size - 20} more")
                             }
-                            if (diff.size > 20) currentLogs.add("... ${diff.size - 20} more")
-                        }
-                        git.close()
+                        } finally { git.close() }
                     } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
@@ -1479,9 +1484,10 @@ class AppRepository {
                             .setGitDir(java.io.File(wsDir, ".git"))
                             .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        git.add().addFilepattern(fileArg).call()
-                        currentLogs.add("Staged: $fileArg")
-                        git.close()
+                        try {
+                            git.add().addFilepattern(fileArg).call()
+                            currentLogs.add("Staged: $fileArg")
+                        } finally { git.close() }
                     } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }
@@ -1499,9 +1505,10 @@ class AppRepository {
                             .setGitDir(java.io.File(wsDir, ".git"))
                             .readEnvironment().findGitDir().build()
                         val git = org.eclipse.jgit.api.Git(repo)
-                        git.commit().setMessage(msg).call()
-                        currentLogs.add("Committed: $msg")
-                        git.close()
+                        try {
+                            git.commit().setMessage(msg).call()
+                            currentLogs.add("Committed: $msg")
+                        } finally { git.close() }
                     } catch (e: Exception) { currentLogs.add("Error: ${e.message}") }
                 }
             }

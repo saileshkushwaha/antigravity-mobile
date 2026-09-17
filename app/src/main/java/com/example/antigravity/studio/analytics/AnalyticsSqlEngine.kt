@@ -304,15 +304,19 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             )
         }
 
-        if (trimmed.contains(";") && trimmed.indexOf(";") < trimmed.length - 1) {
-            val afterSemicolon = trimmed.substringAfter(";").trim()
-            val isCompoundBlocked = readOnlyPrefixes.none { afterSemicolon.startsWith(it, ignoreCase = true) }
-            if (isCompoundBlocked) {
-                val elapsed = System.currentTimeMillis() - startTime
-                return SqlQueryResult(
-                    executionTimeMs = elapsed,
-                    errorMessage = "Compound statements are not allowed."
-                )
+        if (trimmed.contains(";")) {
+            val statements = trimmed.split(";").map { it.trim() }.filter { it.isNotBlank() }
+            if (statements.size > 1) {
+                val allReadOnly = statements.all { stmt ->
+                    readOnlyPrefixes.any { stmt.startsWith(it, ignoreCase = true) }
+                }
+                if (!allReadOnly) {
+                    val elapsed = System.currentTimeMillis() - startTime
+                    return SqlQueryResult(
+                        executionTimeMs = elapsed,
+                        errorMessage = "Compound statements are not allowed. Only single SELECT/PRAGMA/EXPLAIN queries are permitted."
+                    )
+                }
             }
         }
 
