@@ -936,13 +936,13 @@ object SdlcManager {
         val policy = _sdlcConfig.value.preFlightPolicy
         log("INFO", "Evaluating Pre-Flight SAIF & Quality Policy gates...")
         if (policy.enforceLinter) {
-            log("INFO", "Running linter verification (detekt / ktlint)... Passed [0 errors]")
+            log("INFO", "Linter verification required (detekt / ktlint)... Checking configuration")
         }
         if (policy.enforceUnitTests) {
-            log("INFO", "Running test suite execution (./gradlew test)... All 24 unit test suites passed")
+            log("INFO", "Test suite execution required (./gradlew test)... Skipped (no build runner)")
         }
         if (policy.enforceSecurityScan) {
-            log("SUCCESS", "SAIF security compliance scan completed: 0 vulnerabilities found, Score: A+")
+            log("INFO", "SAIF security compliance scan required... Skipped (no scanner configured)")
         }
         kotlinx.coroutines.delay(200)
 
@@ -950,25 +950,29 @@ object SdlcManager {
         val branchProtections = _sdlcConfig.value.branchProtections
         log("INFO", "Checking branch protection rules for '$branch'...")
         if (branchProtections.preventDirectPushToMain && branch == "main" && environment == EnvironmentType.PRODUCTION) {
-            log("INFO", "Production release gated by PR merge policy.")
+            log("WARN", "Production release gated by PR merge policy.")
         }
-        log("SUCCESS", "Target version $versionTag verified against ${_sdlcConfig.value.releaseConfig.versionStrategy}")
+        log("INFO", "Target version $versionTag verified against ${_sdlcConfig.value.releaseConfig.versionStrategy}")
         kotlinx.coroutines.delay(200)
 
         // Stage 3: Packaging & Artifact Staging
         log("INFO", "Assembling release artifact for ${environment.displayName}...")
-        log("INFO", "Artifact bundled: Antigravity-${environment.name.lowercase()}-$versionTag.apk")
+        log("INFO", "Artifact staged: Antigravity-${environment.name.lowercase()}-$versionTag.apk")
         kotlinx.coroutines.delay(200)
 
         // Stage 4: Promotion & Traffic Routing
         val liveUrl = ""
-        log("INFO", "Promoting container to cluster & routing traffic to $liveUrl")
+        if (liveUrl.isNotBlank()) {
+            log("INFO", "Promoting container to cluster & routing traffic to $liveUrl")
+        } else {
+            log("WARN", "No deployment URL configured - skipping traffic routing")
+        }
         kotlinx.coroutines.delay(200)
 
         // Stage 5: Live Health Probe
-        log("INFO", "Probing live endpoint health at $liveUrl...")
         val startTime = System.currentTimeMillis()
         val healthProbe = if (liveUrl.isNotBlank()) {
+            log("INFO", "Probing live endpoint health at $liveUrl...")
             try {
                 val probeRequest = okhttp3.Request.Builder().url(liveUrl).get().build()
                 val response = httpClient.newCall(probeRequest).execute()
@@ -991,6 +995,7 @@ object SdlcManager {
                 )
             }
         } else {
+            log("WARN", "Health probe skipped - no deployment URL configured")
             EnvironmentHealthDetails(
                 httpStatus = 0,
                 latencyMs = 0L,
@@ -999,8 +1004,23 @@ object SdlcManager {
                 errorMessage = "No deployment URL configured"
             )
         }
-        log("SUCCESS", "Health probe returned HTTP 200 OK (Latency: 38ms). Service is HEALTHY.")
-        log("SUCCESS", "Deployment of $versionTag to ${environment.displayName} completed successfully.")
+
+        val overallHealthy = healthProbe.isReachable && healthProbe.httpStatus in 200..399
+        if (liveUrl.isNotBlank()) {
+            if (overallHealthy) {
+                log("SUCCESS", "Health probe returned HTTP ${healthProbe.httpStatus} (Latency: ${healthProbe.latencyMs}ms). Service is HEALTHY.")
+            } else {
+                log("ERROR", "Health probe failed: ${healthProbe.errorMessage ?: "Unknown error"}")
+            }
+        }
+
+        val deployStatus = if (liveUrl.isBlank() || overallHealthy) DeploymentStatus.DEPLOYED else DeploymentStatus.FAILED
+        val healthStatus = if (overallHealthy) HealthStatus.HEALTHY else if (liveUrl.isBlank()) HealthStatus.CHECKING else HealthStatus.UNHEALTHY
+        if (deployStatus == DeploymentStatus.DEPLOYED) {
+            log("SUCCESS", "Deployment of $versionTag to ${environment.displayName} completed.")
+        } else {
+            log("ERROR", "Deployment of $versionTag to ${environment.displayName} failed health check.")
+        }
 
         val newDeployment = DeploymentRecord(
             id = "dep-${environment.name.lowercase()}-${System.currentTimeMillis() % 10000}",
@@ -1009,8 +1029,8 @@ object SdlcManager {
             commitHash = branch,
             deployedBy = _sdlcConfig.value.repositoryOwner.ifBlank { "system" },
             timestamp = "Just now",
-            status = DeploymentStatus.DEPLOYED,
-            healthStatus = HealthStatus.HEALTHY,
+            status = deployStatus,
+            healthStatus = healthStatus,
             liveUrl = liveUrl,
             rollbackVersion = currentActive?.versionTag,
             healthDetails = healthProbe,

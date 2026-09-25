@@ -109,26 +109,47 @@ class AppRepository {
                 } else {
                     _workspaces.value.forEach { _sqlEngine?.saveWorkspace(it) }
                 }
+            }
 
-                // Load conversations from SQLite (replaces seeded default if saved ones exist)
-                try {
-                    val dbConvs = _sqlEngine?.loadConversations() ?: emptyList()
-                    if (dbConvs.isNotEmpty()) {
-                        _conversations.value = dbConvs
-                        val savedActiveId = sharedPrefs?.getString("active_conversation_id", null)
-                        val lastActive = if (savedActiveId != null) dbConvs.find { it.id == savedActiveId } else null
-                        _activeConversationId.value = lastActive?.id ?: dbConvs.firstOrNull()?.id ?: _activeConversationId.value
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            // Load conversations from SQLite (always, regardless of workspace source)
+            try {
+                val dbConvs = _sqlEngine?.loadConversations() ?: emptyList()
+                if (dbConvs.isNotEmpty()) {
+                    _conversations.value = dbConvs
+                    val savedActiveId = sharedPrefs?.getString("active_conversation_id", null)
+                    val lastActive = if (savedActiveId != null) dbConvs.find { it.id == savedActiveId } else null
+                    _activeConversationId.value = lastActive?.id ?: dbConvs.firstOrNull()?.id ?: _activeConversationId.value
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
+        // Seed initial conversations if none loaded from DB
+        if (_conversations.value.isEmpty()) {
+            seedInitialConversations()
+        }
+
         // 5. Load workspace-scoped user data (personas, prompts, skills, MCP servers)
         loadWorkspaceScopedConfig()
+
+        // Load scheduled tasks and start the scheduler
+        loadScheduledTasks()
+        startSchedulerIfNeeded()
+
+        // Trigger background AST indexing for @codebase semantic search
+        _sqlEngine?.let { sql ->
+            scope.launch {
+                try {
+                    val wsDir = java.io.File(_activeWorkspace.value.path)
+                    if (wsDir.exists() && wsDir.isDirectory) {
+                        com.example.antigravity.studio.code.CodebaseAstIndexer.indexWorkspace(wsDir, sql)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun antigravityConfigDir(): java.io.File =
@@ -448,10 +469,19 @@ class AppRepository {
     val terminalLogs: StateFlow<List<String>> = _terminalLogs.asStateFlow()
 
     init {
-        seedInitialConversations()
+        // seedInitialConversations() is called from init(context) after SQLite engine is ready
     }
 
     private fun seedInitialConversations() {
+        val dbConvs = try { _sqlEngine?.loadConversations() ?: emptyList() } catch (_: Exception) { emptyList() }
+        if (dbConvs.isNotEmpty()) {
+            _conversations.value = dbConvs
+            val savedActiveId = sharedPrefs?.getString("active_conversation_id", null)
+            val lastActive = if (savedActiveId != null) dbConvs.find { it.id == savedActiveId } else null
+            _activeConversationId.value = lastActive?.id ?: dbConvs.firstOrNull()?.id ?: _activeConversationId.value
+            return
+        }
+
         _fileDiffs.value = emptyList()
         _backgroundTasks.value = emptyList()
         _subagents.value = emptyList()
@@ -481,6 +511,7 @@ class AppRepository {
         )
         _conversations.value = listOf(initialConv)
         _activeConversationId.value = initialConvId
+        _sqlEngine?.saveConversation(initialConv)
     }
 
     fun getActiveConversation(): Conversation? {
@@ -890,6 +921,17 @@ class AppRepository {
             }
         }
         loadWorkspaceScopedConfig()
+        // Trigger background AST indexing for @codebase semantic search
+        _sqlEngine?.let { sql ->
+            scope.launch {
+                try {
+                    val wsDir = java.io.File(workspace.path)
+                    if (wsDir.exists() && wsDir.isDirectory) {
+                        com.example.antigravity.studio.code.CodebaseAstIndexer.indexWorkspace(wsDir, sql)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     fun addWorkspace(
@@ -1167,14 +1209,82 @@ class AppRepository {
 
     fun addScheduledTask(task: ScheduledTask) {
         _scheduledTasks.update { listOf(task) + it }
+        persistScheduledTasks()
+        startSchedulerIfNeeded()
     }
 
     fun toggleScheduledTask(id: String) {
         _scheduledTasks.update { list -> list.map { if (it.id == id) it.copy(isActive = !it.isActive) else it } }
+        persistScheduledTasks()
     }
 
     fun deleteScheduledTask(id: String) {
         _scheduledTasks.update { list -> list.filter { it.id != id } }
+        persistScheduledTasks()
+    }
+
+    private var schedulerJob: kotlinx.coroutines.Job? = null
+    private val lastRunTimes = mutableMapOf<String, Long>()
+
+    private fun persistScheduledTasks() {
+        try {
+            persistListFile("scheduled_tasks.json", _scheduledTasks.value)
+        } catch (_: Exception) {}
+    }
+
+    private fun loadScheduledTasks() {
+        try {
+            val loaded = loadListFile<ScheduledTask>("scheduled_tasks.json")
+            if (loaded != null) _scheduledTasks.value = loaded
+        } catch (_: Exception) {}
+    }
+
+    private fun startSchedulerIfNeeded() {
+        if (schedulerJob?.isActive == true) return
+        schedulerJob = scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000)
+                checkAndRunDueTasks()
+            }
+        }
+    }
+
+    private suspend fun checkAndRunDueTasks() {
+        val now = System.currentTimeMillis()
+        val due = _scheduledTasks.value.filter { task ->
+            if (!task.isActive) return@filter false
+            val lastRun = lastRunTimes[task.id] ?: 0L
+            val intervalMs = parseScheduleToMs(task.scheduleExpression, task.isCron) ?: return@filter false
+            now - lastRun >= intervalMs
+        }
+        due.forEach { task ->
+            lastRunTimes[task.id] = now
+            try {
+                executeTerminalCommand(task.prompt)
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun parseScheduleToMs(expr: String, isCron: Boolean): Long? {
+        val trimmed = expr.trim()
+        if (isCron) {
+            // Basic cron: "*/N * * * *" for every N minutes
+            val everyMin = Regex("""^\*/(\d+)\s+\*\s+\*\s+\*\s+\*$""").find(trimmed)
+            if (everyMin != null) return everyMin.groupValues[1].toLongOrNull()?.times(60_000)
+            // "0 * * * *" = hourly
+            if (trimmed.matches(Regex("""^0\s+\*\s+\*\s+\*\s+\*$"""))) return 3_600_000L
+            // "0 0 * * *" = daily
+            if (trimmed.matches(Regex("""^0\s+0\s+\*\s+\*\s+\*$"""))) return 86_400_000L
+            return null
+        }
+        // Human-readable: "every 5 minutes", "every 2 hours", "daily", "hourly"
+        val lower = trimmed.lowercase()
+        Regex("""every\s+(\d+)\s+minute""").find(lower)?.let { return it.groupValues[1].toLongOrNull()?.times(60_000) }
+        Regex("""every\s+(\d+)\s+hour""").find(lower)?.let { return it.groupValues[1].toLongOrNull()?.times(3_600_000) }
+        if (lower.contains("hourly")) return 3_600_000L
+        if (lower.contains("daily") || lower.contains("every day")) return 86_400_000L
+        if (lower.contains("every minute")) return 60_000L
+        return null
     }
 
     fun toggleSkill(name: String) {

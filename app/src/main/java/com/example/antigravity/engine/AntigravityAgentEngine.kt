@@ -140,6 +140,25 @@ class AntigravityAgentEngine(
         val trimmed = userPrompt.trim()
         if (trimmed.isEmpty()) return
 
+        // Handle slash commands that don't need LLM
+        val slashResponse = handleSlashCommandDirect(trimmed)
+        if (slashResponse != null) {
+            val userMessage = ChatMessage(
+                id = UUID.randomUUID().toString(),
+                sender = MessageSender.USER,
+                text = trimmed
+            )
+            repository.addMessage(userMessage)
+            val agentMessage = ChatMessage(
+                id = UUID.randomUUID().toString(),
+                sender = MessageSender.AGENT,
+                text = slashResponse,
+                isStreaming = false
+            )
+            repository.addMessage(agentMessage)
+            return
+        }
+
         // 1. Add User Message to repository
         val userMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
@@ -179,7 +198,7 @@ class AntigravityAgentEngine(
                     val sysInstruction = buildSynthesizedSystemPrompt()
                     val maxAutonomousTurns = settings.maxAutonomousSteps
                     var currentTurn = 0
-                    var currentPrompt = trimmed
+                    var currentPrompt = enrichSlashPrompt(trimmed)
                     var currentHistory = previousMessages.toMutableList()
                     var shouldContinue = true
                     val accumulatedToolCalls = mutableListOf<ToolCallItem>()
@@ -370,17 +389,10 @@ class AntigravityAgentEngine(
             it.copy(planArtifact = plan)
         }
 
-        currentJob?.cancel()
-        currentJob = scope.launch {
-            _agentState.value = AgentRunState.EXECUTING_TOOL
-            try {
-                demoEngine.continueExecution(msg) { updated ->
-                    repository.updateMessage(messageId) { updated }
-                }
-            } finally {
-                _agentState.value = AgentRunState.IDLE
-            }
-        }
+        // Execute the approved plan using the real agent pipeline
+        val planContent = plan.rawMarkdown
+        val executionPrompt = "The user has APPROVED the following implementation plan. Execute it step by step:\n\n$planContent\n\nBegin execution now."
+        sendPrompt(executionPrompt)
     }
 
     fun rejectPlan(messageId: String) {
@@ -402,6 +414,44 @@ class AntigravityAgentEngine(
         currentJob?.cancel()
         currentJob = null
         _agentState.value = AgentRunState.IDLE
+    }
+
+    private fun handleSlashCommandDirect(trimmed: String): String? {
+        val lower = trimmed.lowercase()
+        return when {
+            lower.startsWith("/schedule ") -> {
+                val scheduleSpec = trimmed.removePrefix("/schedule ").trim()
+                "⏰ **Scheduler**: To schedule a task, use the Scheduled Tasks dialog (Sidebar → Scheduled Tasks).\n\nParsed schedule: \"$scheduleSpec\"\nCreate a task there with your desired cron expression or interval."
+            }
+            else -> null
+        }
+    }
+
+    private fun enrichSlashPrompt(trimmed: String): String {
+        val lower = trimmed.lowercase()
+        return when {
+            lower.startsWith("/goal ") -> {
+                val goal = trimmed.removePrefix("/goal ").trim()
+                "[AUTONOMOUS GOAL with extra thoroughness]\nWork on this goal step-by-step with verification at each stage: $goal"
+            }
+            lower.startsWith("/browser ") -> {
+                val url = trimmed.removePrefix("/browser ").trim()
+                "[BROWSE TASK] Browse and analyze the webpage at $url. Describe its structure, content, and any issues found."
+            }
+            lower.startsWith("/grill-me ") -> {
+                val topic = trimmed.removePrefix("/grill-me ").trim()
+                "[DESIGN INTERVIEW] I want to do a technical design interview about: $topic. Ask me probing questions one at a time to understand requirements, constraints, and trade-offs before proposing a design."
+            }
+            lower.startsWith("/boost ") -> {
+                val task = trimmed.removePrefix("/boost ").trim()
+                "[BOOST MODE - deep reasoning, multi-perspective, rigorous verification]\nApproach with: 1) Multiple perspectives 2) Deep trade-off analysis 3) Rigorous verification 4) Step-by-step validation\n\nTask: $task"
+            }
+            lower.startsWith("/learn ") -> {
+                val rule = trimmed.removePrefix("/learn ").trim()
+                "[LEARN - add persistent rule] Add this as a workspace rule to always follow: $rule\nConfirm you've noted it."
+            }
+            else -> trimmed
+        }
     }
 
     private suspend fun executeModelCall(
@@ -427,7 +477,10 @@ class AntigravityAgentEngine(
                         modelName = modelInfo?.id ?: settings.activeModelId.ifBlank { ModelCatalog.firstForGateway(ModelGateway.GEMINI)?.id ?: "" },
                         prompt = prompt,
                         systemInstruction = sysInstruction,
-                        history = previousMessages
+                        history = previousMessages,
+                        temperature = settings.temperature,
+                        topP = settings.topP,
+                        maxOutputTokens = settings.maxOutputTokens
                     )
                 } else {
                     Result.failure(Exception("Google Gemini API key is required. Please add your key in Settings -> Model Gateways."))
@@ -442,7 +495,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
             ModelGateway.OPENCODE -> {
@@ -454,7 +507,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
             ModelGateway.OPENROUTER -> {
@@ -470,7 +523,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
             ModelGateway.GROQ -> {
@@ -486,7 +539,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
             ModelGateway.OPENAI -> {
@@ -503,7 +556,7 @@ class AntigravityAgentEngine(
                         prompt = prompt,
                         systemInstruction = sysInstruction,
                         history = previousMessages,
-                        temperature = settings.temperature
+                        temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                     )
                 } else {
                     Result.failure(Exception("OpenAI API key is required. Please add your key in Settings -> Model Gateways."))
@@ -517,7 +570,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
             ModelGateway.HUGGINGFACE -> {
@@ -533,7 +586,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
             ModelGateway.CUSTOM -> {
@@ -556,7 +609,7 @@ class AntigravityAgentEngine(
                     prompt = prompt,
                     systemInstruction = sysInstruction,
                     history = previousMessages,
-                    temperature = settings.temperature
+                    temperature = settings.temperature, topP = settings.topP, maxTokens = settings.maxOutputTokens
                 )
             }
         }
@@ -592,6 +645,14 @@ class AntigravityAgentEngine(
     }
 
     fun executeAutonomousTool(tool: ToolCallItem): Result<String> {
+        val policy = repository.settings.value.toolExecutionPolicy
+        val readOnlyTools = setOf("view_file", "list_dir", "grep_search", "find_by_name", "git_status", "git_diff", "git_log", "git_branch")
+        val writeTools = setOf("write_to_file", "replace_file_content", "run_command", "git_commit", "git_add", "git_clone")
+
+        if (policy == "strict" && tool.name.lowercase() in writeTools) {
+            return Result.failure(Exception("Tool execution blocked by strict policy: '${tool.name}' is a write operation. Switch to 'request-review' or 'always-proceed' in Settings to allow."))
+        }
+
         val activeWs = repository.activeWorkspace.value
         val wsDir = java.io.File(activeWs.path)
         return try {

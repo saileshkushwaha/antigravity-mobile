@@ -520,6 +520,7 @@ fun AntigravityMainScreen(
                                 AntigravityAppScreen.CONNECTORS -> {
                                     ConnectorsAndSwarmScreen(
                                         activeWorkspaceDir = activeWorkspaceDir,
+                                        repository = repository,
                                         onBack = { currentScreen = AntigravityAppScreen.CHAT }
                                     )
                                 }

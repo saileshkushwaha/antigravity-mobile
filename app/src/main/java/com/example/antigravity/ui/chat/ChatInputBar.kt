@@ -59,6 +59,16 @@ fun ChatInputBar(
     var isListening by remember { mutableStateOf(false) }
     var showPersonaChip by remember { mutableStateOf(!activePersonaName.isNullOrBlank()) }
 
+    // Real file picker for attachments
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                attachedFile = uri.lastPathSegment ?: uri.toString().substringAfterLast("/")
+            }
+        }
+    )
+
     // Re-show persona chip when persona changes (user selects a different one)
     LaunchedEffect(activePersonaName) {
         if (!activePersonaName.isNullOrBlank()) showPersonaChip = true
@@ -371,7 +381,11 @@ fun ChatInputBar(
             // Attachment Button
             IconButton(
                 onClick = {
-                    attachedFile = if (attachedFile == null) "build.gradle.kts" else null
+                    if (attachedFile != null) {
+                        attachedFile = null
+                    } else {
+                        filePickerLauncher.launch(arrayOf("*/*"))
+                    }
                 },
                 modifier = Modifier.size(36.dp)
             ) {

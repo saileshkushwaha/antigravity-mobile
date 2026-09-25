@@ -28,7 +28,10 @@ class GeminiApiService {
         modelName: String,
         prompt: String,
         systemInstruction: String? = null,
-        history: List<ChatMessage> = emptyList()
+        history: List<ChatMessage> = emptyList(),
+        temperature: Float = 0.7f,
+        topP: Float = 1.0f,
+        maxOutputTokens: Int = 0
     ): Result<String> = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
         if (cleanKey.isBlank()) {
@@ -36,7 +39,7 @@ class GeminiApiService {
         }
 
         var endpointModel = resolveEndpointModel(modelName)
-        var result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
+        var result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history, temperature, topP, maxOutputTokens)
 
         // If 404 (model not found), attempt fallback to first available Gemini model
         if (result.isFailure) {
@@ -45,7 +48,7 @@ class GeminiApiService {
                 val fallback = com.example.antigravity.model.ModelCatalog.firstForGateway(com.example.antigravity.model.ModelGateway.GEMINI)
                 if (fallback != null && endpointModel != fallback.id) {
                     endpointModel = fallback.id
-                    result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history)
+                    result = executeRequest(cleanKey, endpointModel, prompt, systemInstruction, history, temperature, topP, maxOutputTokens)
                 }
             }
         }
@@ -134,7 +137,10 @@ class GeminiApiService {
         endpointModel: String,
         prompt: String,
         systemInstruction: String?,
-        history: List<ChatMessage>
+        history: List<ChatMessage>,
+        temperature: Float = 0.7f,
+        topP: Float = 1.0f,
+        maxOutputTokens: Int = 0
     ): Result<String> {
         try {
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$endpointModel:generateContent?key=$apiKey"
@@ -151,6 +157,11 @@ class GeminiApiService {
                         })
                     })
                 }
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", temperature.toDouble())
+                    if (topP < 1.0f) put("topP", topP.toDouble())
+                    if (maxOutputTokens > 0) put("maxOutputTokens", maxOutputTokens)
+                })
             }
 
             val body = requestJson.toString().toRequestBody("application/json".toMediaType())
