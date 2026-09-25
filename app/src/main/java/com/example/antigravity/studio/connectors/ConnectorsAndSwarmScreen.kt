@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.antigravity.studio.analytics.AnalyticsSqlEngine
@@ -496,7 +497,11 @@ fun ConnectorsAndSwarmScreen(
                                                 totalTokens = totalTokens,
                                                 agentSnapshots = agentSnapshots,
                                                 stageResults = stageResults,
-                                                status = if (stageResults.all { it.contains("COMPLETE") }) "SUCCESS" else "PARTIAL"
+                                                status = when {
+                                                    stageResults.isEmpty() -> "PARTIAL"
+                                                    stageResults.all { it.contains("COMPLETE") } -> "SUCCESS"
+                                                    else -> "PARTIAL"
+                                                }
                                             )
                                             sqlEngine.saveSwarmRun(runRecord)
                                             runHistory = sqlEngine.loadSwarmRuns()
@@ -508,7 +513,7 @@ fun ConnectorsAndSwarmScreen(
                                         }
                                     }
                                 },
-                                enabled = !isSwarmRunning,
+                                enabled = !isSwarmRunning && agents.any { it.isEnabled },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA855F7))
                             ) {
@@ -587,6 +592,32 @@ fun ConnectorsAndSwarmScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
+                        // Empty state: swarm starts with no agents (no hardcoded mock data)
+                        if (agents.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.AccountTree, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(36.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "No swarm agents registered yet",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "Use 'Add Node' to register agents across stages 1-4.",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+
                         // Stage 1: Decomposition (Architects)
                         val stage1 = agents.filter { it.stage == 1 }
                         if (stage1.isNotEmpty()) {

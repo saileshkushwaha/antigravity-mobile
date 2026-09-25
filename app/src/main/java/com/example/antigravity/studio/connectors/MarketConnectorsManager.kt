@@ -131,15 +131,7 @@ class MarketConnectorsManager {
     }
 
     fun getInitialSwarmAgents(): List<SwarmAgent> {
-        return listOf(
-            SwarmAgent(id="orchestrator", name = "Orchestrator", role = "Task Planning & Routing", state = "Active", model = "claude-sonnet-4", stage = 1),
-            SwarmAgent(id = "architect", name = "Architect", role = "System Design & Contracts", state = "Active", model = "gpt-4o", stage = 1),
-            SwarmAgent(id = "developer", name = "Developer", role = "Code Implementation", state = "Active", model = "claude-sonnet-4", stage = 2),
-            SwarmAgent(id = "reviewer", name = "Reviewer", role = "Code Review & Quality", state = "Active", model = "gpt-4o", stage = 3),
-            SwarmAgent(id = "tester", name = "Tester", role = "Test Generation & Validation", state = "Active", model = "gemini-2.5-pro", stage = 3),
-            SwarmAgent(id = "documenter", name = "Documenter", role = "Docs & Comments", state = "Idle", model = "gemini-2.0-flash", stage = 4),
-            SwarmAgent(id = "deployer", name = "Deployer", role = "Build & Release", state = "Idle", model = "gpt-4o-mini", stage = 4)
-        )
+        return emptyList()
     }
 
     fun registerCustomAgent(

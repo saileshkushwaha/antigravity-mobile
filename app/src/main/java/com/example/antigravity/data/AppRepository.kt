@@ -112,9 +112,11 @@ class AppRepository {
             }
 
             // Load conversations from SQLite (always, regardless of workspace source)
+            var dbHadConversations = false
             try {
                 val dbConvs = _sqlEngine?.loadConversations() ?: emptyList()
                 if (dbConvs.isNotEmpty()) {
+                    dbHadConversations = true
                     _conversations.value = dbConvs
                     val savedActiveId = sharedPrefs?.getString("active_conversation_id", null)
                     val lastActive = if (savedActiveId != null) dbConvs.find { it.id == savedActiveId } else null
@@ -123,13 +125,14 @@ class AppRepository {
             } catch (e: Exception) {
                 e.let { android.util.Log.w("Antigravity", "Recovered from error: ${it.message}") }
             }
+
+            // Re-seed when the DB has no conversations so the seed binds to the
+            // workspace restored from SQLite/SharedPreferences above.
+            if (!dbHadConversations) {
+                seedInitialConversations()
+            }
         } catch (e: Exception) {
             e.let { android.util.Log.w("Antigravity", "Recovered from error: ${it.message}") }
-        }
-
-        // Seed initial conversations if none loaded from DB
-        if (_conversations.value.isEmpty()) {
-            seedInitialConversations()
         }
 
         // 5. Load workspace-scoped user data (personas, prompts, skills, MCP servers)
@@ -485,7 +488,10 @@ class AppRepository {
     val terminalLogs: StateFlow<List<String>> = _terminalLogs.asStateFlow()
 
     init {
-        // seedInitialConversations() is called from init(context) after SQLite engine is ready
+        // Seed eagerly so an active conversation exists even before init(context)
+        // (unit tests construct AppRepository() without a Context). init(context)
+        // later replaces this with persisted conversations when SQLite has any.
+        seedInitialConversations()
     }
 
     private fun seedInitialConversations() {

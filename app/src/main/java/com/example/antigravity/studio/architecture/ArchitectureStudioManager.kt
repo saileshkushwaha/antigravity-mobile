@@ -65,7 +65,7 @@ object ArchitectureStudioManager {
 
         val diagrams = mutableListOf<MermaidDiagram>()
 
-        // Generate real class diagram from discovered classes
+        // Class diagram from discovered classes (placeholder when workspace has no source yet)
         if (classNames.isNotEmpty()) {
             val topClasses = classNames.distinct().take(20)
             val sb = StringBuilder()
@@ -91,10 +91,76 @@ object ArchitectureStudioManager {
                     }
                 } catch (e: Exception) { android.util.Log.w("ArchStudio", "Workspace scan failed: ${e.message}") }
             }
-            diagrams.add(MermaidDiagram("diag-class", "Class Diagram", "class", sb.toString().trim()))
+            diagrams.add(MermaidDiagram("diag-class", "System Class Architecture", "Class Diagram", sb.toString().trim()))
+        } else {
+            val sb = StringBuilder()
+            sb.appendLine("classDiagram")
+            sb.appendLine("    direction TB")
+            sb.appendLine("    %% ${workspaceDir.name}: no source classes discovered yet")
+            sb.appendLine("    class Workspace {")
+            sb.appendLine("        +path: String")
+            sb.appendLine("        +branch: String")
+            sb.appendLine("        +scanSourceFiles()")
+            sb.appendLine("    }")
+            diagrams.add(MermaidDiagram("diag-class", "System Class Architecture", "Class Diagram", sb.toString().trim()))
         }
 
-        // Generate real flowchart from file structure
+        // Sequence diagram for the agent pipeline (placeholder until engine files exist)
+        if (sourceFiles.any { it.name.contains("Engine") || it.name.contains("Manager") }) {
+            val sb = StringBuilder()
+            sb.appendLine("sequenceDiagram")
+            sb.appendLine("    autonumber")
+            sb.appendLine("    actor User")
+            sb.appendLine("    participant UI as ChatStudio")
+            sb.appendLine("    participant Engine as AgentEngine")
+            sb.appendLine("    participant Repo as AppRepository")
+            sb.appendLine("    ")
+            sb.appendLine("    User->>UI: Send Prompt")
+            sb.appendLine("    UI->>Engine: processUserMessage()")
+            sb.appendLine("    Engine->>Repo: executeTool()")
+            sb.appendLine("    Repo-->>Engine: ToolResult")
+            sb.appendLine("    Engine-->>UI: Stream Response")
+            sb.appendLine("    UI-->>User: Render Answer")
+            diagrams.add(MermaidDiagram("diag-flow", "Agent Flow", "Sequence Diagram", sb.toString().trim()))
+        } else {
+            val sb = StringBuilder()
+            sb.appendLine("sequenceDiagram")
+            sb.appendLine("    autonumber")
+            sb.appendLine("    actor User")
+            sb.appendLine("    participant WS as Workspace")
+            sb.appendLine("    Note over WS: No source pipeline discovered yet")
+            sb.appendLine("    User->>WS: add source files")
+            sb.appendLine("    WS-->>User: diagrams regenerate on next scan")
+            diagrams.add(MermaidDiagram("diag-flow", "Agent Flow", "Sequence Diagram", sb.toString().trim()))
+        }
+
+        // ER diagram from actual data classes (placeholder schema when none discovered)
+        val dataClasses = classNames.filter { it.endsWith("Item") || it.endsWith("Model") || it.endsWith("Record") || it.endsWith("Config") }
+        if (dataClasses.isNotEmpty()) {
+            val sb = StringBuilder()
+            sb.appendLine("erDiagram")
+            dataClasses.take(10).forEach { cls ->
+                sb.appendLine("    $cls {")
+                sb.appendLine("        string id PK")
+                sb.appendLine("        string name")
+                sb.appendLine("        long timestamp")
+                sb.appendLine("    }")
+            }
+            diagrams.add(MermaidDiagram("diag-er", "Data Model", "ER Diagram", sb.toString().trim()))
+        } else {
+            val sb = StringBuilder()
+            sb.appendLine("erDiagram")
+            sb.appendLine("    %% ${workspaceDir.name}: no data classes discovered yet")
+            sb.appendLine("    WORKSPACE {")
+            sb.appendLine("        string id PK")
+            sb.appendLine("        string name")
+            sb.appendLine("        string path")
+            sb.appendLine("        string branch")
+            sb.appendLine("    }")
+            diagrams.add(MermaidDiagram("diag-er", "Data Model", "ER Diagram", sb.toString().trim()))
+        }
+
+        // Project structure flowchart only when real files or directories were discovered
         if (packageDirs.isNotEmpty() || sourceFiles.isNotEmpty()) {
             val sb = StringBuilder()
             sb.appendLine("graph TD")
@@ -114,48 +180,7 @@ object ArchitectureStudioManager {
                     sb.appendLine("    WS --> F$i[${f.name}]")
                 }
             }
-            diagrams.add(MermaidDiagram("diag-structure", "Project Structure", "graph", sb.toString().trim()))
-        }
-
-        // Generate ER diagram from actual data classes (have val/var fields)
-        val dataClasses = classNames.filter { it.endsWith("Item") || it.endsWith("Model") || it.endsWith("Record") || it.endsWith("Config") }
-        if (dataClasses.isNotEmpty()) {
-            val sb = StringBuilder()
-            sb.appendLine("erDiagram")
-            dataClasses.take(10).forEach { cls ->
-                sb.appendLine("    $cls {")
-                sb.appendLine("        string id PK")
-                sb.appendLine("        string name")
-                sb.appendLine("        long timestamp")
-                sb.appendLine("    }")
-            }
-            diagrams.add(MermaidDiagram("diag-er", "Data Model", "er", sb.toString().trim()))
-        }
-
-        // Generate sequence diagram for the agent pipeline if engine files exist
-        val hasEngine = sourceFiles.any { it.name.contains("Engine") || it.name.contains("Manager") }
-        if (hasEngine) {
-            val sb = StringBuilder()
-            sb.appendLine("sequenceDiagram")
-            sb.appendLine("    autonumber")
-            sb.appendLine("    actor User")
-            sb.appendLine("    participant UI as ChatStudio")
-            sb.appendLine("    participant Engine as AgentEngine")
-            sb.appendLine("    participant Repo as AppRepository")
-            sb.appendLine("    ")
-            sb.appendLine("    User->>UI: Send Prompt")
-            sb.appendLine("    UI->>Engine: processUserMessage()")
-            sb.appendLine("    Engine->>Repo: executeTool()")
-            sb.appendLine("    Repo-->>Engine: ToolResult")
-            sb.appendLine("    Engine-->>UI: Stream Response")
-            sb.appendLine("    UI-->>User: Render Answer")
-            diagrams.add(MermaidDiagram("diag-flow", "Agent Flow", "sequence", sb.toString().trim()))
-        }
-
-        // Fallback if workspace is empty
-        if (diagrams.isEmpty()) {
-            diagrams.add(MermaidDiagram("diag-empty", "Empty Workspace", "graph",
-                "graph TD\n    WS[Workspace: ${workspaceDir.name}] --> EMPTY[No source files found]"))
+            diagrams.add(MermaidDiagram("diag-structure", "Project Structure", "Project Structure", sb.toString().trim()))
         }
 
         return diagrams
