@@ -958,6 +958,13 @@ object SdlcManager {
         // Stage 3: Packaging & Artifact Staging
         log("INFO", "Assembling release artifact for ${environment.displayName}...")
         log("INFO", "Artifact staged: Antigravity-${environment.name.lowercase()}-$versionTag.apk")
+        if (_sdlcConfig.value.releaseConfig.autoGenerateChangelog) {
+            val changelog = generateChangelog(versionTag)
+            val entryCount = changelog.lineSequence().count { it.startsWith("- ") }
+            log("INFO", "CHANGELOG.md generated for $versionTag ($entryCount entries)")
+        } else {
+            log("INFO", "auto_generate_changelog is disabled - skipping changelog generation")
+        }
         kotlinx.coroutines.delay(200)
 
         // Stage 4: Promotion & Traffic Routing
@@ -1263,11 +1270,6 @@ object SdlcManager {
         )
     }
 
-    fun updateIntegration(tool: IntegrationTool) {
-        _integrationTools.update { list ->
-            list.map { if (it.id == tool.id) tool else it }
-        }
-    }
 
     fun deleteIntegration(toolId: String) {
         _integrationTools.update { it.filterNot { t -> t.id == toolId } }
@@ -1355,6 +1357,69 @@ environments:
         }
     }
 
+    // --- Changelog Generation ---
+    private val _generatedChangelog = MutableStateFlow("")
+    val generatedChangelog: StateFlow<String> = _generatedChangelog.asStateFlow()
+
+    fun generateChangelog(versionTag: String): String {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        val sb = StringBuilder()
+        sb.appendLine("# Changelog")
+        sb.appendLine()
+        sb.appendLine("## [$versionTag] - $today")
+        sb.appendLine()
+
+        val recentCommits = _commits.value.take(30)
+        if (recentCommits.isNotEmpty()) {
+            val grouped = recentCommits.groupBy { c ->
+                val subject = c.message.lineSequence().firstOrNull().orEmpty().trim()
+                when {
+                    subject.startsWith("feat") || subject.contains("add", ignoreCase = true) -> "Added"
+                    subject.startsWith("fix") || subject.contains("bug", ignoreCase = true) -> "Fixed"
+                    subject.startsWith("refactor") || subject.contains("cleanup", ignoreCase = true) -> "Changed"
+                    subject.startsWith("docs") -> "Documentation"
+                    subject.startsWith("test") -> "Testing"
+                    else -> "Changed"
+                }
+            }
+            for ((section, commits) in grouped) {
+                sb.appendLine("### $section")
+                commits.forEach { c ->
+                    val line = c.message.lineSequence().firstOrNull()?.trim().orEmpty().ifBlank { "(no message)" }
+                    val sha = c.sha.take(7)
+                    sb.appendLine("- $line ($sha)")
+                }
+                sb.appendLine()
+            }
+        } else {
+            sb.appendLine("### Changed")
+            sb.appendLine("- Release $versionTag")
+            sb.appendLine()
+        }
+
+        val content = sb.toString()
+        _generatedChangelog.value = content
+        return content
+    }
+
+    fun saveChangelogToWorkspace(workspacePath: String, versionTag: String): Result<String> {
+        return try {
+            val dir = java.io.File(workspacePath)
+            if (!dir.exists()) dir.mkdirs()
+            val file = java.io.File(dir, "CHANGELOG.md")
+            val content = generateChangelog(versionTag)
+            file.writeText(content)
+            EnterpriseAuditLogger.log(
+                category = AuditCategory.SDLC_OPERATION,
+                action = "GENERATE_CHANGELOG",
+                details = "Saved CHANGELOG.md for $versionTag to ${file.absolutePath}"
+            )
+            Result.success(file.absolutePath)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun syncWithGitHub(
         owner: String = "",
         repo: String = "",
@@ -1430,7 +1495,7 @@ environments:
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
 
             // 2. Sync Pull Requests
             try {
@@ -1485,7 +1550,7 @@ environments:
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
 
             // 3. Sync Issues
             try {
@@ -1538,7 +1603,7 @@ environments:
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
 
             // 4. Sync Commits
             try {
@@ -1577,7 +1642,7 @@ environments:
                         _commits.value = realCommits
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
 
             val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
             _lastSyncTimestamp.value = now

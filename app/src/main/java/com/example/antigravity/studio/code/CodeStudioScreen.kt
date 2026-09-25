@@ -609,14 +609,23 @@ fun CodeStudioScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        IconButton(onClick = { /* Explain */ }, modifier = Modifier.size(32.dp)) {
+                                        IconButton(onClick = {
+                                            val target = selectedFile?.name ?: "the current file"
+                                            onExecuteCommand("Explain the code in $target")
+                                        }, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
                                         }
-                                        IconButton(onClick = { /* Optimize */ }, modifier = Modifier.size(32.dp)) {
+                                        IconButton(onClick = {
+                                            val target = selectedFile?.name ?: "the current file"
+                                            onExecuteCommand("Optimize the code in $target for performance and readability")
+                                        }, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.Default.Bolt, contentDescription = "Optimize", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
                                         }
                                         Button(
-                                            onClick = { /* Prompt / Refactor */ },
+                                            onClick = {
+                                                val target = selectedFile?.name ?: "the current file"
+                                                onExecuteCommand("Refactor $target: improve structure, remove duplication, and apply best practices")
+                                            },
                                             colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.NeonViolet),
                                             shape = RoundedCornerShape(16.dp),
                                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),

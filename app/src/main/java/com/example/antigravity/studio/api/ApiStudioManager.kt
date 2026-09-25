@@ -55,7 +55,45 @@ object ApiStudioManager {
         .build()
 
     fun getSampleRequests(): List<ApiRequestItem> {
-        return emptyList()
+        return listOf(
+            ApiRequestItem(
+                id = "sample-gh-zen",
+                name = "GitHub Zen",
+                method = HttpMethod.GET,
+                url = "https://api.github.com/zen",
+                headers = mapOf("Accept" to "application/vnd.github+json")
+            ),
+            ApiRequestItem(
+                id = "sample-gh-user",
+                name = "GitHub User Profile",
+                method = HttpMethod.GET,
+                url = "https://api.github.com/users/octocat",
+                headers = mapOf("Accept" to "application/vnd.github+json")
+            ),
+            ApiRequestItem(
+                id = "sample-httpbin-get",
+                name = "HTTPBin GET",
+                method = HttpMethod.GET,
+                url = "https://httpbin.org/get",
+                queryParams = mapOf("query" to "antigravity"),
+                headers = mapOf("Accept" to "application/json")
+            ),
+            ApiRequestItem(
+                id = "sample-httpbin-post",
+                name = "HTTPBin POST",
+                method = HttpMethod.POST,
+                url = "https://httpbin.org/post",
+                headers = mapOf("Content-Type" to "application/json"),
+                body = """{"prompt":"hello","max_tokens":128}"""
+            ),
+            ApiRequestItem(
+                id = "sample-jplaceholder",
+                name = "JSONPlaceholder Posts",
+                method = HttpMethod.GET,
+                url = "https://jsonplaceholder.typicode.com/posts/1",
+                headers = mapOf("Accept" to "application/json")
+            )
+        )
     }
 
     private fun isUrlSafe(urlString: String): Boolean {

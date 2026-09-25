@@ -40,6 +40,10 @@ private const val PBKDF2_ITERATIONS = 100_000
 private const val PBKDF2_SALT_LENGTH = 16
 private const val PIN_PREFS_KEY = "enclave_pin_hash"
 private const val PIN_SALT_KEY = "enclave_pin_salt"
+private const val PIN_FAILED_KEY = "enclave_pin_failed_attempts"
+private const val PIN_LOCKOUT_KEY = "enclave_pin_lockout_until"
+private const val PIN_MAX_ATTEMPTS_BEFORE_LOCKOUT = 5
+private const val PIN_LOCKOUT_BASE_MS = 30_000L
 
 private fun generateSalt(): ByteArray {
     val secureRandom = java.security.SecureRandom()
@@ -86,6 +90,9 @@ fun BiometricLockScreen(
     var enteredPin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
     var pinErrorText by remember { mutableStateOf<String?>(null) }
+    var pinFailedAttempts by remember { mutableIntStateOf(sharedPrefs.getInt(PIN_FAILED_KEY, 0)) }
+    var pinLockoutUntil by remember { mutableLongStateOf(sharedPrefs.getLong(PIN_LOCKOUT_KEY, 0L)) }
+    var pinNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     // Re-check biometric status on resume (e.g. after returning from Android Settings enrollment)
     DisposableEffect(lifecycleOwner) {
@@ -568,11 +575,37 @@ fun BiometricLockScreen(
                                 onUnlock()
                             }
                         } else {
-                            if (enrolledPin != null && pinSalt != null && hashPin(enteredPin, pinSalt!!) == enrolledPin) {
+                            val now = System.currentTimeMillis()
+                            pinNow = now
+                            if (now < pinLockoutUntil) {
+                                val remainingSec = ((pinLockoutUntil - now) / 1000).coerceAtLeast(1)
+                                pinErrorText = "Too many failed attempts. Locked for ${remainingSec}s."
+                            } else if (enrolledPin != null && pinSalt != null && hashPin(enteredPin, pinSalt!!) == enrolledPin) {
+                                pinFailedAttempts = 0
+                                pinLockoutUntil = 0L
+                                sharedPrefs.edit {
+                                    putInt(PIN_FAILED_KEY, 0)
+                                    putLong(PIN_LOCKOUT_KEY, 0L)
+                                }
+                                pinErrorText = null
                                 showPinDialog = false
                                 onUnlock()
                             } else {
-                                pinErrorText = "Incorrect passcode. Please retry."
+                                pinFailedAttempts += 1
+                                if (pinFailedAttempts >= PIN_MAX_ATTEMPTS_BEFORE_LOCKOUT) {
+                                    val exponent = (pinFailedAttempts - PIN_MAX_ATTEMPTS_BEFORE_LOCKOUT).coerceAtMost(4)
+                                    val lockoutMs = PIN_LOCKOUT_BASE_MS shl exponent
+                                    pinLockoutUntil = now + lockoutMs
+                                    pinErrorText = "Too many failed attempts. Locked for ${lockoutMs / 1000}s."
+                                } else {
+                                    val remaining = PIN_MAX_ATTEMPTS_BEFORE_LOCKOUT - pinFailedAttempts
+                                    pinErrorText = "Incorrect passcode. $remaining attempt(s) remaining before lockout."
+                                }
+                                sharedPrefs.edit {
+                                    putInt(PIN_FAILED_KEY, pinFailedAttempts)
+                                    putLong(PIN_LOCKOUT_KEY, pinLockoutUntil)
+                                }
+                                enteredPin = ""
                             }
                         }
                     },

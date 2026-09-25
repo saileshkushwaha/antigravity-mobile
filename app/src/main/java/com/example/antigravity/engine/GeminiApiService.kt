@@ -181,7 +181,7 @@ class GeminiApiService {
                     if (!msg.isNullOrBlank()) {
                         detailedMsg = msg
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { android.util.Log.w("GeminiApi", "Stream read failed: ${e.message}") }
 
                 val userFriendlyMessage = when (response.code) {
                     400 -> "Request Error (400): $detailedMsg"

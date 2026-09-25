@@ -104,13 +104,20 @@ class MarketConnectorsManager {
 
             val response = client.newCall(request).execute()
             val latency = System.currentTimeMillis() - startTime
-            val healthy = response.isSuccessful || response.code in 200..399 || response.code == 401 // 401 means server is up and awaiting credentials
+            val isReachable = response.code in 200..499
+            val fullyHealthy = response.isSuccessful || response.code in 200..399
+            val authRequired = response.code == 401 || response.code == 403
 
             connector.copy(
-                isHealthy = healthy,
+                isHealthy = fullyHealthy,
                 latencyMs = latency,
                 lastChecked = now,
-                statusText = if (healthy) "Online (${response.code})" else "Degraded (${response.code})"
+                statusText = when {
+                    fullyHealthy -> "Online (${response.code})"
+                    authRequired -> "Reachable - Auth Required (${response.code})"
+                    isReachable -> "Degraded (${response.code})"
+                    else -> "Unreachable (${response.code})"
+                }
             )
         } catch (e: Exception) {
             val latency = System.currentTimeMillis() - startTime

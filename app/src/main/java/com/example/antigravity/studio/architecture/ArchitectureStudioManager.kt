@@ -56,7 +56,7 @@ object ArchitectureStudioManager {
                             Regex("""(?:fun|def|function|func|public\s+void|private\s+\w+)\s+(\w+)""").findAll(text).forEach {
                                 funNames.add(it.groupValues[1])
                             }
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) { android.util.Log.w("ArchStudio", "Workspace scan failed: ${e.message}") }
                     }
                 }
             }
@@ -89,7 +89,7 @@ object ArchitectureStudioManager {
                             sb.appendLine("    $fc --> $imp")
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { android.util.Log.w("ArchStudio", "Workspace scan failed: ${e.message}") }
             }
             diagrams.add(MermaidDiagram("diag-class", "Class Diagram", "class", sb.toString().trim()))
         }

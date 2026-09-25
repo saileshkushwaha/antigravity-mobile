@@ -36,10 +36,12 @@ fun CodebaseSearchDialog(
     var indexSummary by remember { mutableStateOf<IndexSummary?>(null) }
     var isIndexing by remember { mutableStateOf(false) }
 
-    // Run semantic search when query changes
+    // Run semantic search when query changes (on IO to avoid ANR)
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank()) {
-            searchResults = CodebaseSemanticIndexer.search(searchQuery, workspaceDir)
+            searchResults = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                CodebaseSemanticIndexer.search(searchQuery, workspaceDir)
+            }
         } else {
             searchResults = emptyList()
         }

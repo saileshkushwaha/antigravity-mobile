@@ -52,17 +52,17 @@ object SwarmCheckpointManager {
                         try {
                             f.copyTo(destFile, overwrite = true)
                             fileCounter++
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) { android.util.Log.w("SwarmCheckpoint", "Checkpoint IO failed: ${e.message}") }
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("SwarmCheckpoint", "Checkpoint IO failed: ${e.message}") }
 
         // Save metadata
         try {
             val metaFile = File(snapshotFolder, "checkpoint_meta.txt")
             metaFile.writeText("id=$checkpointId\ntime=$displayTime\nagent=$triggerAgent\ndesc=$description\ncount=$fileCounter")
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("SwarmCheckpoint", "Checkpoint IO failed: ${e.message}") }
 
         return SwarmCheckpoint(
             id = checkpointId,

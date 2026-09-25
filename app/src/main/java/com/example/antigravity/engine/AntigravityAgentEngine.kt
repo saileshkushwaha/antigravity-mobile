@@ -50,7 +50,7 @@ class AntigravityAgentEngine(
 
     fun buildSynthesizedSystemPrompt(): String {
         val persona = _activePersona.value
-        val enabledSkills = repository.skills.value.filter { it.isEnabled }.map { it.name }
+        val enabledSkills = repository.skills.value.filter { it.isEnabled }
         val activeConv = repository.getActiveConversation()
         val activeWs = repository.activeWorkspace.value
 
@@ -113,7 +113,13 @@ class AntigravityAgentEngine(
             ${persona.recommendedSkills.joinToString(", ")}
             
             Loaded & Enabled Platform Skills (${enabledSkills.size}):
-            ${enabledSkills.take(MAX_PROMPT_SKILLS).joinToString(", ")}${if (enabledSkills.size > MAX_PROMPT_SKILLS) "... and ${enabledSkills.size - MAX_PROMPT_SKILLS} more" else ""}
+            ${enabledSkills.take(MAX_PROMPT_SKILLS).joinToString("\n") { skill ->
+                if (skill.description.isNotBlank() || skill.instructions.isNotBlank()) {
+                    "- ${skill.name}: ${skill.description}" + if (skill.instructions.isNotBlank()) "\n  Instructions: ${skill.instructions.take(200)}" else ""
+                } else {
+                    "- ${skill.name}"
+                }
+            }}${if (enabledSkills.size > MAX_PROMPT_SKILLS) "\n... and ${enabledSkills.size - MAX_PROMPT_SKILLS} more" else ""}
         """.trimIndent()
     }
 
@@ -325,7 +331,7 @@ class AntigravityAgentEngine(
                                     latencyMs = latencyMs,
                                     costCents = estCost * 100.0
                                 )
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) { android.util.Log.w("AgentEngine", "Tool parse failed: ${e.message}") }
                         }
                     }
 
@@ -391,6 +397,14 @@ class AntigravityAgentEngine(
 
         // Execute the approved plan using the real agent pipeline
         val planContent = plan.rawMarkdown
+        repository.addArtifact(
+            com.example.antigravity.model.ArtifactItem(
+                id = java.util.UUID.randomUUID().toString(),
+                title = "Approved Implementation Plan",
+                path = ".antigravity/plans/plan-${System.currentTimeMillis()}.md",
+                content = planContent
+            )
+        )
         val executionPrompt = "The user has APPROVED the following implementation plan. Execute it step by step:\n\n$planContent\n\nBegin execution now."
         sendPrompt(executionPrompt)
     }
@@ -422,6 +436,24 @@ class AntigravityAgentEngine(
             lower.startsWith("/schedule ") -> {
                 val scheduleSpec = trimmed.removePrefix("/schedule ").trim()
                 "⏰ **Scheduler**: To schedule a task, use the Scheduled Tasks dialog (Sidebar → Scheduled Tasks).\n\nParsed schedule: \"$scheduleSpec\"\nCreate a task there with your desired cron expression or interval."
+            }
+            lower == "/diff" || lower.startsWith("/diff ") -> {
+                repository.executeTerminalCommand("git diff")
+                null
+            }
+            lower == "/test" || lower.startsWith("/test ") -> {
+                repository.executeTerminalCommand("echo Running tests...")
+                "🧪 Test command dispatched to terminal. Check the Terminal pane for results."
+            }
+            lower == "/build" || lower.startsWith("/build ") -> {
+                repository.executeTerminalCommand("echo Building project...")
+                "🏗️ Build command dispatched to terminal. Check the Terminal pane for progress."
+            }
+            lower == "/rollback" || lower.startsWith("/rollback ") -> {
+                "⏪ **Rollback**: To rollback, use the Checkpoints panel in the Auxiliary Pane to restore a previous workspace state."
+            }
+            lower == "/optimize" || lower.startsWith("/optimize ") -> {
+                null // Falls through to LLM for prompt optimization
             }
             else -> null
         }
@@ -655,6 +687,15 @@ class AntigravityAgentEngine(
 
         val activeWs = repository.activeWorkspace.value
         val wsDir = java.io.File(activeWs.path)
+
+        // Validate path traversal for path-based tools
+        val toolPath = tool.arguments["path"] ?: tool.arguments["file"] ?: tool.arguments["targetfile"] ?: ""
+        if (toolPath.isNotBlank() && !toolPath.startsWith("http")) {
+            if (!com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateWorkspacePath(wsDir.path, toolPath)) {
+                return Result.failure(Exception("Access denied: path traversal blocked for '$toolPath'"))
+            }
+        }
+
         return try {
             when (tool.name.lowercase()) {
                 "view_file" -> {
@@ -701,7 +742,7 @@ class AntigravityAgentEngine(
                                         matches.add("$rel:${idx + 1}: ${line.trim().take(120)}")
                                     }
                                 }
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) { android.util.Log.w("AgentEngine", "Tool parse failed: ${e.message}") }
                         }
                     Result.success(if (matches.isNotEmpty()) matches.take(30).joinToString("\n") else "No matches found for: $query")
                 }

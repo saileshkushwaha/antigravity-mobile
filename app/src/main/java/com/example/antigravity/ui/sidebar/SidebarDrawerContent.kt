@@ -744,7 +744,7 @@ fun SidebarDrawerContent(
                             }
                         }
 
-                        if (conversations.size > 1) {
+                        if (conversations.isNotEmpty()) {
                             IconButton(
                                 onClick = { onDeleteConversation(conv.id) },
                                 modifier = Modifier.size(20.dp)

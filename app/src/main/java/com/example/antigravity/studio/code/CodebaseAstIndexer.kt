@@ -40,7 +40,7 @@ object CodebaseAstIndexer {
                     totalSymbols += count
                 }
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("Antigravity", "Recovered from error: ${it.message}") }
         }
         return totalSymbols
     }

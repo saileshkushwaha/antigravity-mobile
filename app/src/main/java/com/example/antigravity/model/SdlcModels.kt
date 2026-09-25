@@ -211,7 +211,8 @@ data class ReleaseConfig(
 data class EnvironmentSecret(
     val key: String,
     val maskedValue: String,
-    val environment: EnvironmentType
+    val environment: EnvironmentType,
+    val value: String = ""
 )
 
 @Serializable

@@ -110,6 +110,21 @@ fun AntigravityMainScreen(
     val personas by repository.personas.collectAsState()
     val prompts by repository.prompts.collectAsState()
 
+    // Resolves {VARIABLE} placeholders in selected prompt templates using live context
+    val resolvePromptTemplate: (String) -> String = { template ->
+        com.example.antigravity.model.PromptLibrary.substituteVariables(
+            template,
+            mapOf(
+                "WORKSPACE" to activeWorkspace.name,
+                "WORKSPACE_PATH" to activeWorkspace.path,
+                "PROJECT" to activeWorkspace.name,
+                "PERSONA" to activePersona.name,
+                "MODEL" to settings.activeModel.ifBlank { settings.activeModelId },
+                "DATE" to java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            )
+        )
+    }
+
     LaunchedEffect(Unit) {
         repository.refreshModelsFromGateways()
     }
@@ -541,7 +556,7 @@ fun AntigravityMainScreen(
                                             agentEngine.setActivePersona(selectedPersona)
                                         },
                                         onSelectPrompt = { promptTemplate ->
-                                            inputText = promptTemplate
+                                            inputText = resolvePromptTemplate(promptTemplate)
                                             currentScreen = AntigravityAppScreen.CHAT
                                         },
                                         onAddPersona = { repository.addPersona(it) },
@@ -782,7 +797,8 @@ fun AntigravityMainScreen(
         PromptLibraryDialog(
             prompts = prompts,
             onSelectPrompt = { template ->
-                inputText = if (inputText.isBlank()) template else "$inputText\n\n$template"
+                val resolved = resolvePromptTemplate(template)
+                inputText = if (inputText.isBlank()) resolved else "$inputText\n\n$resolved"
                 showChatPromptDialog = false
             },
             onDismiss = { showChatPromptDialog = false }

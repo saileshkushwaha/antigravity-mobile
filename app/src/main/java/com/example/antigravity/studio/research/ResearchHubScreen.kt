@@ -66,7 +66,11 @@ fun ResearchHubScreen(
     )
 
     fun performSearch(queryText: String) {
-        if (queryText.isBlank()) return
+        if (queryText.isBlank()) {
+            errorMessage = null
+            papers = emptyList()
+            return
+        }
         isLoading = true
         errorMessage = null
         coroutineScope.launch {

@@ -33,9 +33,10 @@ object GitDiffManager {
         val n = originalLines.size
         val m = modifiedLines.size
 
-        // Guard against OOM on large files — LCS is O(n*m) memory
+        // Guard against OOM on large files — LCS is O(n*m) memory.
+        // Falls back to an O(n) prefix/suffix trim diff instead of returning empty.
         if (n > MAX_DIFF_LINES || m > MAX_DIFF_LINES) {
-            return FileDiffResult(fileName, emptyList(), 0, 0)
+            return computeDiffFast(fileName, originalLines, modifiedLines)
         }
 
         // DP table for LCS
@@ -109,6 +110,56 @@ object GitDiffManager {
         return FileDiffResult(
             fileName = fileName,
             hunks = hunks,
+            addedCount = addedCount,
+            removedCount = removedCount
+        )
+    }
+
+    /**
+     * O(n) prefix/suffix trim diff used when files exceed [MAX_DIFF_LINES].
+     * Avoids the O(n*m) LCS table while still reporting changed regions.
+     */
+    private fun computeDiffFast(fileName: String, originalLines: List<String>, modifiedLines: List<String>): FileDiffResult {
+        val n = originalLines.size
+        val m = modifiedLines.size
+
+        var prefix = 0
+        while (prefix < n && prefix < m && originalLines[prefix] == modifiedLines[prefix]) prefix++
+
+        var suffix = 0
+        while (suffix < (n - prefix) && suffix < (m - prefix) &&
+            originalLines[n - 1 - suffix] == modifiedLines[m - 1 - suffix]
+        ) suffix++
+
+        val rawDiffLines = mutableListOf<DiffLine>()
+        for (k in 0 until prefix) {
+            rawDiffLines.add(DiffLine(DiffLineType.CONTEXT, originalLines[k], k + 1, k + 1))
+        }
+        for (k in prefix until (n - suffix)) {
+            rawDiffLines.add(DiffLine(DiffLineType.REMOVE, originalLines[k], k + 1, null))
+        }
+        for (k in prefix until (m - suffix)) {
+            rawDiffLines.add(DiffLine(DiffLineType.ADD, modifiedLines[k], null, k + 1))
+        }
+        for (k in suffix downTo 1) {
+            val oi = n - k
+            val mi = m - k
+            rawDiffLines.add(DiffLine(DiffLineType.CONTEXT, originalLines[oi], oi + 1, mi + 1))
+        }
+
+        var addedCount = 0
+        var removedCount = 0
+        rawDiffLines.forEach {
+            when (it.type) {
+                DiffLineType.ADD -> addedCount++
+                DiffLineType.REMOVE -> removedCount++
+                else -> {}
+            }
+        }
+
+        return FileDiffResult(
+            fileName = fileName,
+            hunks = groupIntoHunks(rawDiffLines),
             addedCount = addedCount,
             removedCount = removedCount
         )

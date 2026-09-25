@@ -39,6 +39,7 @@ fun ApiKeyExportImportDialog(
     settings: AppSettings,
     workspacePath: String = "",
     onSaveSettings: (AppSettings) -> Unit,
+    onRefreshGateways: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -238,10 +239,11 @@ fun ApiKeyExportImportDialog(
                                         overwriteEmpty = !preserveExistingKeys
                                     )
                                     onSaveSettings(merged)
+                                    onRefreshGateways?.invoke()
                                     val updatedCount = validationResult.records.count { it.apiKey.isNotBlank() }
                                     Toast.makeText(
                                         context,
-                                        "Successfully imported $updatedCount API credentials!",
+                                        "Imported $updatedCount credentials. Refreshing gateways...",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                     onDismiss()

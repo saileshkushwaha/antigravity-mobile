@@ -31,58 +31,6 @@ import com.example.antigravity.theme.AntigravityColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SkillsMcpDialog(
-    skills: List<SkillItem>,
-    mcpServers: List<McpServerItem>,
-    onToggleSkill: (String) -> Unit = {},
-    onAddSkill: (SkillItem) -> Unit = {},
-    onUpdateSkill: (SkillItem) -> Unit = {},
-    onDeleteSkill: (String) -> Unit = {},
-    onCloneSkill: (String) -> Unit = {},
-    onResetSkills: () -> Unit = {},
-    onAddMcpServer: (McpServerItem) -> Unit = {},
-    onUpdateMcpServer: (McpServerItem) -> Unit = {},
-    onDeleteMcpServer: (String) -> Unit = {},
-    onToggleMcpServer: (String) -> Unit = {},
-    onResetMcpServers: () -> Unit = {},
-    onDismiss: () -> Unit
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = AntigravityColors.SurfaceDark,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.CardBorder),
-            modifier = Modifier
-                .fillMaxWidth(0.96f)
-                .fillMaxHeight(0.94f)
-                .padding(4.dp)
-        ) {
-            SkillsMcpContent(
-                skills = skills,
-                mcpServers = mcpServers,
-                onToggleSkill = onToggleSkill,
-                onAddSkill = onAddSkill,
-                onUpdateSkill = onUpdateSkill,
-                onDeleteSkill = onDeleteSkill,
-                onCloneSkill = onCloneSkill,
-                onResetSkills = onResetSkills,
-                onAddMcpServer = onAddMcpServer,
-                onUpdateMcpServer = onUpdateMcpServer,
-                onDeleteMcpServer = onDeleteMcpServer,
-                onToggleMcpServer = onToggleMcpServer,
-                onResetMcpServers = onResetMcpServers,
-                onOpenDrawer = null,
-                onClose = onDismiss
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun SkillsMcpContent(
     skills: List<SkillItem>,
     mcpServers: List<McpServerItem>,

@@ -74,6 +74,14 @@ object CloudSandboxService {
     ): Result<SandboxExecutionResult> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
 
+        // Enforce security guardrails before any execution
+        val securityCheck = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateCommand(command)
+        if (securityCheck.isFailure) {
+            val msg = securityCheck.exceptionOrNull()?.message ?: "Command blocked by security policy"
+            onOutputLine?.invoke("[BLOCKED] $msg")
+            return@withContext Result.failure(SecurityException(msg))
+        }
+
         if (config.runnerType == SandboxRunnerType.LOCAL_FALLBACK || config.endpointUrl.isBlank()) {
             // Local fallback execution / terminal simulation
             return@withContext try {
@@ -101,7 +109,7 @@ object CloudSandboxService {
                             onOutputLine?.invoke(line)
                             line = reader.readLine()
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) { android.util.Log.w("CloudSandbox", "Sandbox operation failed: ${e.message}") }
                 }
                 stdoutThread.isDaemon = true
                 stdoutThread.start()
@@ -116,7 +124,7 @@ object CloudSandboxService {
                             onOutputLine?.invoke("[STDERR] $line")
                             line = reader.readLine()
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) { android.util.Log.w("CloudSandbox", "Sandbox operation failed: ${e.message}") }
                 }
                 stderrThread.isDaemon = true
                 stderrThread.start()

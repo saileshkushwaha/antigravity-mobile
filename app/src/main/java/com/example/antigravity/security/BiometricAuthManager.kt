@@ -58,7 +58,7 @@ object BiometricAuthManager {
                 }
                 context.startActivity(secIntent)
             } catch (e2: Exception) {
-                e2.printStackTrace()
+                e2.let { android.util.Log.w("Antigravity", "Recovered from error: ${it.message}") }
             }
         }
     }

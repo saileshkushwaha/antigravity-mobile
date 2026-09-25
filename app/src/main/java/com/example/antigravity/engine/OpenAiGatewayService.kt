@@ -111,7 +111,7 @@ class OpenAiGatewayService {
                     if (!msg.isNullOrBlank()) {
                         detailedMsg = msg
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { android.util.Log.w("OpenAiGateway", "Stream read failed: ${e.message}") }
 
                 val userFriendlyMessage = when (response.code) {
                     401 -> "API Key Authentication Error (401): $detailedMsg\nPlease check that your API key is correct and valid."

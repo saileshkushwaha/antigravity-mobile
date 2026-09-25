@@ -56,7 +56,7 @@ object AppConfigManager {
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                e.let { android.util.Log.w("Antigravity", "Recovered from error: ${it.message}") }
             }
         }
 
@@ -76,7 +76,7 @@ object AppConfigManager {
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                e.let { android.util.Log.w("Antigravity", "Recovered from error: ${it.message}") }
             }
         }
     }
@@ -107,7 +107,7 @@ object AppConfigManager {
             System.getenv(key)?.let { if (it.isNotBlank()) return it }
             System.getenv(key.uppercase())?.let { if (it.isNotBlank()) return it }
             System.getenv(key.replace('.', '_').uppercase())?.let { if (it.isNotBlank()) return it }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AppConfig", "Config load failed: ${e.message}") }
 
         return defaultValue
     }

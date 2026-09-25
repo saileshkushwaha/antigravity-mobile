@@ -234,7 +234,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 version = 2
             }
             if (version < 3) {
-                db.execSQL("CREATE TABLE IF NOT EXISTS codebase_symbols (id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_path TEXT NOT NULL, symbol_name TEXT NOT NULL, symbol_type TEXT, file_path TEXT, line_number INTEGER)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS codebase_symbols (id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_path TEXT NOT NULL, file_path TEXT NOT NULL, symbol_name TEXT NOT NULL, symbol_kind TEXT NOT NULL, signature TEXT, line_start INTEGER, line_end INTEGER, doc_summary TEXT)")
                 version = 3
             }
             if (version < 4) {
@@ -245,6 +245,11 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 db.execSQL("CREATE TABLE IF NOT EXISTS app_configurations (config_key TEXT PRIMARY KEY, config_value TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL)")
                 db.execSQL("CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, model TEXT NOT NULL, active_model_id TEXT, workspace_id TEXT, workspace_name TEXT, github_owner TEXT, github_repo TEXT, github_branch TEXT, created_at INTEGER, updated_at INTEGER)")
                 db.execSQL("CREATE TABLE IF NOT EXISTS chat_messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, sender TEXT NOT NULL, text TEXT NOT NULL, timestamp INTEGER, is_streaming INTEGER DEFAULT 0)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS llm_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, model_name TEXT NOT NULL, prompt_tokens INTEGER, completion_tokens INTEGER, latency_ms INTEGER, cost_cents REAL, timestamp TEXT)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS workspace_files (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, extension TEXT, size_bytes INTEGER, last_modified TEXT)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS codebase_chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_path TEXT NOT NULL, file_path TEXT NOT NULL, chunk_index INTEGER, content_hash TEXT, content_text TEXT, token_count INTEGER)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS research_documents (id TEXT PRIMARY KEY, title TEXT NOT NULL, authors TEXT, source TEXT, url TEXT, abstract_text TEXT, full_text TEXT, extracted_at TEXT)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS swarm_runs (id TEXT PRIMARY KEY, mission TEXT NOT NULL, started_at TEXT NOT NULL, completed_at TEXT, total_duration_ms INTEGER, total_tokens INTEGER, agent_snapshots TEXT, stage_results TEXT, status TEXT NOT NULL)")
                 version = 5
             }
         }
@@ -391,7 +396,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insertWithOnConflict("app_configurations", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -410,18 +415,6 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         }
     }
 
-    fun getAllConfigurations(): Map<String, String> {
-        val configs = mutableMapOf<String, String>()
-        try {
-            val db = dbHelper.readableDatabase
-            val cursor = db.rawQuery("SELECT config_key, config_value FROM app_configurations", null)
-            while (cursor.moveToNext()) {
-                configs[cursor.getString(0)] = cursor.getString(1)
-            }
-            cursor.close()
-        } catch (_: Exception) {}
-        return configs
-    }
 
     // --- Workspaces Persistence in Database ---
     fun saveWorkspace(ws: ProjectWorkspace) {
@@ -442,7 +435,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insertWithOnConflict("project_workspaces", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -471,7 +464,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 )
             }
             cursor.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
         return workspaces
     }
 
@@ -479,7 +472,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         try {
             val db = dbHelper.writableDatabase
             db.delete("project_workspaces", "id = ?", arrayOf(workspaceId))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
     }
 
     // --- Conversation Persistence ---
@@ -513,7 +506,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 db.insert("chat_messages", null, msgValues)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -546,7 +539,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 )
             }
             cursor.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
         return conversations
     }
 
@@ -570,7 +563,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 )
             }
             cursor.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
         return messages
     }
 
@@ -579,7 +572,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             val db = dbHelper.writableDatabase
             db.delete("chat_messages", "conversation_id = ?", arrayOf(id))
             db.delete("conversations", "id = ?", arrayOf(id))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
     }
 
     // --- Swarm Run History Persistence ---
@@ -603,7 +596,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insertWithOnConflict("swarm_runs", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -639,7 +632,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 )
             }
             cursor.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
         return runs
     }
 
@@ -647,7 +640,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         try {
             val db = dbHelper.writableDatabase
             db.delete("swarm_runs", "id = ?", arrayOf(id))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
     }
 
     // --- LLM Metrics Recording in Database ---
@@ -671,7 +664,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insert("llm_metrics", null, values)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -694,7 +687,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insert("agent_audit_log", null, values)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -714,7 +707,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insert("codebase_symbols", null, values)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
@@ -723,7 +716,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             val db = dbHelper.writableDatabase
             db.delete("codebase_symbols", "file_path = ?", arrayOf(filePath))
             db.delete("codebase_chunks", "file_path = ?", arrayOf(filePath))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
     }
 
     fun searchCodebaseSymbols(query: String, limit: Int = 25): List<CodebaseSymbol> {
@@ -751,7 +744,7 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 )
             }
             cursor.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
         return results
     }
 
@@ -768,35 +761,10 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insert("codebase_chunks", null, values)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
-    fun getCodebaseChunks(filePath: String): List<CodebaseChunk> {
-        val results = mutableListOf<CodebaseChunk>()
-        try {
-            val db = dbHelper.readableDatabase
-            val cursor = db.rawQuery(
-                "SELECT id, workspace_path, file_path, chunk_index, content_hash, content_text, token_count FROM codebase_chunks WHERE file_path = ? ORDER BY chunk_index ASC",
-                arrayOf(filePath)
-            )
-            while (cursor.moveToNext()) {
-                results.add(
-                    CodebaseChunk(
-                        id = cursor.getLong(0),
-                        workspacePath = cursor.getString(1) ?: "",
-                        filePath = cursor.getString(2) ?: "",
-                        chunkIndex = cursor.getInt(3),
-                        contentHash = cursor.getString(4) ?: "",
-                        contentText = cursor.getString(5) ?: "",
-                        tokenCount = cursor.getInt(6)
-                    )
-                )
-            }
-            cursor.close()
-        } catch (_: Exception) {}
-        return results
-    }
 
     // --- Scientific Research Documents CRUD ---
     fun saveResearchDocument(doc: ResearchDocRecord) {
@@ -814,50 +782,10 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
             }
             db.insertWithOnConflict("research_documents", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
         }
     }
 
-    fun getResearchDocuments(): List<ResearchDocRecord> {
-        val results = mutableListOf<ResearchDocRecord>()
-        try {
-            val db = dbHelper.readableDatabase
-            val cursor = db.rawQuery(
-                "SELECT id, title, authors, source, url, abstract_text, full_text, extracted_at FROM research_documents ORDER BY extracted_at DESC",
-                null
-            )
-            while (cursor.moveToNext()) {
-                results.add(
-                    ResearchDocRecord(
-                        id = cursor.getString(0) ?: "",
-                        title = cursor.getString(1) ?: "",
-                        authors = cursor.getString(2) ?: "",
-                        source = cursor.getString(3) ?: "",
-                        url = cursor.getString(4) ?: "",
-                        abstractText = cursor.getString(5) ?: "",
-                        fullText = cursor.getString(6) ?: "",
-                        extractedAt = cursor.getString(7) ?: ""
-                    )
-                )
-            }
-            cursor.close()
-        } catch (_: Exception) {}
-        return results
-    }
 
     // --- SQLite Database Hardening & Integrity Verification ---
-    fun checkDatabaseIntegrity(): String {
-        return try {
-            val db = dbHelper.readableDatabase
-            val cursor = db.rawQuery("PRAGMA integrity_check;", null)
-            val output = StringBuilder()
-            while (cursor.moveToNext()) {
-                output.append(cursor.getString(0)).append("\n")
-            }
-            cursor.close()
-            output.toString().trim().ifBlank { "ok" }
-        } catch (e: Exception) {
-            "error: ${e.message}"
-        }
-    }
 }

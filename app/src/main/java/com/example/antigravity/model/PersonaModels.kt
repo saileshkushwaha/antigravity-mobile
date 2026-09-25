@@ -435,4 +435,26 @@ object PromptLibrary {
                             prompt.content.lowercase().contains(q))
         }
     }
+
+    /**
+     * Extracts all {VARIABLE_NAME} placeholders from a prompt template.
+     */
+    fun extractVariables(template: String): List<String> {
+        return Regex("""\{([A-Z_][A-Z0-9_]*)\}""").findAll(template)
+            .map { it.groupValues[1] }
+            .distinct()
+            .toList()
+    }
+
+    /**
+     * Substitutes {VARIABLE} placeholders with provided values.
+     * Variables without a provided value are left as-is for user to fill.
+     */
+    fun substituteVariables(template: String, values: Map<String, String>): String {
+        var result = template
+        for ((key, value) in values) {
+            result = result.replace("{$key}", value)
+        }
+        return result
+    }
 }

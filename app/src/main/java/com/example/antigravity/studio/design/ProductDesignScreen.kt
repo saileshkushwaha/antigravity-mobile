@@ -1041,16 +1041,39 @@ fun WireframeAiAndA11yView(
 
         Button(
             onClick = {
-                synthesisResult = VisionToCodeService.synthesizeWireframeToCode(wireframePrompt, tokens)
-                Toast.makeText(context, "Synthesized code and verified WCAG a11y!", Toast.LENGTH_SHORT).show()
+                if (!isSynthesizing) {
+                    isSynthesizing = true
+                    val prompt = wireframePrompt
+                    coroutineScope.launch {
+                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                            VisionToCodeService.synthesizeWireframeToCode(prompt, tokens)
+                        }
+                        synthesisResult = result
+                        isSynthesizing = false
+                        Toast.makeText(context, "Synthesized code and verified WCAG a11y!", Toast.LENGTH_SHORT).show()
+                    }
+                }
             },
+            enabled = !isSynthesizing,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF))
         ) {
-            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
+            if (isSynthesizing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = Color(0xFF00363D),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF00363D), modifier = Modifier.size(16.dp))
+            }
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Synthesize UI & Run A11y Audit", color = Color(0xFF00363D), fontWeight = FontWeight.Bold)
+            Text(
+                if (isSynthesizing) "Synthesizing..." else "Synthesize UI & Run A11y Audit",
+                color = Color(0xFF00363D),
+                fontWeight = FontWeight.Bold
+            )
         }
 
         // Accessibility (a11y) Audit Card

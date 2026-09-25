@@ -46,32 +46,6 @@ enum class SdlcTab(val title: String, val icon: androidx.compose.ui.graphics.vec
 }
 
 @Composable
-fun SdlcHubDialog(
-    onDismiss: () -> Unit,
-    appRepository: AppRepository? = null
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.97f)
-                .fillMaxHeight(0.94f),
-            shape = RoundedCornerShape(16.dp),
-            color = AntigravityColors.SurfaceDark,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityColors.BorderSubtle)
-        ) {
-            SdlcHubContent(
-                onOpenDrawer = null,
-                onClose = onDismiss,
-                appRepository = appRepository
-            )
-        }
-    }
-}
-
-@Composable
 fun SdlcHubContent(
     modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null,
@@ -499,8 +473,10 @@ fun SdlcHubContent(
                     onExportWorkspace = {
                         val path = context.filesDir.absolutePath
                         val res = SdlcManager.saveYamlToWorkspace(path)
+                        val version = SdlcManager.deployments.value.firstOrNull()?.versionTag ?: "unreleased"
+                        SdlcManager.saveChangelogToWorkspace(path, version)
                         statusMessage = res.fold(
-                            onSuccess = { "Saved .antigravity.yaml to workspace!" },
+                            onSuccess = { "Saved .antigravity.yaml and CHANGELOG.md ($version)!" },
                             onFailure = { "Export failed: ${it.localizedMessage}" }
                         )
                     }
@@ -3090,7 +3066,8 @@ fun AddSecretDialog(
                         val secret = EnvironmentSecret(
                             key = key.trim().uppercase(),
                             maskedValue = "••••••••",
-                            environment = selectedEnv
+                            environment = selectedEnv,
+                            value = value
                         )
                         onAdd(secret)
                     }

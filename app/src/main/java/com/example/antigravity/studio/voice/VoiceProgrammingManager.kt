@@ -172,7 +172,7 @@ class VoiceProgrammingManager(private val context: Context?) {
         try {
             speechRecognizer?.stopListening()
             speechRecognizer?.destroy()
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { android.util.Log.w("VoiceManager", "Voice operation failed: ${e.message}") }
         speechRecognizer = null
         updateState(VoiceState.IDLE)
     }
@@ -184,7 +184,7 @@ class VoiceProgrammingManager(private val context: Context?) {
         if (isTtsReady && textToSpeech != null) {
             try {
                 textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "antigravity_voice_output")
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) { android.util.Log.w("VoiceManager", "Voice operation failed: ${e.message}") }
         }
     }
 
@@ -210,7 +210,7 @@ class VoiceProgrammingManager(private val context: Context?) {
         try {
             textToSpeech?.stop()
             textToSpeech?.shutdown()
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { android.util.Log.w("VoiceManager", "Voice operation failed: ${e.message}") }
         textToSpeech = null
         isTtsReady = false
     }
