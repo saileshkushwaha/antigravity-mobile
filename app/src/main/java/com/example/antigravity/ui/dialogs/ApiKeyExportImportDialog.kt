@@ -47,8 +47,8 @@ fun ApiKeyExportImportDialog(
     val coroutineScope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Export, 1: Import
 
-    // Export State
-    var maskExportedKeys by remember { mutableStateOf(false) }
+    // Export State — start masked so a share/export never leaks full keys by default
+    var maskExportedKeys by remember { mutableStateOf(true) }
     val exportedCsv = remember(settings, maskExportedKeys) {
         ApiKeyCsvManager.generateCsv(settings, maskKeys = maskExportedKeys)
     }

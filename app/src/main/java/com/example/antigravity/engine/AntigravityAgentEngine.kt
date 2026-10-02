@@ -16,6 +16,11 @@ enum class AgentRunState {
     STREAMING
 }
 
+/** Tools that mutate the workspace or shell out; these are what `request-review` gates. */
+private val WRITE_TOOLS = setOf(
+    "write_to_file", "replace_file_content", "run_command", "git_commit", "git_add", "git_clone"
+)
+
 class AntigravityAgentEngine(
     private val repository: AppRepository,
     private val scope: CoroutineScope
@@ -31,6 +36,43 @@ class AntigravityAgentEngine(
 
     private val _agentState = MutableStateFlow(AgentRunState.IDLE)
     val agentState: StateFlow<AgentRunState> = _agentState.asStateFlow()
+
+    /**
+     * Non-null while a `request-review` policy gate is waiting on the user.
+     * The agent run suspends on [awaitToolApproval] until [resolveToolApproval]
+     * is called from the UI.
+     */
+    private val _pendingToolApproval = MutableStateFlow<ToolCallItem?>(null)
+    val pendingToolApproval: StateFlow<ToolCallItem?> = _pendingToolApproval.asStateFlow()
+
+    private var toolApproval: CompletableDeferred<Boolean>? = null
+
+    /** Suspends until the user approves or denies [tool]; true when approved. */
+    private suspend fun awaitToolApproval(tool: ToolCallItem): Boolean {
+        val deferred = CompletableDeferred<Boolean>()
+        toolApproval = deferred
+        _pendingToolApproval.value = tool
+        _agentState.value = AgentRunState.AWAITING_REVIEW
+        return try {
+            deferred.await()
+        } finally {
+            _pendingToolApproval.value = null
+            toolApproval = null
+            _agentState.value = AgentRunState.EXECUTING_TOOL
+        }
+    }
+
+    /** Called by the UI when the user taps Approve or Deny. */
+    fun resolveToolApproval(approved: Boolean) {
+        toolApproval?.complete(approved)
+        if (!approved) {
+            com.example.antigravity.enterprise.EnterpriseAuditLogger.log(
+                category = com.example.antigravity.enterprise.AuditCategory.SDLC_OPERATION,
+                action = "TOOL_APPROVAL_DENIED",
+                details = "User denied tool execution"
+            )
+        }
+    }
 
     private var jobGeneration = 0L
 
@@ -270,7 +312,19 @@ class AntigravityAgentEngine(
                                     )
                                 }
 
-                                val toolExecResult = executeAutonomousTool(tool)
+                                val requiresApproval =
+                                    repository.settings.value.toolExecutionPolicy == "request-review" &&
+                                        tool.name.lowercase() in WRITE_TOOLS
+                                val approved = !requiresApproval || awaitToolApproval(tool)
+                                val toolExecResult = if (approved) {
+                                    // Tools read/write files and spawn processes — run them off the
+                                    // main thread (the agent scope is a UI scope).
+                                    withContext(Dispatchers.IO) { executeAutonomousTool(tool) }
+                                } else {
+                                    Result.failure(
+                                        Exception("Tool '${tool.name}' was denied by the user under the request-review policy.")
+                                    )
+                                }
                                 tool.status = if (toolExecResult.isSuccess) ToolStatus.SUCCESS else ToolStatus.ERROR
                                 tool.output = toolExecResult.getOrDefault(toolExecResult.exceptionOrNull()?.message ?: "Executed")
 
@@ -425,9 +479,38 @@ class AntigravityAgentEngine(
     }
 
     fun cancelTask() {
+        // Release any pending request-review gate so the run can unwind instead of
+        // hanging on an await that nobody will answer.
+        toolApproval?.complete(false)
         currentJob?.cancel()
         currentJob = null
         _agentState.value = AgentRunState.IDLE
+    }
+
+    /**
+     * Dispatches a real build/test command for the active workspace. Output streams
+     * line-by-line into the terminal, so `/test` and `/build` no longer fake success.
+     */
+    private fun dispatchWorkspaceProcess(label: String, command: String, detected: Boolean) {
+        if (!detected) {
+            repository.executeTerminalCommand("echo $label: no supported runner in this workspace (looked for gradlew, mvnw, package.json, Cargo.toml)")
+            return
+        }
+        val wsDir = java.io.File(repository.activeWorkspace.value.path)
+        repository.executeTerminalCommand("echo Starting $label: $command")
+        scope.launch(Dispatchers.IO) {
+            try {
+                val proc = ProcessBuilder("sh", "-c", command)
+                    .directory(wsDir)
+                    .redirectErrorStream(true)
+                    .start()
+                proc.inputStream.bufferedReader().forEachLine { repository.appendTerminalLog(it) }
+                val exitCode = proc.waitFor()
+                repository.appendTerminalLog("[$label finished with exit code: $exitCode]")
+            } catch (e: Exception) {
+                repository.appendTerminalLog("$label failed: ${e.message}")
+            }
+        }
     }
 
     private fun handleSlashCommandDirect(trimmed: String): String? {
@@ -442,12 +525,28 @@ class AntigravityAgentEngine(
                 null
             }
             lower == "/test" || lower.startsWith("/test ") -> {
-                repository.executeTerminalCommand("echo Running tests...")
-                "🧪 Test command dispatched to terminal. Check the Terminal pane for results."
+                val wsDir = java.io.File(repository.activeWorkspace.value.path)
+                val command = when {
+                    java.io.File(wsDir, "gradlew").canExecute() -> "./gradlew testDebugUnitTest"
+                    java.io.File(wsDir, "mvnw").canExecute() -> "./mvnw test"
+                    java.io.File(wsDir, "package.json").exists() -> "npm test"
+                    java.io.File(wsDir, "Cargo.toml").exists() -> "cargo test"
+                    else -> null
+                }
+                dispatchWorkspaceProcess("test", command ?: "", command != null)
+                "🧪 Test run dispatched to the workspace. Output streams into the Terminal pane."
             }
             lower == "/build" || lower.startsWith("/build ") -> {
-                repository.executeTerminalCommand("echo Building project...")
-                "🏗️ Build command dispatched to terminal. Check the Terminal pane for progress."
+                val wsDir = java.io.File(repository.activeWorkspace.value.path)
+                val command = when {
+                    java.io.File(wsDir, "gradlew").canExecute() -> "./gradlew assembleDebug"
+                    java.io.File(wsDir, "mvnw").canExecute() -> "./mvnw package -DskipTests"
+                    java.io.File(wsDir, "package.json").exists() -> "npm run build"
+                    java.io.File(wsDir, "Cargo.toml").exists() -> "cargo build"
+                    else -> null
+                }
+                dispatchWorkspaceProcess("build", command ?: "", command != null)
+                "🏗️ Build dispatched to the workspace. Output streams into the Terminal pane."
             }
             lower == "/rollback" || lower.startsWith("/rollback ") -> {
                 "⏪ **Rollback**: To rollback, use the Checkpoints panel in the Auxiliary Pane to restore a previous workspace state."
@@ -678,10 +777,8 @@ class AntigravityAgentEngine(
 
     fun executeAutonomousTool(tool: ToolCallItem): Result<String> {
         val policy = repository.settings.value.toolExecutionPolicy
-        val readOnlyTools = setOf("view_file", "list_dir", "grep_search", "find_by_name", "git_status", "git_diff", "git_log", "git_branch")
-        val writeTools = setOf("write_to_file", "replace_file_content", "run_command", "git_commit", "git_add", "git_clone")
 
-        if (policy == "strict" && tool.name.lowercase() in writeTools) {
+        if (policy == "strict" && tool.name.lowercase() in WRITE_TOOLS) {
             return Result.failure(Exception("Tool execution blocked by strict policy: '${tool.name}' is a write operation. Switch to 'request-review' or 'always-proceed' in Settings to allow."))
         }
 
@@ -792,9 +889,31 @@ class AntigravityAgentEngine(
                 }
                 "run_command" -> {
                     val cmd = tool.arguments["command"] ?: tool.arguments["cmd"] ?: ""
-                    repository.executeTerminalCommand(cmd)
-                    val logs = repository.terminalLogs.value.takeLast(50).joinToString("\n")
-                    Result.success("Executed: $cmd\n$logs")
+                    if (cmd.isBlank()) return Result.failure(Exception("run_command: command argument is required"))
+                    if (repository.isTerminalBuiltin(cmd)) {
+                        val baseSize = repository.terminalLogs.value.size
+                        repository.executeTerminalCommand(cmd)
+                        val lines = repository.terminalLogs.value.drop(baseSize)
+                        val rejected = lines.firstOrNull { it.startsWith("Error:") }
+                        when {
+                            rejected != null -> Result.failure(Exception("Command blocked: $rejected"))
+                            lines.any { it.startsWith("Cloning") || it.startsWith("Running ") || it.startsWith("[workspace shell]") } ->
+                                Result.success("Dispatched (runs in the background): $cmd\n" + lines.joinToString("\n"))
+                            else -> Result.success("Executed: $cmd\n" + lines.joinToString("\n"))
+                        }
+                    } else {
+                        repository.runShellCommand(cmd, wsDir).fold(
+                            onSuccess = { out ->
+                                val shown = out.lines().takeLast(60)
+                                shown.forEach { repository.appendTerminalLog(it) }
+                                Result.success("Executed: $cmd\n" + out.lines().takeLast(80).joinToString("\n"))
+                            },
+                            onFailure = { e ->
+                                repository.appendTerminalLog("Error: ${e.message}")
+                                Result.failure(e)
+                            }
+                        )
+                    }
                 }
                 "write_to_file" -> {
                     val filePath = tool.arguments["path"] ?: tool.arguments["file"] ?: ""

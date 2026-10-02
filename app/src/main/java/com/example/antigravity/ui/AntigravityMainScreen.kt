@@ -52,6 +52,7 @@ import com.example.antigravity.studio.architecture.ArchitectureStudioScreen
 import com.example.antigravity.studio.iac.IacStudioScreen
 import com.example.antigravity.ui.navigation.AntigravityAppScreen
 import com.example.antigravity.ui.sidebar.SidebarDrawerContent
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -106,6 +107,7 @@ fun AntigravityMainScreen(
     val isFetchingModels by repository.isFetchingModels.collectAsState()
 
     val agentState by agentEngine.agentState.collectAsState()
+    val pendingToolApproval by agentEngine.pendingToolApproval.collectAsState()
     val activePersona by agentEngine.activePersona.collectAsState()
     val personas by repository.personas.collectAsState()
     val prompts by repository.prompts.collectAsState()
@@ -301,7 +303,9 @@ fun AntigravityMainScreen(
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
                         onAddWorkspace = { name, path, branch, githubUrl ->
-                            repository.addWorkspace(name, path, branch, githubUrl = githubUrl)
+                            coroutineScope.launch(Dispatchers.IO) {
+                                repository.addWorkspace(name, path, branch, githubUrl = githubUrl)
+                            }
                             currentScreen = AntigravityAppScreen.CODE
                             if (!isTabletOrExpanded) coroutineScope.launch { drawerState.close() }
                         },
@@ -504,7 +508,11 @@ fun AntigravityMainScreen(
                                         activeWorkspace = activeWorkspace,
                                         workspaces = workspaces,
                                         onSelectWorkspace = { repository.switchWorkspace(it) },
-                                        onAddWorkspace = { name, path, branch, githubUrl -> repository.addWorkspace(name, path, branch, githubUrl = githubUrl) },
+                                        onAddWorkspace = { name, path, branch, githubUrl ->
+                                            coroutineScope.launch(Dispatchers.IO) {
+                                                repository.addWorkspace(name, path, branch, githubUrl = githubUrl)
+                                            }
+                                        },
                                         onOpenDrawer = handleOpenDrawer,
                                         onExecuteCommand = { repository.executeTerminalCommand(it) },
                                         terminalLogs = terminalLogs,
@@ -792,6 +800,50 @@ fun AntigravityMainScreen(
         )
     }
 
+    // request-review policy gate: the agent run is suspended until the user decides
+    if (pendingToolApproval != null) {
+        val pendingTool = pendingToolApproval
+        AlertDialog(
+            onDismissRequest = { agentEngine.resolveToolApproval(false) },
+            containerColor = AntigravityColors.SurfaceDark,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.GppMaybe, contentDescription = null, tint = AntigravityColors.StatusError)
+                    Text("Approve tool execution?", color = AntigravityColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "The agent wants to run a write operation under the 'request-review' policy.",
+                        color = AntigravityColors.TextSecondary,
+                        fontSize = 12.sp
+                    )
+                    pendingTool?.let { tool ->
+                        Text("Tool: ${tool.name}", color = AntigravityColors.ElectricCyan, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        if (tool.arguments.isNotEmpty()) {
+                            Text(
+                                tool.arguments.entries.joinToString("\n") { "${it.key}: ${it.value}" },
+                                color = AntigravityColors.TextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { agentEngine.resolveToolApproval(true) }) {
+                    Text("Approve", color = AntigravityColors.ElectricCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { agentEngine.resolveToolApproval(false) }) {
+                    Text("Deny", color = AntigravityColors.StatusError, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
     // Prompt Library Dialog (in-chat context without navigating away)
     if (showChatPromptDialog) {
         PromptLibraryDialog(
@@ -1070,14 +1122,16 @@ fun AntigravityMainScreen(
                             val finalPath = newWorkspacePath.trim().ifBlank {
                                 com.example.antigravity.data.AppRepository.resolveWorkspacePath(finalName.lowercase().replace("\\s+".toRegex(), "-"))
                             }
-                            repository.addWorkspace(
-                                name = finalName,
-                                path = finalPath,
-                                branch = newWorkspaceBranch.trim().ifBlank { "main" },
-                                githubOwner = newWorkspaceGithubOwner,
-                                githubRepo = newWorkspaceGithubRepo,
-                                githubUrl = newWorkspaceGithubUrl
-                            )
+                            coroutineScope.launch(Dispatchers.IO) {
+                                repository.addWorkspace(
+                                    name = finalName,
+                                    path = finalPath,
+                                    branch = newWorkspaceBranch.trim().ifBlank { "main" },
+                                    githubOwner = newWorkspaceGithubOwner,
+                                    githubRepo = newWorkspaceGithubRepo,
+                                    githubUrl = newWorkspaceGithubUrl
+                                )
+                            }
                             newWorkspaceName = ""
                             newWorkspacePath = ""
                             newWorkspaceGithubOwner = ""

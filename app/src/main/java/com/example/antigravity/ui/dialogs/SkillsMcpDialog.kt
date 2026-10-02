@@ -729,7 +729,7 @@ fun SkillsMcpContent(
                 showSkillEditor = true
             },
             onClone = {
-                onCloneSkill(inspectingSkill!!.name)
+                inspectingSkill?.let { onCloneSkill(it.name) }
                 inspectingSkill = null
             },
             onDelete = {

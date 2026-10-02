@@ -251,7 +251,17 @@ fun ProductDesignScreen(
             }
             3 -> {
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    VisualSpecDiffView(tokens = tokens)
+                    // Reference = the spec last persisted to disk; the canvas shows
+                    // the current in-memory tokens, so the diff reflects unsaved edits.
+                    val specReference = remember(activeWorkspaceDir, tokens) {
+                        runCatching {
+                            val specFile = java.io.File(activeWorkspaceDir, "tokens.json")
+                            if (specFile.exists()) {
+                                DesignTokens.parseW3cDtcgJson(specFile.readText()).getOrNull()
+                            } else null
+                        }.getOrNull() ?: tokens
+                    }
+                    VisualSpecDiffView(tokens = tokens, specTokens = specReference)
                 }
             }
             4 -> {

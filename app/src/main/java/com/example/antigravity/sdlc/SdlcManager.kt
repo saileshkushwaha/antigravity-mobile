@@ -7,10 +7,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 
 object SdlcManager {
+
+    /** Completes locally dispatched runs so they do not spin IN_PROGRESS forever. */
+    private val workflowScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default
+    )
 
     // --- Pull Requests ---
     private val _pullRequests = MutableStateFlow<List<PullRequestItem>>(emptyList())
@@ -44,6 +50,25 @@ object SdlcManager {
 
     // --- Customizable SDLC Configuration ---
     private val _sdlcConfig = MutableStateFlow(ProjectSdlcConfig())
+
+    /**
+     * Real deploy endpoint for the bound repository (GitHub Pages), or "" when the
+     * project is not bound yet. Everything downstream (traffic routing, health
+     * probes, deploy/health status) keys off this instead of a hardcoded empty
+     * string, which previously made every deploy report success without probing.
+     */
+    private fun resolveLiveUrl(): String {
+        val cfg = _sdlcConfig.value
+        return if (cfg.repositoryOwner.isNotBlank() && cfg.projectName.isNotBlank()) {
+            "https://${cfg.repositoryOwner}.github.io/${cfg.projectName}/"
+        } else ""
+    }
+
+    /** True when a GitHub repository + token are configured for live operations. */
+    fun hasGitHubCredentials(): Boolean {
+        val cfg = _sdlcConfig.value
+        return cfg.repositoryOwner.isNotBlank() && cfg.projectName.isNotBlank() && cfg.githubToken.isNotBlank()
+    }
     val sdlcConfig: StateFlow<ProjectSdlcConfig> = _sdlcConfig.asStateFlow()
 
     // --- Dynamic GitHub Discovery ---
@@ -632,7 +657,10 @@ object SdlcManager {
                 return@withContext Result.failure(e)
             }
         }
-        localResult
+        // Merge happened in local state only — say so instead of implying GitHub.
+        Result.success(
+            "PR #$prNumber merged locally. GitHub not configured, so it was NOT pushed to the remote."
+        )
     }
 
     suspend fun createIssue(
@@ -789,13 +817,34 @@ object SdlcManager {
             commitHash = "HEAD",
             commitMessage = "Manual dispatch from Antigravity Mobile SDLC Center",
             status = WorkflowStatus.IN_PROGRESS,
-            conclusion = WorkflowConclusion.SUCCESS,
+            conclusion = WorkflowConclusion.NEUTRAL,
             duration = "Running...",
             runStartedAt = "Just now",
             artifactName = "$repoName-Release-APK",
             artifactUrl = if (ownerName.isNotBlank() && repoName.isNotBlank()) "https://github.com/$ownerName/$repoName/actions" else ""
         )
         _workflowRuns.update { listOf(newRun) + it }
+        // Without GitHub credentials nothing was actually dispatched, so close the
+        // local run out instead of leaving it IN_PROGRESS (and with no premature
+        // SUCCESS conclusion) forever. With credentials, syncWithGitHub() owns the
+        // real status.
+        if (!hasGitHubCredentials()) {
+            val runId = newRun.id
+            workflowScope.launch {
+                kotlinx.coroutines.delay(15_000)
+                _workflowRuns.update { list ->
+                    list.map {
+                        if (it.id == runId && it.status == WorkflowStatus.IN_PROGRESS) {
+                            it.copy(
+                                status = WorkflowStatus.COMPLETED,
+                                conclusion = WorkflowConclusion.NEUTRAL,
+                                duration = "0s (local dispatch — no GitHub runner)"
+                            )
+                        } else it
+                    }
+                }
+            }
+        }
         EnterpriseAuditLogger.log(
             category = AuditCategory.SDLC_OPERATION,
             action = "DISPATCH_WORKFLOW",
@@ -861,31 +910,39 @@ object SdlcManager {
         val actualRepo = repo.ifBlank { _sdlcConfig.value.projectName }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
 
+        if (actualToken.isBlank() || actualOwner.isBlank() || actualRepo.isBlank()) {
+            // Never report success for work that was never sent to GitHub, and do
+            // not flip the run to IN_PROGRESS (it would spin forever).
+            return@withContext Result.failure(
+                IllegalStateException("GitHub credentials not configured — set repository owner/repo and a token to rerun workflow runs.")
+            )
+        }
+
         _workflowRuns.update { list ->
             list.map {
                 if (it.id == runId) it.copy(status = WorkflowStatus.IN_PROGRESS, conclusion = WorkflowConclusion.NEUTRAL, duration = "Rerunning...") else it
             }
         }
 
-        if (actualToken.isNotBlank() && actualOwner.isNotBlank() && actualRepo.isNotBlank()) {
-            try {
-                val req = okhttp3.Request.Builder()
-                    .url("https://api.github.com/repos/$actualOwner/$actualRepo/actions/runs/$runId/rerun")
-                    .header("Accept", "application/vnd.github.v3+json")
-                    .header("Authorization", "Bearer $actualToken")
-                    .header("User-Agent", "Antigravity-Mobile-App")
-                    .post("{}".toRequestBody("application/json".toMediaType()))
-                    .build()
+        try {
+            val req = okhttp3.Request.Builder()
+                .url("https://api.github.com/repos/$actualOwner/$actualRepo/actions/runs/$runId/rerun")
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("Authorization", "Bearer $actualToken")
+                .header("User-Agent", "Antigravity-Mobile-App")
+                .post("{}".toRequestBody("application/json".toMediaType()))
+                .build()
 
-                val resp = httpClient.newCall(req).execute()
-                if (resp.isSuccessful) {
-                    return@withContext Result.success("Workflow run #$runId rerun triggered on GitHub Actions.")
-                }
-            } catch (e: Exception) {
-                return@withContext Result.failure(e)
+            val resp = httpClient.newCall(req).execute()
+            if (resp.isSuccessful) {
+                return@withContext Result.success("Workflow run #$runId rerun triggered on GitHub Actions.")
             }
+            val err = resp.body?.string() ?: "HTTP ${resp.code}"
+            resp.close()
+            Result.failure(Exception("GitHub rerun failed (HTTP ${resp.code}): $err"))
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        Result.success("Workflow run #$runId rerun initiated.")
     }
 
     fun triggerDeployment(environment: EnvironmentType, versionTag: String): DeploymentRecord {
@@ -899,7 +956,7 @@ object SdlcManager {
             timestamp = "Just now",
             status = DeploymentStatus.DEPLOYED,
             healthStatus = HealthStatus.HEALTHY,
-            liveUrl = "",
+            liveUrl = resolveLiveUrl(),
             rollbackVersion = currentActive?.versionTag
         )
         _deployments.update { list ->
@@ -968,7 +1025,7 @@ object SdlcManager {
         kotlinx.coroutines.delay(200)
 
         // Stage 4: Promotion & Traffic Routing
-        val liveUrl = ""
+        val liveUrl = resolveLiveUrl()
         if (liveUrl.isNotBlank()) {
             log("INFO", "Promoting container to cluster & routing traffic to $liveUrl")
         } else {
@@ -1063,14 +1120,11 @@ object SdlcManager {
 
         val url = current.liveUrl
         if (url.isBlank() || (!url.startsWith("http://") && !url.startsWith("https://"))) {
-            val details = EnvironmentHealthDetails(
-                httpStatus = 200,
-                latencyMs = 24,
-                checkedAt = "Just now",
-                isReachable = true,
-                errorMessage = null
+            // No endpoint to probe: report that instead of fabricating HTTP 200,
+            // which would make the Health panel show "healthy" unconditionally.
+            return@withContext Result.failure(
+                IllegalStateException("No live URL configured for ${environment.displayName}. Bind a repository (owner/repo) so the deploy endpoint can be derived.")
             )
-            return@withContext Result.success(details)
         }
 
         val start = System.currentTimeMillis()
@@ -1177,6 +1231,7 @@ object SdlcManager {
                         val url = java.net.URL(tool.webhookUrl)
                         val conn = url.openConnection() as java.net.HttpURLConnection
                         conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
                         conn.requestMethod = "HEAD"
                         conn.connect()
                         val code = conn.responseCode
@@ -1420,6 +1475,33 @@ environments:
         }
     }
 
+    /** Parses GitHub's ISO-8601 UTC timestamps (tolerates fractional seconds / +00:00). */
+    private fun parseGithubIso(raw: String): java.util.Date? {
+        if (raw.isBlank()) return null
+        val stamp = Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}""").find(raw)?.value ?: return null
+        return try {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                .parse(stamp)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Real elapsed time for a workflow run instead of a fabricated constant. */
+    private fun workflowDurationLabel(startedAt: String, finishedAt: String, status: String): String {
+        val start = parseGithubIso(startedAt)
+            ?: return if (status.equals("completed", true)) "—" else "running"
+        val end = parseGithubIso(finishedAt) ?: java.util.Date()
+        val seconds = ((end.time - start.time) / 1000).coerceAtLeast(0)
+        val minutes = seconds / 60
+        return when {
+            minutes >= 60 -> "${minutes / 60}h ${minutes % 60}m"
+            minutes > 0 -> "${minutes}m ${seconds % 60}s"
+            else -> "${seconds}s"
+        }
+    }
+
     suspend fun syncWithGitHub(
         owner: String = "",
         repo: String = "",
@@ -1473,6 +1555,9 @@ environments:
                                 else -> WorkflowConclusion.NEUTRAL
                             }
 
+                            val startedAt = item.optString("run_started_at", item.optString("created_at", ""))
+                            val finishedAt = item.optString("updated_at", "")
+
                             realRuns.add(
                                 WorkflowRunItem(
                                     id = id,
@@ -1483,7 +1568,7 @@ environments:
                                     commitMessage = item.optJSONObject("head_commit")?.optString("message", "CI Run")?.lines()?.firstOrNull() ?: "CI Run",
                                     status = status,
                                     conclusion = conclusion,
-                                    duration = "1m 30s",
+                                    duration = workflowDurationLabel(startedAt, finishedAt, statusStr),
                                     runStartedAt = item.optString("created_at", "Recently"),
                                     artifactName = "$actualRepo-Release-APK",
                                     artifactUrl = item.optString("html_url")

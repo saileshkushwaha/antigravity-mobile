@@ -135,11 +135,16 @@ fun DataAnalyticsScreen(
                 actions = {
                     IconButton(onClick = {
                         coroutineScope.launch(Dispatchers.IO) {
-                            sqlEngine.syncWorkspaceFilesIntoDatabase()
+                            val indexed = sqlEngine.syncWorkspaceFilesIntoDatabase()
                             schemaInfo = sqlEngine.getTableSchemas()
                             queryResult = sqlEngine.executeQuery(currentSql)
                             kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "Workspace database re-indexed!", Toast.LENGTH_SHORT).show()
+                                val message = if (indexed > 0) {
+                                    "Re-indexed $indexed workspace files"
+                                } else {
+                                    "Workspace re-index failed — check logcat"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             }
                         }
                     }) {

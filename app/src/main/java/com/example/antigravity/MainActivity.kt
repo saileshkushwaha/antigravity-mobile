@@ -59,4 +59,11 @@ class MainActivity : FragmentActivity() {
             isAppLocked = true
         }
     }
+
+    override fun onDestroy() {
+        // Release the repository's IO scope and scheduler loop; the Activity owns
+        // this instance (it is created by `by lazy` here), so nothing else uses it.
+        super.onDestroy()
+        repository.close()
+    }
 }

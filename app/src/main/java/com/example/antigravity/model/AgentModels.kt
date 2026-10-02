@@ -174,7 +174,9 @@ data class ScheduledTask(
     val scheduleExpression: String,
     val isCron: Boolean,
     var isActive: Boolean = true,
-    val nextTrigger: String
+    val nextTrigger: String,
+    /** Epoch millis of the last fire; persisted so restarts do not re-run every task immediately. */
+    val lastRunAt: Long = 0L
 )
 
 @Serializable

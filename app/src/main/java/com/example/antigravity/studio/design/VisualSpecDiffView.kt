@@ -25,11 +25,22 @@ import com.example.antigravity.theme.AntigravityColors
 @Composable
 fun VisualSpecDiffView(
     tokens: DesignTokens,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /**
+     * The reference (design spec) token set to diff the current canvas against —
+     * normally the tokens last imported/saved on disk. When no reference is
+     * available this defaults to [tokens], i.e. a true 100% match.
+     */
+    specTokens: DesignTokens = tokens
 ) {
     var overlayOpacity by remember { mutableFloatStateOf(0.5f) }
     var comparisonMode by remember { mutableStateOf("OVERLAY") } // OVERLAY, SIDE_BY_SIDE, DIFFERENCE
-    var activeSpecPreset by remember { mutableStateOf("Mobile Dashboard Spec v2") }
+
+    // Real comparison instead of a hardcoded badge: how many of the seven design
+    // token fields still agree with the reference spec.
+    val matchPercent = remember(tokens, specTokens) { tokenMatchPercent(specTokens, tokens) }
+    val deltaPercent = 100 - matchPercent
+    val isMatch = deltaPercent == 0
 
     val primaryColor = tokens.getPrimaryColor()
 
@@ -60,14 +71,17 @@ fun VisualSpecDiffView(
 
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFF10B981).copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f))
+                        color = (if (isMatch) Color(0xFF10B981) else Color(0xFFF59E0B)).copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            (if (isMatch) Color(0xFF10B981) else Color(0xFFF59E0B)).copy(alpha = 0.4f)
+                        )
                     ) {
                         Text(
-                            "98.4% Match",
+                            "$matchPercent% Match",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF10B981),
+                            color = if (isMatch) Color(0xFF10B981) else Color(0xFFF59E0B),
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -134,7 +148,7 @@ fun VisualSpecDiffView(
                         ) {
                             Text("DESIGN SPEC (FIGMA)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.TextMuted)
                             Spacer(modifier = Modifier.height(6.dp))
-                            MockupCanvas(isSpec = true, tokens = tokens)
+                            MockupCanvas(isSpec = true, tokens = specTokens)
                         }
                         Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(AntigravityColors.DividerColor))
                         // Right: Rendered Code
@@ -151,8 +165,64 @@ fun VisualSpecDiffView(
                     }
                 }
                 "DIFFERENCE" -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
-                        MockupCanvas(isSpec = false, tokens = tokens, isDifference = true)
+                    val diffs = tokenDiffs(specTokens, tokens)
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Pixel Delta Report",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (diffs.isEmpty()) Color(0xFF10B981) else Color(0xFFEF4444)
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF1F1212),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    (if (diffs.isEmpty()) Color(0xFF10B981) else Color(0xFFEF4444)).copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Text(
+                                    "DELTA: $deltaPercent%",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (diffs.isEmpty()) Color(0xFF10B981) else Color(0xFFEF4444),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        if (diffs.isEmpty()) {
+                            Text(
+                                "No differences — the rendered canvas matches the reference spec exactly.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF10B981)
+                            )
+                        } else {
+                            diffs.forEach { (field, specValue, codeValue) ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF1F1212),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text(field, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(
+                                            "spec: $specValue  →  code: $codeValue",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 else -> {
@@ -162,7 +232,7 @@ fun VisualSpecDiffView(
                         MockupCanvas(isSpec = false, tokens = tokens)
                         // Overlay: Design Spec with Opacity
                         Box(modifier = Modifier.alpha(overlayOpacity)) {
-                            MockupCanvas(isSpec = true, tokens = tokens)
+                            MockupCanvas(isSpec = true, tokens = specTokens)
                         }
                     }
                 }
@@ -174,16 +244,15 @@ fun VisualSpecDiffView(
 @Composable
 private fun MockupCanvas(
     isSpec: Boolean,
-    tokens: DesignTokens,
-    isDifference: Boolean = false
+    tokens: DesignTokens
 ) {
-    val primaryColor = if (isDifference) Color(0xFFEF4444) else tokens.getPrimaryColor()
-    val surfaceColor = if (isDifference) Color(0xFF1F1212) else tokens.getSurfaceColor()
+    val primaryColor = tokens.getPrimaryColor()
+    val surfaceColor = tokens.getSurfaceColor()
 
     Surface(
         shape = RoundedCornerShape(tokens.cornerRadiusDp.dp),
         color = surfaceColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, primaryColor.copy(alpha = if (isDifference) 0.8f else 0.4f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, primaryColor.copy(alpha = 0.4f)),
         modifier = Modifier
             .fillMaxWidth()
             .height(280.dp)
@@ -202,17 +271,17 @@ private fun MockupCanvas(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (isSpec) "Figma Spec Frame" else if (isDifference) "Pixel Delta Heatmap" else "Rendered View",
+                        if (isSpec) "Figma Spec Frame" else "Rendered View",
                         fontSize = tokens.headerFontSizeSp.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isDifference) Color(0xFFEF4444) else Color.White
+                        color = Color.White
                     )
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = primaryColor.copy(alpha = 0.2f)
                     ) {
                         Text(
-                            if (isSpec) "DESIGN" else if (isDifference) "DELTA: 1.6%" else "CODE",
+                            if (isSpec) "DESIGN" else "CODE",
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             color = primaryColor,
@@ -237,7 +306,7 @@ private fun MockupCanvas(
             ) {
                 Text(
                     if (isSpec) "Design Spec Button" else "Rendered Code Button",
-                    color = if (isDifference) Color.White else Color(0xFF00363D),
+                    color = Color(0xFF00363D),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
@@ -245,3 +314,25 @@ private fun MockupCanvas(
         }
     }
 }
+
+/** Design token fields compared by the visual spec diff: field, spec value, code value. */
+private fun tokenComparisons(spec: DesignTokens, actual: DesignTokens): List<Triple<String, String, String>> =
+    listOf(
+        Triple("Primary color", spec.primaryColorHex, actual.primaryColorHex),
+        Triple("Secondary color", spec.secondaryColorHex, actual.secondaryColorHex),
+        Triple("Surface color", spec.surfaceColorHex, actual.surfaceColorHex),
+        Triple("Corner radius", "${spec.cornerRadiusDp}dp", "${actual.cornerRadiusDp}dp"),
+        Triple("Header font size", "${spec.headerFontSizeSp}sp", "${actual.headerFontSizeSp}sp"),
+        Triple("Body font size", "${spec.bodyFontSizeSp}sp", "${actual.bodyFontSizeSp}sp"),
+        Triple("Elevation", "${spec.elevationDp}dp", "${actual.elevationDp}dp")
+    )
+
+private fun tokenMatchPercent(spec: DesignTokens, actual: DesignTokens): Int {
+    val comparisons = tokenComparisons(spec, actual)
+    if (comparisons.isEmpty()) return 100
+    val matches = comparisons.count { it.second.equals(it.third, ignoreCase = true) }
+    return (matches * 100) / comparisons.size
+}
+
+private fun tokenDiffs(spec: DesignTokens, actual: DesignTokens): List<Triple<String, String, String>> =
+    tokenComparisons(spec, actual).filterNot { it.second.equals(it.third, ignoreCase = true) }

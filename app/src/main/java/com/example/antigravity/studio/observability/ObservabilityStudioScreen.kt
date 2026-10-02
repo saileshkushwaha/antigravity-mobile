@@ -291,7 +291,10 @@ java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Stri
                                                 branchCommitMessage = "docs(crash): commit crash report [skip ci]"
                                             )
                                             result.fold(
-                                                onSuccess = { pr -> Toast.makeText(context, "Bug-fix PR #${pr.number} created!", Toast.LENGTH_LONG).show() },
+                                                onSuccess = { pr ->
+                                                    val suffix = if (com.example.antigravity.sdlc.SdlcManager.hasGitHubCredentials()) "" else " (local only)"
+                                                    Toast.makeText(context, "Bug-fix PR #${pr.number} created$suffix!", Toast.LENGTH_LONG).show()
+                                                },
                                                 onFailure = { e -> Toast.makeText(context, "PR dispatch: ${e.message}", Toast.LENGTH_LONG).show() }
                                             )
                                         }

@@ -335,20 +335,35 @@ object CodebaseAstIndexer {
         maxTokens: Int = 1000
     ): String {
         val symbols = sqlEngine.searchCodebaseSymbols(query, limit = 8)
-        if (symbols.isEmpty()) return ""
+        val chunks = sqlEngine.searchCodebaseChunks(query, limit = 3)
+        if (symbols.isEmpty() && chunks.isEmpty()) return ""
 
+        val budgetChars = maxTokens * 4
         return buildString {
-            append("### 🧠 Indexed Codebase Context (@codebase AST Symbols):\n")
-            symbols.forEach { sym ->
-                append("• **${sym.symbolKind}** `${sym.symbolName}` in `${sym.filePath}:${sym.lineStart}`\n")
-                if (sym.signature.isNotBlank()) {
-                    append("  Signature: `${sym.signature}`\n")
+            if (symbols.isNotEmpty()) {
+                append("### 🧠 Indexed Codebase Context (@codebase AST Symbols):\n")
+                symbols.forEach { sym ->
+                    append("• **${sym.symbolKind}** `${sym.symbolName}` in `${sym.filePath}:${sym.lineStart}`\n")
+                    if (sym.signature.isNotBlank()) {
+                        append("  Signature: `${sym.signature}`\n")
+                    }
+                    if (sym.docSummary.isNotBlank()) {
+                        append("  Doc: ${sym.docSummary}\n")
+                    }
                 }
-                if (sym.docSummary.isNotBlank()) {
-                    append("  Doc: ${sym.docSummary}\n")
-                }
+                append("\n")
             }
-            append("\n")
+            if (chunks.isNotEmpty() && length < budgetChars) {
+                append("### 📚 Matching Code Chunks (@codebase index):\n")
+                chunks.forEach { chunk ->
+                    if (length >= budgetChars) return@forEach
+                    append("• `${chunk.filePath}` (part ${chunk.chunkIndex + 1})\n")
+                    append("```\n")
+                    append(chunk.contentText.take((budgetChars - length).coerceAtLeast(0)))
+                    append("\n```\n")
+                }
+                append("\n")
+            }
         }
     }
 

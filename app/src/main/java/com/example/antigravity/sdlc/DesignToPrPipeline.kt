@@ -97,10 +97,28 @@ object DesignToPrPipeline {
             """.trimIndent()
 
             // 6. Create PR via SdlcManager (first pushing the branch with the generated files)
-            val branchFiles: List<Pair<String, String>> = generated.mapNotNull { fileName ->
-                val content = runCatching { File(workspaceDir, fileName).readText() }.getOrNull()
-                if (content != null) fileName to content else null
+            // An unreadable artifact must fail the run rather than be silently
+            // dropped from the PR (which would ship an incomplete change set).
+            val readResults = generated.map { fileName ->
+                fileName to runCatching { File(workspaceDir, fileName).readText() }
             }
+            val failedReads = readResults.filter { it.second.isFailure }
+            if (failedReads.isNotEmpty()) {
+                val detail = failedReads.joinToString { "${it.first}: ${it.second.exceptionOrNull()?.message}" }
+                EnterpriseAuditLogger.log(
+                    category = AuditCategory.SDLC_OPERATION,
+                    action = "DESIGN_TO_PR_PR_FAILED",
+                    details = "Generated files could not be read, aborting PR creation: $detail"
+                )
+                return@withContext PipelineResult(
+                    success = false,
+                    branchName = sourceBranchName,
+                    pullRequest = null,
+                    generatedFiles = generated,
+                    message = "Failed to read generated artifacts — PR not created ($detail)"
+                )
+            }
+            val branchFiles: List<Pair<String, String>> = readResults.map { it.first to it.second.getOrThrow() }
             val prResult = SdlcManager.createPullRequestWithBranch(
                 title = customPrTitle,
                 sourceBranch = sourceBranchName,
@@ -125,7 +143,8 @@ object DesignToPrPipeline {
                     branchName = sourceBranchName,
                     pullRequest = pr,
                     generatedFiles = generated,
-                    message = "Successfully created PR #${pr?.number ?: "local"} from branch '$sourceBranchName'!"
+                    message = "Successfully created PR #${pr?.number ?: "local"} from branch '$sourceBranchName'" +
+                        (if (SdlcManager.hasGitHubCredentials()) " on GitHub!" else " locally (not pushed to GitHub).")
                 )
             } else {
                 val errorMsg = prResult.exceptionOrNull()?.message ?: "Unknown PR creation failure"

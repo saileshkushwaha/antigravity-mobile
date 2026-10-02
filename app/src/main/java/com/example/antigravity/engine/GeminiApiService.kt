@@ -143,7 +143,9 @@ class GeminiApiService {
         maxOutputTokens: Int = 0
     ): Result<String> {
         try {
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/$endpointModel:generateContent?key=$apiKey"
+            // Key travels in the x-goog-api-key header, never in the URL, so it cannot
+            // leak through logs, proxies, or the NetworkTrafficMonitor UI.
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$endpointModel:generateContent"
             val contentsArray = buildGeminiContents(history, prompt)
 
             val requestJson = JSONObject().apply {
@@ -167,6 +169,7 @@ class GeminiApiService {
             val body = requestJson.toString().toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
                 .url(url)
+                .addHeader("x-goog-api-key", apiKey)
                 .post(body)
                 .build()
 
@@ -217,8 +220,8 @@ class GeminiApiService {
     suspend fun fetchModels(apiKey: String): Result<List<ModelInfo>> = withContext(Dispatchers.IO) {
         try {
             if (apiKey.isBlank()) return@withContext Result.failure(Exception("Gemini API key is required"))
-            val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
-            val request = Request.Builder().url(url).get().build()
+            val url = "https://generativelanguage.googleapis.com/v1beta/models"
+            val request = Request.Builder().url(url).addHeader("x-goog-api-key", apiKey).get().build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 return@withContext Result.failure(Exception("Gemini models fetch failed: ${response.code}"))
@@ -277,8 +280,8 @@ class GeminiApiService {
         try {
             val cleanKey = apiKey.trim().trim('"', '\'', ' ', '\n', '\r', '\t')
             if (cleanKey.isBlank()) return@withContext Result.failure(Exception("API key is empty"))
-            val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey"
-            val request = Request.Builder().url(url).get().build()
+            val url = "https://generativelanguage.googleapis.com/v1beta/models"
+            val request = Request.Builder().url(url).addHeader("x-goog-api-key", cleanKey).get().build()
             val response = client.newCall(request).execute()
             val body = response.body?.string() ?: ""
             if (response.isSuccessful) {

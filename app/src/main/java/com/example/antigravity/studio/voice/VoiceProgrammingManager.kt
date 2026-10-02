@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import java.util.Locale
 
 enum class VoiceState {
@@ -28,31 +27,10 @@ class VoiceProgrammingManager(private val context: Context?) {
         private set
 
     private var speechRecognizer: SpeechRecognizer? = null
-    private var textToSpeech: TextToSpeech? = null
-    private var isTtsReady = false
 
     var onStateChanged: ((VoiceState) -> Unit)? = null
     var onSpeechRecognized: ((VoiceCommandResult) -> Unit)? = null
     var onErrorOccurred: ((String) -> Unit)? = null
-
-    init {
-        initTts()
-    }
-
-    private fun initTts() {
-        if (context == null) return
-        try {
-            textToSpeech = TextToSpeech(context) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    textToSpeech?.language = Locale.US
-                    isTtsReady = true
-                }
-            }
-        } catch (e: Throwable) {
-            // In headless/unit test environments, TTS initialization may not be available
-            isTtsReady = false
-        }
-    }
 
     /**
      * Parses spoken developer sentences into quick IDE slash commands or @codebase actions.
@@ -178,17 +156,6 @@ class VoiceProgrammingManager(private val context: Context?) {
     }
 
     /**
-     * Synthesizes and speaks text responses back to the developer.
-     */
-    fun speakText(text: String) {
-        if (isTtsReady && textToSpeech != null) {
-            try {
-                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "antigravity_voice_output")
-            } catch (e: Throwable) { android.util.Log.w("VoiceManager", "Voice operation failed: ${e.message}") }
-        }
-    }
-
-    /**
      * Allows test suites and simulated input to exercise voice parsing without hardware.
      */
     fun simulateVoiceInput(spokenText: String): VoiceCommandResult {
@@ -207,11 +174,5 @@ class VoiceProgrammingManager(private val context: Context?) {
 
     fun release() {
         stopListening()
-        try {
-            textToSpeech?.stop()
-            textToSpeech?.shutdown()
-        } catch (e: Throwable) { android.util.Log.w("VoiceManager", "Voice operation failed: ${e.message}") }
-        textToSpeech = null
-        isTtsReady = false
     }
 }

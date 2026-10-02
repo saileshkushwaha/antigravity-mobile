@@ -200,33 +200,6 @@ object ApiStudioManager {
         }
     }
 
-    fun simulateMockResponse(request: ApiRequestItem, latency: Long = 45, timestamp: String = "12:00:00"): ApiResponseResult {
-        val mockJson = JSONObject().apply {
-            put("status", "success")
-            put("simulated", true)
-            put("url", request.url)
-            put("method", request.method.name)
-            put("message", "Simulated mock response from Antigravity Local Engine")
-            if (request.body.isNotBlank()) {
-                put("echoBody", request.body.take(100))
-            }
-        }.toString(2)
-
-        return ApiResponseResult(
-            statusCode = 200,
-            statusMessage = "OK (Simulated)",
-            headers = mapOf(
-                "Content-Type" to "application/json",
-                "X-Powered-By" to "Antigravity-Mock-Engine",
-                "Server" to "Embedded-OkHttp"
-            ),
-            body = mockJson,
-            latencyMs = latency,
-            timestamp = timestamp,
-            isSuccess = true
-        )
-    }
-
     fun generateClientCode(request: ApiRequestItem, target: CodeTargetType): String {
         return when (target) {
             CodeTargetType.RETROFIT_KOTLIN -> generateRetrofitCode(request)
@@ -347,6 +320,33 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
         }
     }
 
+    /**
+     * Bearer tokens are kept in app-private SharedPreferences instead of the
+     * workspace's requests.json, so secrets never land in a shareable/exported file.
+     */
+    private const val TOKEN_STORE_KEY = "api_request_tokens"
+
+    private fun loadBearerTokens(): Map<String, String> = try {
+        val raw = com.example.antigravity.config.AppConfigManager.getConfig(TOKEN_STORE_KEY)
+        if (raw.isBlank()) emptyMap()
+        else {
+            val jo = JSONObject(raw)
+            jo.keys().asSequence().associateWith { jo.optString(it, "") }
+        }
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
+    private fun persistBearerTokens(requests: List<ApiRequestItem>) {
+        val tokens = requests.filter { it.bearerToken.isNotBlank() }
+            .associate { it.id to it.bearerToken }
+        val jo = JSONObject()
+        tokens.forEach { (id, token) -> jo.put(id, token) }
+        com.example.antigravity.config.AppConfigManager.saveConfig(
+            TOKEN_STORE_KEY, jo.toString(), category = "SECURITY"
+        )
+    }
+
     fun saveRequests(workspaceDir: File, requests: List<ApiRequestItem>) {
         try {
             val arr = org.json.JSONArray()
@@ -359,12 +359,12 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
                     put("headers", JSONObject(r.headers))
                     put("queryParams", JSONObject(r.queryParams))
                     put("body", r.body)
-                    put("bearerToken", r.bearerToken)
                 })
             }
             val dir = File(workspaceDir, ".antigravity")
             dir.mkdirs()
             File(dir, "requests.json").writeText(arr.toString(2))
+            persistBearerTokens(requests)
         } catch (e: Exception) {
             com.example.antigravity.enterprise.EnterpriseAuditLogger.log(
                 category = com.example.antigravity.enterprise.AuditCategory.SDLC_OPERATION,
@@ -379,10 +379,12 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
             val file = File(File(workspaceDir, ".antigravity"), "requests.json")
             if (!file.exists()) return getSampleRequests()
             val arr = org.json.JSONArray(file.readText())
+            val storedTokens = loadBearerTokens()
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
+                val id = o.optString("id", "req-${System.currentTimeMillis() % 10000}")
                 ApiRequestItem(
-                    id = o.optString("id", "req-${System.currentTimeMillis() % 10000}"),
+                    id = id,
                     name = o.optString("name", "Untitled Request"),
                     method = runCatching { HttpMethod.valueOf(o.optString("method", "GET")) }.getOrDefault(HttpMethod.GET),
                     url = o.optString("url", "https://api.github.com/zen"),
@@ -391,7 +393,7 @@ suspend fun executeCall(client: HttpClient): HttpResponse {
                     } ?: mapOf("Accept" to "application/json"),
                     queryParams = o.optJSONObject("queryParams")?.let { jo -> joinToString(jo) } ?: emptyMap(),
                     body = o.optString("body", ""),
-                    bearerToken = o.optString("bearerToken", "")
+                    bearerToken = o.optString("bearerToken", "").ifBlank { storedTokens[id] ?: "" }
                 )
             }
         } catch (_: Exception) {

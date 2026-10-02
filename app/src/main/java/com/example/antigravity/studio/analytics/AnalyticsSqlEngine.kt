@@ -238,7 +238,36 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 version = 3
             }
             if (version < 4) {
-                db.execSQL("ALTER TABLE project_workspaces ADD COLUMN connected_services TEXT")
+                // project_workspaces must exist before the ALTER: DBs created at
+                // version 1-3 predate this table, and a failed migration here would
+                // disable every later SQLite write (each engine method swallows errors).
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS project_workspaces (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        path TEXT NOT NULL,
+                        branch TEXT NOT NULL,
+                        github_owner TEXT,
+                        github_repo TEXT,
+                        github_url TEXT,
+                        connected_services TEXT,
+                        custom_rules TEXT,
+                        updated_at TEXT NOT NULL
+                    );
+                    """.trimIndent()
+                )
+                val hasConnectedServices = db.rawQuery("PRAGMA table_info(project_workspaces)", null).use { cursor ->
+                    val nameIdx = cursor.getColumnIndex("name")
+                    var found = false
+                    while (cursor.moveToNext()) {
+                        if (nameIdx >= 0 && cursor.getString(nameIdx) == "connected_services") found = true
+                    }
+                    found
+                }
+                if (!hasConnectedServices) {
+                    db.execSQL("ALTER TABLE project_workspaces ADD COLUMN connected_services TEXT")
+                }
                 version = 4
             }
             if (version < 5) {
@@ -252,6 +281,9 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 db.execSQL("CREATE TABLE IF NOT EXISTS swarm_runs (id TEXT PRIMARY KEY, mission TEXT NOT NULL, started_at TEXT NOT NULL, completed_at TEXT, total_duration_ms INTEGER, total_tokens INTEGER, agent_snapshots TEXT, stage_results TEXT, status TEXT NOT NULL)")
                 version = 5
             }
+            // Idempotent (INSERT OR IGNORE), so upgraded DBs get the same bootstrap
+            // rows fresh installs do.
+            seedInitialData(db)
         }
     }
 
@@ -265,32 +297,49 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
         db.execSQL("INSERT OR IGNORE INTO agent_audit_log (agent_name, action_taken, status, execution_time_ms, recorded_at) VALUES ('System', 'Antigravity database initialized with zero-hardcoding architecture', 'SUCCESS', 10, '$now')")
     }
 
-    fun syncWorkspaceFilesIntoDatabase() {
+    /** Indexes workspace files recursively. Returns the number of files indexed (0 on failure). */
+    fun syncWorkspaceFilesIntoDatabase(): Int {
         val db = dbHelper.writableDatabase
+        var indexed = 0
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+        val skipDirs = setOf(".git", ".gradle", "node_modules", "build", ".antigravity")
+        db.beginTransaction()
         try {
-            db.execSQL("DELETE FROM workspace_files")
+            db.delete("workspace_files", null, null)
             if (activeWorkspaceDir.exists() && activeWorkspaceDir.isDirectory) {
-                val files = activeWorkspaceDir.listFiles() ?: emptyArray()
-                val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-                files.take(50).forEach { file ->
-                    val ext = file.extension.ifBlank { if (file.isDirectory) "DIR" else "none" }
-                    val modified = dateFormat.format(Date(file.lastModified()))
-                    val size = if (file.isFile) file.length() else 0L
-                    val stmt = db.compileStatement(
-                        "INSERT INTO workspace_files (filename, extension, size_bytes, last_modified) VALUES (?, ?, ?, ?)"
-                    )
-                    stmt.use {
-                        it.bindString(1, file.name)
-                        it.bindString(2, ext)
-                        it.bindLong(3, size)
-                        it.bindString(4, modified)
-                        it.executeInsert()
+                // Breadth-first walk with a cap so a huge workspace cannot stall the UI.
+                val queue: ArrayDeque<java.io.File> = ArrayDeque<java.io.File>().apply { add(activeWorkspaceDir) }
+                while (queue.isNotEmpty() && indexed < 500) {
+                    val dir = queue.removeFirst()
+                    val children = dir.listFiles() ?: continue
+                    children.sortedBy { it.name }.forEach { file ->
+                        if (indexed >= 500) return@forEach
+                        if (file.isDirectory) {
+                            if (file.name !in skipDirs && !file.name.startsWith(".")) queue.addLast(file)
+                            return@forEach
+                        }
+                        val ext = file.extension.ifBlank { "none" }
+                        val stmt = db.compileStatement(
+                            "INSERT INTO workspace_files (filename, extension, size_bytes, last_modified) VALUES (?, ?, ?, ?)"
+                        )
+                        stmt.use {
+                            it.bindString(1, file.relativeTo(activeWorkspaceDir).path)
+                            it.bindString(2, ext)
+                            it.bindLong(3, file.length())
+                            it.bindString(4, dateFormat.format(Date(file.lastModified())))
+                            it.executeInsert()
+                        }
+                        indexed++
                     }
                 }
             }
+            db.setTransactionSuccessful()
         } catch (e: Exception) {
-            // Keep DB operational
+            android.util.Log.w("AnalyticsSql", "Workspace file sync failed: ${e.message}")
+        } finally {
+            db.endTransaction()
         }
+        return indexed
     }
 
     fun executeQuery(sql: String): SqlQueryResult {
@@ -493,17 +542,25 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                 put("updated_at", conv.updatedAt)
             }
             db.insertWithOnConflict("conversations", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-            db.delete("chat_messages", "conversation_id = ?", arrayOf(conv.id))
-            for (msg in conv.messages) {
-                val msgValues = ContentValues().apply {
-                    put("id", msg.id)
-                    put("conversation_id", conv.id)
-                    put("sender", msg.sender.name)
-                    put("text", msg.text)
-                    put("timestamp", msg.timestamp)
-                    put("is_streaming", if (msg.isStreaming) 1 else 0)
+            // Atomic: a failure between the DELETE and the inserts would otherwise
+            // permanently wipe this conversation's history.
+            db.beginTransaction()
+            try {
+                db.delete("chat_messages", "conversation_id = ?", arrayOf(conv.id))
+                for (msg in conv.messages) {
+                    val msgValues = ContentValues().apply {
+                        put("id", msg.id)
+                        put("conversation_id", conv.id)
+                        put("sender", msg.sender.name)
+                        put("text", msg.text)
+                        put("timestamp", msg.timestamp)
+                        put("is_streaming", if (msg.isStreaming) 1 else 0)
+                    }
+                    db.insert("chat_messages", null, msgValues)
                 }
-                db.insert("chat_messages", null, msgValues)
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
             }
         } catch (e: Exception) {
             e.let { android.util.Log.w("AnalyticsSql", "DB operation failed: ${it.message}") }
@@ -558,7 +615,9 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                         sender = MessageSender.valueOf(cursor.getString(1) ?: "USER"),
                         text = cursor.getString(2) ?: "",
                         timestamp = cursor.getLong(3),
-                        isStreaming = cursor.getInt(4) == 1
+                        // A message persisted mid-stream would otherwise come back
+                        // with a permanent streaming cursor after a restart.
+                        isStreaming = false
                     )
                 )
             }
@@ -740,6 +799,40 @@ class AnalyticsSqlEngine(context: Context, private val activeWorkspaceDir: File)
                         lineStart = cursor.getInt(6),
                         lineEnd = cursor.getInt(7),
                         docSummary = cursor.getString(8) ?: ""
+                    )
+                )
+            }
+            cursor.close()
+        } catch (e: Exception) { android.util.Log.w("AnalyticsSql", "DB operation failed: ${e.message}") }
+        return results
+    }
+
+    /**
+     * Keyword search over the indexed code chunks. The chunk index is written on every
+     * workspace index pass; this is its read path (used by the @codebase context builder).
+     */
+    fun searchCodebaseChunks(query: String, limit: Int = 4): List<CodebaseChunk> {
+        val results = mutableListOf<CodebaseChunk>()
+        try {
+            val terms = query.trim().split(Regex("\\W+")).filter { it.length >= 2 }.take(6)
+            if (terms.isEmpty()) return results
+            val db = dbHelper.readableDatabase
+            val where = terms.joinToString(" OR ") { "content_text LIKE ?" }
+            val args = terms.map { "%$it%" }.toTypedArray() + limit.toString()
+            val cursor = db.rawQuery(
+                "SELECT id, workspace_path, file_path, chunk_index, content_hash, content_text, token_count FROM codebase_chunks WHERE $where ORDER BY token_count ASC LIMIT ?",
+                args
+            )
+            while (cursor.moveToNext()) {
+                results.add(
+                    CodebaseChunk(
+                        id = cursor.getLong(0),
+                        workspacePath = cursor.getString(1) ?: "",
+                        filePath = cursor.getString(2) ?: "",
+                        chunkIndex = cursor.getInt(3),
+                        contentHash = cursor.getString(4) ?: "",
+                        contentText = cursor.getString(5) ?: "",
+                        tokenCount = cursor.getInt(6)
                     )
                 )
             }

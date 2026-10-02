@@ -152,11 +152,17 @@ class AppRepository {
         try {
             val loadedTasks = loadListFile<BackgroundTaskItem>("background_tasks.json")
             if (loadedTasks != null) {
-                _backgroundTasks.value = loadedTasks.map {
+                val remapped = loadedTasks.map {
                     if (it.status == TaskStatus.RUNNING) it.copy(status = TaskStatus.FAILED) else it
                 }
+                _backgroundTasks.value = remapped
+                // Write the RUNNING -> FAILED correction back so the stale status
+                // does not survive the next restart.
+                if (remapped != loadedTasks) persistListFile("background_tasks.json", remapped)
             }
         } catch (e: Exception) { android.util.Log.w("AppRepository", "Recovered from error: ${e.message}") }
+
+        refreshInstalledTools()
 
         // Trigger background AST indexing for @codebase semantic search
         _sqlEngine?.let { sql ->
@@ -196,18 +202,12 @@ class AppRepository {
     }
 
     private fun loadWorkspaceScopedConfig() {
-        loadListFile<AgentPersona>("personas.json")?.let {
-            if (it.isNotEmpty()) _personas.value = it
-        }
-        loadListFile<PromptTemplate>("prompts.json")?.let {
-            if (it.isNotEmpty()) _prompts.value = it
-        }
-        loadListFile<SkillItem>("skills.json")?.let {
-            if (it.isNotEmpty()) _skills.value = it
-        }
-        loadListFile<McpServerItem>("mcp_servers.json")?.let {
-            if (it.isNotEmpty()) _mcpServers.value = it
-        }
+        // Apply the file contents even when empty: skipping empty lists would
+        // resurrect the built-in defaults and silently undo deletions on restart.
+        loadListFile<AgentPersona>("personas.json")?.let { _personas.value = it }
+        loadListFile<PromptTemplate>("prompts.json")?.let { _prompts.value = it }
+        loadListFile<SkillItem>("skills.json")?.let { _skills.value = it }
+        loadListFile<McpServerItem>("mcp_servers.json")?.let { _mcpServers.value = it }
     }
 
     private fun saveWorkspacesToPrefs() {
@@ -487,6 +487,92 @@ class AppRepository {
     )
     val terminalLogs: StateFlow<List<String>> = _terminalLogs.asStateFlow()
 
+    /**
+     * Commits a read-modify-write of the terminal log atomically. Callers snapshot
+     * the list, append their lines, then commit; if another thread appended in the
+     * meantime (e.g. an async `tool install` finishing) those lines are preserved
+     * instead of being overwritten.
+     *
+     * @param baseSize number of entries present when the caller took its snapshot
+     */
+    private fun commitTerminalLogs(baseSize: Int, snapshot: List<String>) {
+        _terminalLogs.update { existing ->
+            if (existing.size <= baseSize) {
+                snapshot
+            } else {
+                existing.toMutableList().apply { addAll(snapshot.drop(baseSize)) }
+            }
+        }
+    }
+
+    /** Atomically appends one line from an async worker (e.g. an off-main `git clone` or `tool run`). */
+    private fun appendTerminalLine(line: String) {
+        _terminalLogs.update { it + line }
+    }
+
+    /** Public entry point for background workers (`/test`, `/build`, tool runners) to stream output. */
+    fun appendTerminalLog(line: String) {
+        appendTerminalLine(line)
+    }
+
+    /**
+     * True when the workspace terminal implements [command] itself. Anything else is
+     * handed to the real workspace shell, so callers can pick a path without guessing.
+     */
+    fun isTerminalBuiltin(command: String): Boolean {
+        val trimmed = command.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.equals("clear", true) || trimmed.equals("cls", true) || trimmed.equals("help", true) ||
+            trimmed.equals("pwd", true) || trimmed.startsWith("echo", true)
+        ) return true
+        val first = trimmed.substringBefore(' ').lowercase()
+        return first in setOf(
+            "git", "ls", "tree", "cat", "mkdir", "touch", "rm", "cp", "mv", "find",
+            "tool", "tasks", "subagents", "skills"
+        )
+    }
+
+    /**
+     * Runs [command] through `sh -c` inside [dir] with a hard timeout, after the
+     * enterprise command guardrails have approved it. Returns captured combined output.
+     */
+    fun runShellCommand(command: String, dir: java.io.File, timeoutSeconds: Long = 60): Result<String> {
+        val security = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateCommand(command)
+        if (security.isFailure) {
+            return Result.failure(security.exceptionOrNull() ?: SecurityException("Command blocked by policy"))
+        }
+        com.example.antigravity.enterprise.EnterpriseAuditLogger.log(
+            category = com.example.antigravity.enterprise.AuditCategory.SECURITY_POLICY,
+            action = "SHELL_EXECUTED",
+            details = command.take(200)
+        )
+        return try {
+            val proc = ProcessBuilder("sh", "-c", command)
+                .directory(dir)
+                .redirectErrorStream(true)
+                .start()
+            val output = StringBuilder()
+            val pump = Thread {
+                try {
+                    proc.inputStream.bufferedReader().forEachLine { output.append(it).append('\n') }
+                } catch (_: Exception) {
+                }
+            }.apply { isDaemon = true; start() }
+            val finished = proc.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+            if (!finished) {
+                proc.destroyForcibly()
+                return Result.failure(Exception("Command timed out after ${timeoutSeconds}s: $command"))
+            }
+            pump.join(2_000)
+            val exitCode = proc.exitValue()
+            val text = output.toString().trimEnd()
+            if (exitCode == 0) Result.success(text)
+            else Result.failure(Exception("Command failed (exit $exitCode): $text"))
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to run '$command': ${e.message}"))
+        }
+    }
+
     init {
         // Seed eagerly so an active conversation exists even before init(context)
         // (unit tests construct AppRepository() without a Context). init(context)
@@ -633,6 +719,7 @@ class AppRepository {
 
         if (safeOwner.isNotBlank() && safeRepo.isNotBlank()) {
         _settings.update { it.copy(githubOwner = safeOwner, githubRepo = safeRepo, targetBranch = safeBranch) }
+            updateSettings(_settings.value)
             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
                 it.copy(
                     repositoryOwner = safeOwner,
@@ -651,8 +738,10 @@ class AppRepository {
         if (_activeConversationId.value == id) {
             _activeConversationId.value = filtered.firstOrNull()?.id ?: createNewConversation()
         }
-        sharedPrefs?.edit { remove("active_conversation_id") }
-        filtered.firstOrNull()?.let { sharedPrefs?.edit { putString("active_conversation_id", it.id) } }
+        // Persist whichever conversation is actually active now — writing
+        // filtered.firstOrNull() here would forget the active id when a
+        // non-active conversation was deleted.
+        sharedPrefs?.edit { putString("active_conversation_id", _activeConversationId.value) }
     }
 
     fun addMessage(message: ChatMessage) {
@@ -915,6 +1004,7 @@ class AppRepository {
         val branch = workspace.branch
         if (owner.isNotBlank() && repo.isNotBlank()) {
             _settings.update { it.copy(githubOwner = owner, githubRepo = repo, targetBranch = branch) }
+            updateSettings(_settings.value)
             com.example.antigravity.sdlc.SdlcManager.updateSdlcConfig {
                 it.copy(
                     repositoryOwner = owner,
@@ -948,6 +1038,17 @@ class AppRepository {
             val loaded = loadListFile<ArtifactItem>("artifacts.json")
             _artifacts.value = loaded ?: emptyList()
         } catch (e: Exception) { android.util.Log.w("AppRepository", "Recovered from error: ${e.message}") }
+        // antigravityConfigDir() now points at the new workspace, so background and
+        // scheduled tasks must be reloaded too — otherwise the previous workspace's
+        // lists get written into this workspace's .antigravity on the next persist.
+        try {
+            val loadedTasks = loadListFile<BackgroundTaskItem>("background_tasks.json")
+            _backgroundTasks.value = loadedTasks?.map {
+                if (it.status == TaskStatus.RUNNING) it.copy(status = TaskStatus.FAILED) else it
+            } ?: emptyList()
+        } catch (e: Exception) { android.util.Log.w("AppRepository", "Recovered from error: ${e.message}") }
+        loadScheduledTasks()
+        refreshInstalledTools()
         // Trigger background AST indexing for @codebase semantic search
         _sqlEngine?.let { sql ->
             scope.launch {
@@ -1021,25 +1122,17 @@ class AppRepository {
         branch: String = "main",
         token: String = ""
     ): CloneResult {
+        // Never embed the token in the remote URL: JGit echoes the remote URI in
+        // exception messages, which then reach the terminal and Logcat. The
+        // UsernamePasswordCredentialsProvider below supplies the same credentials.
+        fun scrub(msg: String): String = if (token.isBlank()) msg else msg.replace(token, "****")
         return try {
-            val authenticatedUrl = if (token.isNotBlank()) {
-                try {
-                    val uri = java.net.URI(remoteUrl)
-                    val host = uri.host
-                    val path = uri.path
-                    val scheme = uri.scheme
-                    if (host != null && path != null && scheme != null) {
-                        "$scheme://${token}@$host$path"
-                    } else remoteUrl
-                } catch (_: Exception) { remoteUrl }
-            } else remoteUrl
-
             if (targetDir.exists() && targetDir.listFiles()?.isNotEmpty() == true) {
                 return CloneResult(isSuccess = false, errorMessage = "Git clone failed: Target directory already exists and is not empty.")
             }
 
             val cloneCommand = org.eclipse.jgit.api.Git.cloneRepository()
-                .setURI(authenticatedUrl)
+                .setURI(remoteUrl)
                 .setDirectory(targetDir)
                 .setBranch(branch)
                 .setDepth(1)
@@ -1056,14 +1149,14 @@ class AppRepository {
             android.util.Log.i("AppRepository", "JGit clone succeeded: $remoteUrl -> ${targetDir.absolutePath}")
             CloneResult(isSuccess = true)
         } catch (e: org.eclipse.jgit.api.errors.InvalidConfigurationException) {
-            val msg = e.message ?: ""
+            val msg = scrub(e.message ?: "")
             CloneResult(isSuccess = false, errorMessage = when {
                 msg.contains("not found", ignoreCase = true) || msg.contains("Not Found", ignoreCase = true) ->
                     "Git clone failed: Repository not found. Verify the repository URL and access permissions."
                 else -> "Git clone failed: $msg"
             })
         } catch (e: org.eclipse.jgit.api.errors.TransportException) {
-            val msg = e.message ?: ""
+            val msg = scrub(e.message ?: "")
             CloneResult(isSuccess = false, errorMessage = when {
                 msg.contains("Authentication", ignoreCase = true) || msg.contains("Permission denied", ignoreCase = true) ->
                     "Git clone failed: Authentication error. Check your GitHub token in Settings."
@@ -1074,7 +1167,7 @@ class AppRepository {
                 else -> "Git clone failed: $msg"
             })
         } catch (e: Exception) {
-            val msg = e.message ?: ""
+            val msg = scrub(e.message ?: "")
             CloneResult(isSuccess = false, errorMessage = when {
                 msg.contains("already exists", ignoreCase = true) ->
                     "Git clone failed: Target directory already exists."
@@ -1170,6 +1263,7 @@ class AppRepository {
                 } else it
             }
         }
+        persistListFile("background_tasks.json", _backgroundTasks.value)
     }
 
     fun addSubagent(subagent: SubagentItem) {
@@ -1211,7 +1305,6 @@ class AppRepository {
     }
 
     private var schedulerJob: kotlinx.coroutines.Job? = null
-    private val lastRunTimes = mutableMapOf<String, Long>()
 
     private fun persistScheduledTasks() {
         try {
@@ -1222,7 +1315,9 @@ class AppRepository {
     private fun loadScheduledTasks() {
         try {
             val loaded = loadListFile<ScheduledTask>("scheduled_tasks.json")
-            if (loaded != null) _scheduledTasks.value = loaded
+            // Workspace-scoped: reset when the file is absent so tasks from the
+            // previously active workspace do not keep firing here.
+            _scheduledTasks.value = loaded ?: emptyList()
         } catch (e: Exception) { android.util.Log.w("AppRepository", "Recovered from error: ${e.message}") }
     }
 
@@ -1240,12 +1335,16 @@ class AppRepository {
         val now = System.currentTimeMillis()
         val due = _scheduledTasks.value.filter { task ->
             if (!task.isActive) return@filter false
-            val lastRun = lastRunTimes[task.id] ?: 0L
             val intervalMs = parseScheduleToMs(task.scheduleExpression, task.isCron) ?: return@filter false
-            now - lastRun >= intervalMs
+            // lastRunAt is persisted, so a restart does not make every active task
+            // look like it has never run and fire immediately.
+            now - task.lastRunAt >= intervalMs
         }
         due.forEach { task ->
-            lastRunTimes[task.id] = now
+            _scheduledTasks.update { list ->
+                list.map { if (it.id == task.id) it.copy(lastRunAt = now) else it }
+            }
+            persistScheduledTasks()
             try {
                 executeTerminalCommand(task.prompt)
             } catch (e: Exception) { android.util.Log.w("AppRepository", "Recovered from error: ${e.message}") }
@@ -1308,6 +1407,20 @@ class AppRepository {
     private val _installedTools = MutableStateFlow<Set<String>>(emptySet())
     val installedTools: StateFlow<Set<String>> = _installedTools.asStateFlow()
 
+    /**
+     * Rebuilds the installed-tool set from disk. Without this, `_installedTools`
+     * starts empty after every restart while the binaries are still on disk, so
+     * `tool list` wrongly reports nothing installed.
+     */
+    private fun refreshInstalledTools() {
+        try {
+            val toolsDir = java.io.File(java.io.File(_activeWorkspace.value.path), ".antigravity/tools")
+            val onDisk = toolsDir.listFiles()?.filter { it.isDirectory }?.map { it.name }?.toSet() ?: emptySet()
+            _installedTools.value = onDisk.filter { id -> availableCliTools.any { it.id == id } }.toSet()
+        } catch (e: Exception) {
+            android.util.Log.w("AppRepository", "Tool scan failed: ${e.message}")
+        }
+    }
 
     suspend fun installCliTool(toolId: String, workspaceDir: java.io.File): String {
         val tool = availableCliTools.find { it.id == toolId }
@@ -1344,6 +1457,18 @@ class AppRepository {
                 conn.disconnect()
 
                 if (tool.isArchive) {
+                    // Reject archives with absolute or parent-relative entry paths
+                    // (tar-slip) before handing them to tar.
+                    val lister = ProcessBuilder("tar", "tf", tempFile.absolutePath)
+                        .redirectErrorStream(true).start()
+                    val entries = lister.inputStream.bufferedReader().use { it.readLines() }
+                    lister.waitFor()
+                    val unsafe = entries.firstOrNull { it.startsWith("/") || it.contains("..") }
+                    if (unsafe != null) {
+                        tempFile.delete()
+                        targetDir.deleteRecursively()
+                        return@withContext "Rejected ${tool.name}: archive contains unsafe path '$unsafe'"
+                    }
                     // Extract archive
                     try {
                         val process = ProcessBuilder("tar", "xf", tempFile.absolutePath, "-C", targetDir.absolutePath)
@@ -1377,6 +1502,10 @@ class AppRepository {
     }
 
     fun removeCliTool(toolId: String, workspaceDir: java.io.File): String {
+        // Reject unknown ids so `tool remove ../../..` cannot escape .antigravity/tools
+        if (availableCliTools.none { it.id == toolId }) {
+            return "Unknown tool: $toolId. Available: ${availableCliTools.joinToString { it.id }}"
+        }
         val toolsDir = java.io.File(workspaceDir, ".antigravity/tools/$toolId")
         if (!toolsDir.exists()) return "$toolId is not installed."
         return if (toolsDir.deleteRecursively()) {
@@ -1391,13 +1520,15 @@ class AppRepository {
 
         val securityCheck = com.example.antigravity.enterprise.EnterpriseSecurityGuardrails.validateCommand(trimmed)
         if (securityCheck.isFailure) {
+            val rejectBaseSize = _terminalLogs.value.size
             val currentLogs = _terminalLogs.value.toMutableList()
             currentLogs.add("> $trimmed")
             currentLogs.add("Error: ${securityCheck.exceptionOrNull()?.message}")
-            _terminalLogs.value = currentLogs
+            commitTerminalLogs(rejectBaseSize, currentLogs)
             return
         }
 
+        val baseSize = _terminalLogs.value.size
         val currentLogs = _terminalLogs.value.toMutableList()
         currentLogs.add("> $trimmed")
 
@@ -1444,6 +1575,11 @@ class AppRepository {
                 currentLogs.add("  subagents              List active subagents")
                 currentLogs.add("  skills                 List loaded skills")
                 currentLogs.add("  clear                  Clear terminal")
+                currentLogs.add("  echo <text>            Print text")
+                currentLogs.add("  anything else          Runs in the workspace shell (e.g. ./gradlew test)")
+            }
+            trimmed.startsWith("echo", ignoreCase = true) -> {
+                currentLogs.add(trimmed.substring(4).trim().removeSurrounding("\"").removeSurrounding("'"))
             }
             trimmed.equals("pwd", ignoreCase = true) -> {
                 currentLogs.add(wsDir.absolutePath)
@@ -1456,14 +1592,27 @@ class AppRepository {
                 } else {
                     val url = parts[2]
                     val dirName = if (parts.size > 3) parts[3] else url.substringAfterLast("/").removeSuffix(".git")
-                    val targetDir = java.io.File(wsDir, dirName)
-                    currentLogs.add("Cloning $url into $dirName...")
                     val token = _settings.value.githubToken
-                    val result = gitCloneRepository(url, targetDir, "main", token)
-                    if (result.isSuccess) {
-                        currentLogs.add("Clone complete: ${targetDir.absolutePath}")
-                    } else {
-                        currentLogs.add("Clone failed: ${result.errorMessage}")
+                    try {
+                        val targetDir = safePath(dirName)
+                        currentLogs.add("Cloning $url into $dirName...")
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            val result = try {
+                                gitCloneRepository(url, targetDir, "main", token)
+                            } catch (e: SecurityException) {
+                                appendTerminalLine("Access denied: ${e.message}")
+                                return@launch
+                            } catch (e: Exception) {
+                                appendTerminalLine("Clone failed: ${e.message}")
+                                return@launch
+                            }
+                            appendTerminalLine(
+                                if (result.isSuccess) "Clone complete: ${targetDir.absolutePath}"
+                                else "Clone failed: ${result.errorMessage}"
+                            )
+                        }
+                    } catch (e: SecurityException) {
+                        currentLogs.add("Access denied: ${e.message}")
                     }
                 }
             }
@@ -1821,10 +1970,11 @@ class AppRepository {
                     val wsDir = java.io.File(_activeWorkspace.value.path)
                     scope.launch {
                         val result = installCliTool(toolId, wsDir)
-                        val current = _terminalLogs.value.toMutableList()
+                        val base = _terminalLogs.value
+                        val current = base.toMutableList()
                         current.add(result)
                         current.add("> ")
-                        _terminalLogs.value = current
+                        commitTerminalLogs(base.size, current)
                     }
                 }
             }
@@ -1843,6 +1993,9 @@ class AppRepository {
                     val toolArgs = if (args.size > 1) args.drop(1).joinToString(" ") else ""
                     val ws = _activeWorkspace.value
                     val wsDir = java.io.File(ws.path)
+                    if (availableCliTools.none { it.id == toolId }) {
+                        currentLogs.add("Unknown tool: $toolId. Available: ${availableCliTools.joinToString { it.id }}")
+                    } else {
                     val toolDir = java.io.File(wsDir, ".antigravity/tools/$toolId")
                     if (!toolDir.exists()) {
                         currentLogs.add("$toolId is not installed. Run: tool install $toolId")
@@ -1853,28 +2006,43 @@ class AppRepository {
                         if (executable == null) {
                             currentLogs.add("No executable found for $toolId")
                         } else {
-                            try {
-                                val pb = ProcessBuilder(listOf(executable.absolutePath) + toolArgs.split("\\s+".toRegex()).filter { it.isNotBlank() })
-                                pb.directory(wsDir)
-                                pb.redirectErrorStream(true)
-                                val proc = pb.start()
-                                val output = proc.inputStream.bufferedReader().readText()
-                                val exitCode = proc.waitFor()
-                                output.lines().takeLast(50).forEach { currentLogs.add(it) }
-                                currentLogs.add("[Exit code: $exitCode]")
-                            } catch (e: Exception) {
-                                currentLogs.add("Error running $toolId: ${e.message}")
+                            currentLogs.add("Running $toolId...")
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val pb = ProcessBuilder(listOf(executable.absolutePath) + toolArgs.split("\\s+".toRegex()).filter { it.isNotBlank() })
+                                    pb.directory(wsDir)
+                                    pb.redirectErrorStream(true)
+                                    val proc = pb.start()
+                                    val output = proc.inputStream.bufferedReader().readText()
+                                    val exitCode = proc.waitFor()
+                                    output.lines().takeLast(50).forEach { appendTerminalLine(it) }
+                                    appendTerminalLine("[Exit code: $exitCode]")
+                                } catch (e: Exception) {
+                                    appendTerminalLine("Error running $toolId: ${e.message}")
+                                }
                             }
                         }
+                    }
                     }
                 }
             }
             else -> {
-                currentLogs.add("Command not recognized: '$trimmed'. Type 'help' for available commands.")
+                // Anything the terminal does not implement is a real workspace-shell command
+                // (gradlew, npm, cargo, ...). Guardrails already ran above.
+                currentLogs.add("[workspace shell] $trimmed")
+                val targetDir = wsDir
+                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    runShellCommand(trimmed, targetDir).fold(
+                        onSuccess = { out ->
+                            out.lines().takeLast(60).forEach { appendTerminalLine(it) }
+                        },
+                        onFailure = { e -> appendTerminalLine("Error: ${e.message}") }
+                    )
+                }
             }
         }
         currentLogs.add("> ")
-        _terminalLogs.value = currentLogs
+        commitTerminalLogs(baseSize, currentLogs)
     }
 
     // Persona CRUD

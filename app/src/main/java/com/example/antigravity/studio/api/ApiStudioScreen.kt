@@ -452,8 +452,9 @@ fun ApiStudioScreen(
                     if (responseResult != null) {
                         IconButton(
                             onClick = {
+                                val copied = responseResult
                                 coroutineScope.launch {
-                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("api_response", responseResult!!.body)))
+                                    copied?.let { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("api_response", it.body))) }
                                 }
                                 Toast.makeText(context, "Response copied to clipboard!", Toast.LENGTH_SHORT).show()
                             },

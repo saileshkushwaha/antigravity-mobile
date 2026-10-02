@@ -391,10 +391,10 @@ fun SdlcHubContent(
                     },
                     onMergePr = { prNum ->
                         coroutineScope.launch {
-                            statusMessage = "Merging PR #$prNum via GitHub API..."
+                            statusMessage = "Merging PR #$prNum..."
                             val res = SdlcManager.mergePullRequestReal(prNum)
                             statusMessage = res.fold(
-                                onSuccess = { "PR #$prNum merged into main!" },
+                                onSuccess = { it },
                                 onFailure = { "Merge notice: ${it.localizedMessage}" }
                             )
                         }
@@ -514,10 +514,14 @@ fun SdlcHubContent(
             onDismiss = { showNewPrDialog = false },
             onCreate = { title, sourceBranch, targetBranch, body ->
                 coroutineScope.launch {
-                    statusMessage = "Submitting PR to GitHub..."
+                    val live = SdlcManager.hasGitHubCredentials()
+                    statusMessage = if (live) "Submitting PR to GitHub..." else "Creating PR locally (GitHub not configured)..."
                     val res = SdlcManager.createPullRequestReal(title, sourceBranch, targetBranch, body)
                     statusMessage = res.fold(
-                        onSuccess = { "Created PR #${it.number}: ${it.title}" },
+                        onSuccess = {
+                            if (live) "Created PR #${it.number} on GitHub: ${it.title}"
+                            else "Created PR #${it.number} locally: ${it.title} (not pushed to GitHub)"
+                        },
                         onFailure = { "PR notice: ${it.localizedMessage}" }
                     )
                 }

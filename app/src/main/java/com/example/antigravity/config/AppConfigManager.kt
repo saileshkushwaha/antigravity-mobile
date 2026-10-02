@@ -143,7 +143,7 @@ object AppConfigManager {
 
         return current.copy(
             apiKey = current.apiKey.ifBlank {
-                getString("GEMINI_API_KEY").ifBlank { getString("apiKey") }
+                getString("GEMINI_API_KEY").ifBlank { getString("apiKey").ifBlank { getString("api_key") } }
             },
             openAiApiKey = current.openAiApiKey.ifBlank {
                 getString("OPENAI_API_KEY").ifBlank { getString("openAiApiKey") }

@@ -82,7 +82,10 @@ fun CodeStudioScreen(
     var activeStudioView by remember { mutableIntStateOf(0) } // 0: Editor, 1: Test Explorer
     var showDiagnosticsDrawer by remember { mutableStateOf(false) }
 
-    // Interactive Breakpoints & Debug Session Simulator
+    // Interactive Breakpoints & Static Code Walkthrough
+    // NOTE: no process is ever attached — the "debugger" walks the source text and
+    // parses declared variables out of it. UI copy says STATIC WALK so the user is
+    // never told a live debug session is running when it is not.
     val coroutineScope = rememberCoroutineScope()
     var breakpoints by remember { mutableStateOf(setOf<Int>()) } // 1-based line numbers
     var isDebugging by remember { mutableStateOf(false) }
@@ -288,7 +291,7 @@ fun CodeStudioScreen(
                     ) {
                         Icon(
                             Icons.Default.BugReport,
-                            contentDescription = "Toggle Debugger",
+                            contentDescription = "Toggle static code walkthrough",
                             tint = if (isDebugging) Color(0xFFEF4444) else Color(0xFFFFB703),
                             modifier = Modifier.size(17.dp)
                         )
@@ -436,7 +439,7 @@ fun CodeStudioScreen(
                                             .background(Color(0xFFEF4444))
                                     )
                                     Text(
-                                        text = "DEBUG: Line ${activeDebugLine ?: 1}",
+                                        text = "STATIC WALK: Line ${activeDebugLine ?: 1} — no process attached",
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
@@ -700,7 +703,7 @@ fun CodeStudioScreen(
                                     "this" to "CodeStudioScope",
                                     "activeFile" to (selectedFile?.name ?: "Unknown"),
                                     "activeLine" to "${activeDebugLine ?: 1}",
-                                    "status" to "SUSPENDED_AT_BREAKPOINT"
+                                    "status" to "STATIC_WALK_NO_PROCESS"
                                 )
                             } else {
                                 vars
@@ -720,14 +723,14 @@ fun CodeStudioScreen(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Icon(Icons.Default.DataObject, contentDescription = null, tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(13.dp))
-                                        Text("VARIABLES WATCH & STACK (Line ${activeDebugLine ?: 1})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
+                                        Text("VARIABLES WATCH — STATIC PARSE (Line ${activeDebugLine ?: 1})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AntigravityColors.ElectricCyan)
                                     }
                                     IconButton(onClick = { showDebugVariablesDrawer = false }, modifier = Modifier.size(16.dp)) {
                                         Icon(Icons.Default.Close, contentDescription = "Close", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(12.dp))
                                     }
                                 }
                                 Text(
-                                    text = "Thread: main@coroutine#1 • Frame: ${selectedFile?.name ?: "Editor"}:${activeDebugLine ?: 1}",
+                                    text = "Static text up to line ${activeDebugLine ?: 1} of ${selectedFile?.name ?: "Editor"} — values are read from source, not a running VM",
                                     fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = AntigravityColors.TextMuted,

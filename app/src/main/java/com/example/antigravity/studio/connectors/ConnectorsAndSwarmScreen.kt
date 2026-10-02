@@ -51,6 +51,7 @@ fun ConnectorsAndSwarmScreen(
     val coroutineScope = rememberCoroutineScope()
     val connectorsManager = remember { MarketConnectorsManager() }
     val sqlEngine = remember(activeWorkspaceDir) { AnalyticsSqlEngine(context, activeWorkspaceDir) }
+    val geminiService = remember { com.example.antigravity.engine.GeminiApiService() }
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Connectors, 1: Swarm DAG
     var connectors by remember { mutableStateOf(connectorsManager.getAvailableConnectors()) }
@@ -330,7 +331,8 @@ fun ConnectorsAndSwarmScreen(
                                         liveAgentTokens = emptyMap()
                                         currentRunProgress = 0
                                         val enabledCount = agents.count { it.isEnabled }
-                                        currentRunTotal = enabledCount
+                                        currentRunTotal = agents.filter { it.isEnabled }
+                                            .sumOf { swarmAgentActions(it).size }
                                         val runStartTime = System.currentTimeMillis()
                                         val runStartDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(runStartTime))
                                         val runId = "run_${System.currentTimeMillis()}"
@@ -377,55 +379,19 @@ fun ConnectorsAndSwarmScreen(
                                                     for (agent in stageAgents) {
                                                         val agentStartMs = System.currentTimeMillis()
 
-                                                        // Call real LLM if repository available, otherwise simulate
-                                                        val actions = if (repository != null) {
-                                                            listOf("Dispatching to ${agent.model}...", "Processing: ${agent.role}...", "Complete")
-                                                        } else {
-                                                            when (agent.role) {
-                                                                "System design, module decomposition, API contract definition" -> listOf(
-                                                                    "Analyzing workspace structure...",
-                                                                    "Decomposing modules...",
-                                                                    "Defining API contracts...",
-                                                                    "Generating architecture diagram...",
-                                                                    "Stage 1 decomposition complete"
-                                                                )
-                                                                "Feature implementation, business logic, DTOs & models" -> listOf(
-                                                                    "Reading source files...",
-                                                                    "Implementing business logic...",
-                                                                    "Writing code...",
-                                                                    "Generating DTOs and model classes...",
-                                                                    "Stage 2 code generation complete"
-                                                                )
-                                                                "Unit test generation, edge-case coverage, mutation testing" -> listOf(
-                                                                    "Scanning testable functions...",
-                                                                    "Generating test cases...",
-                                                                    "Edge-case coverage analysis...",
-                                                                    "Mutation testing score calculation...",
-                                                                    "Stage 2 test generation complete"
-                                                                )
-                                                                "PR review, lint compliance, security vulnerability scan" -> listOf(
-                                                                    "Running lint checks...",
-                                                                    "Security scan...",
-                                                                    "Code review suggestions...",
-                                                                    "Compliance check passed...",
-                                                                    "Stage 3 review complete"
-                                                                )
-                                                                "CI/CD pipeline, Docker build, deployment verification" -> listOf(
-                                                                    "Building Docker image...",
-                                                                    "Running CI pipeline...",
-                                                                    "Deploying to staging...",
-                                                                    "Health check: PASS...",
-                                                                    "Stage 4 deployment complete"
-                                                                )
-                                                                else -> listOf("Processing...", "Analyzing...", "Executing...", "Complete")
-                                                            }
-                                                        }
+                                                        val actions = swarmAgentActions(agent)
 
                                                         for ((stepIdx, action) in actions.withIndex()) {
-                                                            delay(250L + (0..200).random().toLong())
                                                             val stepTime = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
-                                                            currentRunLogs = currentRunLogs + "[$stepTime] [${agent.name}] $action"
-                                                            val stepTokens = (80..300).random()
+                                                            val outcome = runSwarmStep(
+                                                                gemini = geminiService,
+                                                                agent = agent,
+                                                                action = action,
+                                                                mission = activeMission,
+                                                                repository = repository
+                                                            )
+                                                            currentRunLogs = currentRunLogs + "[$stepTime] [${agent.name}] ${outcome.logLine}"
+                                                            val stepTokens = outcome.tokenEstimate
                                                             liveAgentTokens = liveAgentTokens + (agent.id to (liveAgentTokens[agent.id] ?: 0) + stepTokens)
                                                             agents = agents.map { a ->
                                                                 if (a.id == agent.id) a.copy(
@@ -433,7 +399,7 @@ fun ConnectorsAndSwarmScreen(
                                                                     tokensUsed = liveAgentTokens[agent.id] ?: a.tokensUsed
                                                                 ) else a
                                                             }
-                                                            currentRunProgress = (currentRunProgress + 1).coerceAtMost(currentRunTotal * actions.size)
+                                                            currentRunProgress = (currentRunProgress + 1).coerceAtMost(currentRunTotal)
                                                         }
 
                                                         val agentEndMs = System.currentTimeMillis()
@@ -486,7 +452,7 @@ fun ConnectorsAndSwarmScreen(
                                             val runEndStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(runEndTime))
                                             val totalTokens = liveAgentTokens.values.sum()
 
-                                            currentRunLogs = currentRunLogs + "[$runEndStr] Swarm mission complete. Total tokens: $totalTokens"
+                                            currentRunLogs = currentRunLogs + "[$runEndStr] Swarm mission complete. Total estimated tokens: $totalTokens"
 
                                             val runRecord = com.example.antigravity.studio.connectors.SwarmRunRecord(
                                                 id = runId,
@@ -581,6 +547,58 @@ fun ConnectorsAndSwarmScreen(
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(swarmStageText ?: "", color = Color.White, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    // Live run telemetry: progress bar + log stream captured during execution
+                    if (currentRunLogs.isNotEmpty() || currentRunTotal > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF0B0F19),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Swarm Run Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text(
+                                        "$currentRunProgress / $currentRunTotal steps",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = {
+                                        if (currentRunTotal > 0) currentRunProgress.toFloat() / currentRunTotal else 0f
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                                    color = Color(0xFFA855F7),
+                                    trackColor = Color(0xFF1E293B)
+                                )
+                                if (currentRunLogs.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        reverseLayout = true
+                                    ) {
+                                        items(currentRunLogs.asReversed()) { line ->
+                                            Text(
+                                                line,
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 9.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1010,7 +1028,7 @@ fun ConnectorsAndSwarmScreen(
                                         ) {
                                             Text(record.startedAt, color = Color(0xFF94A3B8), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                                             Text(
-                                                "${record.agentSnapshots.size} agents • ${record.totalTokens} tokens • ${record.totalDurationMs}ms",
+                                                "${record.agentSnapshots.size} agents • ~${record.totalTokens} est. tokens • ${record.totalDurationMs}ms",
                                                 color = Color(0xFF64748B),
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
@@ -1313,5 +1331,102 @@ fun SwarmDagNodeCard(
                 )
             }
         }
+    }
+}
+
+/**
+ * Steps a swarm agent walks through during a run. Extracted from the run loop so
+ * the run can compute its total step count up front and report honest progress.
+ */
+private fun swarmAgentActions(agent: SwarmAgent): List<String> =
+    when (agent.role) {
+        "System design, module decomposition, API contract definition" -> listOf(
+            "Analyzing workspace structure...",
+            "Decomposing modules...",
+            "Defining API contracts...",
+            "Generating architecture diagram...",
+            "Stage 1 decomposition complete"
+        )
+        "Feature implementation, business logic, DTOs & models" -> listOf(
+            "Reading source files...",
+            "Implementing business logic...",
+            "Writing code...",
+            "Generating DTOs and model classes...",
+            "Stage 2 code generation complete"
+        )
+        "Unit test generation, edge-case coverage, mutation testing" -> listOf(
+            "Scanning testable functions...",
+            "Generating test cases...",
+            "Edge-case coverage analysis...",
+            "Mutation testing score calculation...",
+            "Stage 2 test generation complete"
+        )
+        "PR review, lint compliance, security vulnerability scan" -> listOf(
+            "Running lint checks...",
+            "Security scan...",
+            "Code review suggestions...",
+            "Compliance check passed...",
+            "Stage 3 review complete"
+        )
+        "CI/CD pipeline, Docker build, deployment verification" -> listOf(
+            "Building Docker image...",
+            "Running CI pipeline...",
+            "Deploying to staging...",
+            "Health check: PASS...",
+            "Stage 4 deployment complete"
+        )
+        else -> listOf("Processing...", "Analyzing...", "Executing...", "Complete")
+    }
+
+private data class SwarmStepOutcome(val logLine: String, val tokenEstimate: Int)
+
+/**
+ * Executes one swarm step. When a usable Gemini key is configured the step is sent to
+ * the model for a real, short status reply; otherwise the log states explicitly that no
+ * model call was made so the run never claims a dispatch that did not happen.
+ */
+private suspend fun runSwarmStep(
+    gemini: com.example.antigravity.engine.GeminiApiService,
+    agent: SwarmAgent,
+    action: String,
+    mission: String,
+    repository: com.example.antigravity.data.AppRepository?
+): SwarmStepOutcome {
+    val settings = repository?.settings?.value
+    val key = settings?.apiKey?.trim().orEmpty()
+    val looksLikeGemini = key.isNotBlank() && !key.startsWith("sk-") && !key.startsWith("gsk_")
+    if (settings == null || !looksLikeGemini || settings.isOfflineDemoMode) {
+        return SwarmStepOutcome("$action [offline: no model call]", (action.length / 4).coerceAtLeast(1))
+    }
+    return try {
+        val prompt = buildString {
+            append("Mission: $mission\n")
+            append("Your role: ${agent.role}\n")
+            append("Current step: $action\n")
+            append("Reply with ONE short status line (max 25 words).")
+        }
+        val reply = kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+            gemini.generateContent(
+                apiKey = key,
+                modelName = agent.model.ifBlank { settings.activeModelId },
+                prompt = prompt,
+                systemInstruction = "You are ${agent.name} inside a 4-stage autonomous build swarm. Be terse and concrete.",
+                temperature = 0.4f,
+                maxOutputTokens = 120
+            )
+        }
+        when {
+            reply == null -> SwarmStepOutcome("$action [model call timed out]", 0)
+            reply.isFailure -> SwarmStepOutcome(
+                "$action [model call failed: ${reply.exceptionOrNull()?.message?.take(120)}]",
+                0
+            )
+            else -> {
+                val text = reply.getOrThrow().trim().replace('\n', ' ').take(240)
+                SwarmStepOutcome("$action → $text", (text.length / 4).coerceAtLeast(1))
+            }
+        }
+    } catch (e: Exception) {
+        SwarmStepOutcome("$action [model call failed: ${e.message?.take(120)}]", 0)
     }
 }

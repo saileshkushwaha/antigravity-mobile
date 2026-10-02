@@ -20,13 +20,6 @@ data class FigmaExtractResult(
     val tokens: DesignTokens
 )
 
-data class FigmaFileMetadata(
-    val name: String,
-    val lastModified: String,
-    val version: String,
-    val extractedColorsCount: Int
-)
-
 /**
  * Figma REST API Connector.
  * Ingests styles, colors, and components directly from Figma files into DesignTokens.
@@ -128,28 +121,6 @@ object FigmaConnectorService {
             Result.success(result)
         } catch (e: Exception) {
             Result.failure(e)
-        }
-    }
-
-    /**
-     * Legacy import endpoint returning Pair<DesignTokens, FigmaFileMetadata>.
-     */
-    suspend fun importFromFigma(
-        personalAccessToken: String,
-        fileKey: String
-    ): Result<Pair<DesignTokens, FigmaFileMetadata>> = withContext(Dispatchers.IO) {
-        val res = fetchFileStyles(fileKey, personalAccessToken)
-        if (res.isSuccess) {
-            val ext = res.getOrThrow()
-            val meta = FigmaFileMetadata(
-                name = ext.documentName,
-                lastModified = ext.lastModified,
-                version = "1.0",
-                extractedColorsCount = ext.stylesExtractedCount
-            )
-            Result.success(ext.tokens to meta)
-        } else {
-            Result.failure(res.exceptionOrNull() ?: Exception("Figma import error"))
         }
     }
 
