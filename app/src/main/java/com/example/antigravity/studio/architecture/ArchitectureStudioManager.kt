@@ -36,7 +36,8 @@ object ArchitectureStudioManager {
         val sourceFiles = mutableListOf<File>()
         val packageDirs = mutableSetOf<String>()
         val classNames = mutableListOf<String>()
-        val funNames = mutableListOf<String>()
+        // class name -> members declared in the same source file (per-file, never workspace-wide)
+        val funNamesByFile = mutableMapOf<String, List<String>>()
 
         fun scanDir(dir: File, depth: Int) {
             if (depth > 6) return
@@ -53,8 +54,14 @@ object ArchitectureStudioManager {
                             Regex("""(?:class|object|interface|struct|trait|enum class)\s+(\w+)""").findAll(text).forEach {
                                 classNames.add(it.groupValues[1])
                             }
-                            Regex("""(?:fun|def|function|func|public\s+void|private\s+\w+)\s+(\w+)""").findAll(text).forEach {
-                                funNames.add(it.groupValues[1])
+                            val fileClasses = Regex("""(?:class|object|interface|struct|trait|enum class)\s+(\w+)""").findAll(text)
+                                .map { it.groupValues[1] }.toSet()
+                            val fileFuns = Regex("""(?:fun|def|function|func|public\s+void|private\s+\w+)\s+(\w+)""").findAll(text)
+                                .map { it.groupValues[1] }.distinct().toList()
+                            if (fileFuns.isNotEmpty()) {
+                                fileClasses.forEach { fc ->
+                                    funNamesByFile.getOrPut(fc) { fileFuns }
+                                }
                             }
                         } catch (e: Exception) { android.util.Log.w("ArchStudio", "Workspace scan failed: ${e.message}") }
                     }
@@ -73,8 +80,9 @@ object ArchitectureStudioManager {
             sb.appendLine("    direction TB")
             topClasses.forEach { cls ->
                 sb.appendLine("    class $cls {")
-                // Find functions that might belong to this class (heuristic)
-                val classFuns = funNames.distinct().take(5)
+                // Only members that actually occur inside this class' file — a workspace-wide
+                // function list would put identical, fabricated members on every class.
+                val classFuns = funNamesByFile[cls].orEmpty().take(5)
                 classFuns.forEach { fn -> sb.appendLine("        +$fn()") }
                 sb.appendLine("    }")
             }
@@ -247,13 +255,17 @@ $consequences
         return AdrItem(id, title, status, now, context, decision, consequences)
     }
 
+    /**
+     * Seed ADRs shipped with the app. They are templates for a workspace to adopt, not
+     * decisions the workspace actually made, so they are marked TEMPLATE and undated.
+     */
     private fun getDefaultAdrs(): List<AdrItem> {
         return listOf(
             AdrItem(
                 id = "ADR-001",
                 title = "Zero-Hardcoding Dynamic Configuration Standard",
-                status = "ACCEPTED",
-                date = "2026-09-12",
+                status = "TEMPLATE",
+                date = "",
                 context = "Hardcoding workspace paths, API keys, or repositories prevents enterprise deployment across isolated environments.",
                 decision = "All credentials, endpoints, models, and workspaces must be dynamically loaded from SQLite, AppPreferences, or environment variables.",
                 consequences = "100% compliance with enterprise zero-hardcoding standards; portable across developer workstations."
@@ -261,8 +273,8 @@ $consequences
             AdrItem(
                 id = "ADR-002",
                 title = "W3C Design Tokens Community Group (DTCG) Adoption",
-                status = "ACCEPTED",
-                date = "2026-09-12",
+                status = "TEMPLATE",
+                date = "",
                 context = "Design handoffs between Figma, Compose, and Tailwind suffered from manual synchronization lag.",
                 decision = "Adopt official W3C DTCG specification for bidirectional token roundtrip serialization.",
                 consequences = "1-tap automated synchronization into Jetpack Compose, Flutter, Tailwind, and CSS custom properties."
@@ -270,8 +282,8 @@ $consequences
             AdrItem(
                 id = "ADR-003",
                 title = "Remote Cloud Sandbox & Docker Daemon Execution Bridge",
-                status = "ACCEPTED",
-                date = "2026-09-13",
+                status = "TEMPLATE",
+                date = "",
                 context = "Mobile devices cannot execute heavy Gradle multi-module builds or Docker container workloads natively.",
                 decision = "Bridge on-device terminal runner to remote Docker/SSH/Codespaces HTTP execution daemon with local fallback.",
                 consequences = "Lightweight mobile footprint with unlimited cloud compute power for CI/CD compilation."

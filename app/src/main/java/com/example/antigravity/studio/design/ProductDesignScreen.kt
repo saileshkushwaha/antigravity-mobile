@@ -224,7 +224,7 @@ fun ProductDesignScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color(0xFF00E5FF))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Wireframe AI & A11y", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Wireframe Templates & A11y Lint", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     )
@@ -1007,11 +1007,11 @@ fun WireframeAiAndA11yView(
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(20.dp))
-                    Text("Multimodal Wireframe-to-Code & A11y", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                    Text("Wireframe-to-Code Templates & A11y Lint", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Describe your sketch, whiteboard diagram, or UI wireframe. Antigravity synthesizes Compose UI with your active design tokens and audits for WCAG 2.1 AA accessibility.",
+                    "Describe your sketch, whiteboard diagram, or UI wireframe. A keyword-driven template generator synthesizes Compose UI from your active design tokens, then a static line-based audit flags common WCAG 2.1 AA issues (missing content descriptions, small touch targets, low-contrast literals). It is a heuristic linter, not a real vision model and not a conformance check.",
                     color = Color.LightGray,
                     fontSize = 11.sp
                 )
@@ -1060,7 +1060,7 @@ fun WireframeAiAndA11yView(
                         }
                         synthesisResult = result
                         isSynthesizing = false
-                        Toast.makeText(context, "Synthesized code and verified WCAG a11y!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Template code synthesized; heuristic a11y lint ran", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -1111,7 +1111,7 @@ fun WireframeAiAndA11yView(
                         Text("WCAG 2.1 AA Accessibility Audit", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
                     Text(
-                        if (synthesisResult.a11yIssues.isEmpty()) "100% Compliant" else "${synthesisResult.a11yIssues.size} Alerts",
+                        if (synthesisResult.a11yIssues.isEmpty()) "No heuristic issues flagged" else "${synthesisResult.a11yIssues.size} Alerts",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (synthesisResult.a11yIssues.isEmpty()) Color(0xFF10B981) else Color(0xFFFF9100)
@@ -1120,7 +1120,7 @@ fun WireframeAiAndA11yView(
 
                 if (synthesisResult.a11yIssues.isEmpty()) {
                     Text(
-                        "All touch targets satisfy >= 48.dp, icons have descriptive content descriptions, and contrast ratio meets standards.",
+                        "No lines matched the heuristic patterns (no Icons without contentDescription, no height() calls under 48.dp, no flagged grey literals). This is NOT proof of WCAG 2.1 AA conformance.",
                         fontSize = 11.sp,
                         color = Color.LightGray,
                         modifier = Modifier.padding(top = 6.dp)

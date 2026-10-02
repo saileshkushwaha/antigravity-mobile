@@ -521,7 +521,10 @@ class AntigravityAgentEngine(
                 "⏰ **Scheduler**: To schedule a task, use the Scheduled Tasks dialog (Sidebar → Scheduled Tasks).\n\nParsed schedule: \"$scheduleSpec\"\nCreate a task there with your desired cron expression or interval."
             }
             lower == "/diff" || lower.startsWith("/diff ") -> {
-                repository.executeTerminalCommand("git diff")
+                // git diff is disk I/O: dispatch it off the main thread
+                scope.launch(Dispatchers.IO) {
+                    repository.executeTerminalCommand("git diff")
+                }
                 null
             }
             lower == "/test" || lower.startsWith("/test ") -> {

@@ -1406,7 +1406,7 @@ fun McpServerEditorDialog(
     var name by remember { mutableStateOf(initialServer?.name ?: "") }
     var urlOrCommand by remember { mutableStateOf(initialServer?.urlOrCommand ?: "") }
     var toolsText by remember { mutableStateOf(initialServer?.tools?.joinToString(", ") ?: "") }
-    var status by remember { mutableStateOf(initialServer?.status ?: "Connected") }
+    var status by remember { mutableStateOf(initialServer?.status ?: "Disconnected") }
     var isEnabled by remember { mutableStateOf(initialServer?.isEnabled ?: true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 

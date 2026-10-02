@@ -658,14 +658,17 @@ fun ResearchHubScreen(
                                 .verticalScroll(androidx.compose.foundation.rememberScrollState())
                         ) {
                             Text(
-                                "Extracted Full-Text (${doc.fullText.length} characters):",
+                                if (doc.fullText.isBlank())
+                                    "Full text was not extracted (PDF download or parse failed) — showing the abstract:"
+                                else
+                                    "Extracted Full-Text (${doc.fullText.length} characters):",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981)
+                                color = if (doc.fullText.isBlank()) Color(0xFFF59E0B) else Color(0xFF10B981)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                doc.fullText,
+                                doc.fullText.ifBlank { doc.abstractText },
                                 fontSize = 12.sp,
                                 color = Color.LightGray,
                                 fontFamily = FontFamily.Monospace,

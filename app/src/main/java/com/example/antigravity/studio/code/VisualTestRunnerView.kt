@@ -32,8 +32,9 @@ data class TestCaseResult(
 
 /**
  * Visual Test Runner UI.
- * Gives developers an on-device IDE test explorer with pass/fail suites,
- * execution timing, search filtering, and 1-tap re-execution.
+ * Dispatches the workspace unit-test task to the on-device terminal runner and shows
+ * discovered results. Results are not parsed from runner output yet, so until a run is
+ * parsed the counters stay empty and the panel says so instead of implying success.
  */
 @Composable
 fun VisualTestRunnerView(
@@ -47,6 +48,8 @@ fun VisualTestRunnerView(
     val defaultTestCases = remember { emptyList<TestCaseResult>() }
 
     var testResults by remember { mutableStateOf(defaultTestCases) }
+
+    val hasResults = testResults.isNotEmpty()
 
     val filteredTests = testResults.filter { test ->
         val matchesFilter = when (selectedFilter) {
@@ -108,7 +111,7 @@ fun VisualTestRunnerView(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    if (isRunning) "Running..." else "Run Suite",
+                    if (isRunning) "Running..." else "Run in Terminal",
                     color = Color(0xFF00363D),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
@@ -134,19 +137,31 @@ fun VisualTestRunnerView(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("PASSED", fontSize = 10.sp, color = AntigravityColors.TextMuted, fontWeight = FontWeight.Bold)
-                    Text("$passedCount", fontSize = 16.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Bold)
+                    Text(if (hasResults) "$passedCount" else "—", fontSize = 16.sp, color = if (hasResults) Color(0xFF10B981) else AntigravityColors.TextMuted, fontWeight = FontWeight.Bold)
                 }
                 Box(modifier = Modifier.width(1.dp).height(24.dp).background(AntigravityColors.DividerColor))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("FAILED", fontSize = 10.sp, color = AntigravityColors.TextMuted, fontWeight = FontWeight.Bold)
-                    Text("$failedCount", fontSize = 16.sp, color = if (failedCount > 0) Color(0xFFEF4444) else AntigravityColors.TextMuted, fontWeight = FontWeight.Bold)
+                    Text(if (hasResults) "$failedCount" else "—", fontSize = 16.sp, color = if (failedCount > 0) Color(0xFFEF4444) else AntigravityColors.TextMuted, fontWeight = FontWeight.Bold)
                 }
                 Box(modifier = Modifier.width(1.dp).height(24.dp).background(AntigravityColors.DividerColor))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("TOTAL DURATION", fontSize = 10.sp, color = AntigravityColors.TextMuted, fontWeight = FontWeight.Bold)
-                    Text("${totalDuration}ms", fontSize = 16.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.Bold)
+                    Text(if (hasResults) "${totalDuration}ms" else "—", fontSize = 16.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.Bold)
                 }
             }
+        }
+
+        if (!hasResults) {
+            Text(
+                if (isRunning)
+                    "Dispatched ./gradlew testDebugUnitTest to the terminal runner. Results are streamed to the Terminal panel — this explorer does not parse runner output yet."
+                else
+                    "No parsed results. Run the suite to dispatch it to the terminal runner; pass/fail output appears in the Terminal panel.",
+                fontSize = 11.sp,
+                color = AntigravityColors.TextMuted,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))

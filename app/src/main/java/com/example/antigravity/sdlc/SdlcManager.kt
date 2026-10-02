@@ -236,7 +236,7 @@ object SdlcManager {
 
     suspend fun fetchRepositoryBranches(owner: String, repo: String, token: String = ""): Result<List<String>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         if (owner.isBlank() || repo.isBlank()) {
-            return@withContext Result.success(listOf("main"))
+            return@withContext Result.failure(IllegalStateException("Owner and repository are required to list branches."))
         }
         val actualToken = token.ifBlank { _sdlcConfig.value.githubToken }
         try {
@@ -261,10 +261,10 @@ object SdlcManager {
                 _sdlcConfig.update { it.copy(availableBranches = resultList) }
                 Result.success(resultList)
             } else {
-                Result.success(listOf("main"))
+                Result.failure(IllegalStateException("GitHub returned HTTP ${resp.code} while listing branches for $owner/$repo."))
             }
         } catch (e: Exception) {
-            Result.success(listOf("main"))
+            Result.failure(IllegalStateException("Could not reach GitHub to list branches: ${e.message}"))
         }
     }
 
@@ -290,8 +290,9 @@ object SdlcManager {
         _workflowRuns.value = emptyList()
         _commits.value = emptyList()
 
-        // Fetch live branches
-        fetchRepositoryBranches(owner, repo, actualToken)
+        // Fetch live branches (branch listing is informational; a failure here must not
+        // mask the outcome of the artifact sync below, but it is reported)
+        val branchResult = fetchRepositoryBranches(owner, repo, actualToken)
 
         // Sync repository artifacts from GitHub
         val syncResult = syncWithGitHub(owner, repo, actualToken)
@@ -301,6 +302,10 @@ object SdlcManager {
             action = "SWITCH_REPOSITORY",
             details = "Connected to repository $owner/$repo on branch $branch"
         )
+
+        branchResult.exceptionOrNull()?.let { branchErr ->
+            android.util.Log.w("SdlcManager", "Branch list unavailable for $owner/$repo: ${branchErr.message}")
+        }
 
         syncResult
     }
@@ -897,7 +902,8 @@ object SdlcManager {
                 return@withContext Result.failure(e)
             }
         }
-        Result.success(localRun)
+        // No GitHub credentials: nothing was actually dispatched, so say so plainly.
+        Result.success(localRun.copy(name = "${localRun.name} (local record — no GitHub runner dispatched)"))
     }
 
     suspend fun rerunWorkflow(
@@ -987,6 +993,7 @@ object SdlcManager {
         }
 
         log("INFO", "Initializing deployment pipeline for ${environment.displayName} (Version: $versionTag, Branch: $branch)")
+        log("WARN", "DRY RUN: this client never builds, uploads, or deploys artifacts itself. The stages below validate configuration and probe the configured endpoint.")
         kotlinx.coroutines.delay(200)
 
         // Stage 1: Pre-flight Policy Gates
@@ -1013,8 +1020,8 @@ object SdlcManager {
         kotlinx.coroutines.delay(200)
 
         // Stage 3: Packaging & Artifact Staging
-        log("INFO", "Assembling release artifact for ${environment.displayName}...")
-        log("INFO", "Artifact staged: Antigravity-${environment.name.lowercase()}-$versionTag.apk")
+        log("INFO", "Release artifacts are produced by your CI (e.g. GitHub Actions), not by this client.")
+        log("WARN", "No artifact was built, signed, or uploaded here — this stage records release intent only.")
         if (_sdlcConfig.value.releaseConfig.autoGenerateChangelog) {
             val changelog = generateChangelog(versionTag)
             val entryCount = changelog.lineSequence().count { it.startsWith("- ") }
@@ -1080,10 +1087,12 @@ object SdlcManager {
 
         val deployStatus = if (liveUrl.isBlank() || overallHealthy) DeploymentStatus.DEPLOYED else DeploymentStatus.FAILED
         val healthStatus = if (overallHealthy) HealthStatus.HEALTHY else if (liveUrl.isBlank()) HealthStatus.CHECKING else HealthStatus.UNHEALTHY
-        if (deployStatus == DeploymentStatus.DEPLOYED) {
-            log("SUCCESS", "Deployment of $versionTag to ${environment.displayName} completed.")
+        if (liveUrl.isBlank()) {
+            log("WARN", "DRY RUN COMPLETE — no deployment URL is configured, so nothing was deployed and no endpoint was probed. Set a live URL in the SDLC Hub to make this pipeline real.")
+        } else if (deployStatus == DeploymentStatus.DEPLOYED) {
+            log("SUCCESS", "Health probe returned HTTP ${healthProbe.httpStatus} (Latency: ${healthProbe.latencyMs}ms). Endpoint is HEALTHY.")
         } else {
-            log("ERROR", "Deployment of $versionTag to ${environment.displayName} failed health check.")
+            log("ERROR", "Health probe failed: ${healthProbe.errorMessage ?: "Unknown error"}")
         }
 
         val newDeployment = DeploymentRecord(
@@ -1210,7 +1219,7 @@ object SdlcManager {
             list.map { tool ->
                 if (tool.id == toolId) {
                     val newState = if (tool.state == ConnectionState.CONNECTED) ConnectionState.DISCONNECTED else ConnectionState.CONNECTED
-                    tool.copy(state = newState, lastPingStatus = if (newState == ConnectionState.CONNECTED) "200 OK - Active" else "Disconnected")
+                    tool.copy(state = newState, lastPingStatus = if (newState == ConnectionState.CONNECTED) "Enabled locally — not verified (use Ping to test)" else "Disconnected")
                 } else tool
             }
         }
@@ -1518,6 +1527,9 @@ environments:
 
         _isSyncing.value = true
         try {
+            val syncedSources = mutableListOf<String>()
+            val failedSources = mutableListOf<String>()
+
             // 1. Sync Workflow Runs
             try {
                 val runsReq = okhttp3.Request.Builder()
@@ -1577,10 +1589,20 @@ environments:
                         }
                         if (realRuns.isNotEmpty()) {
                             _workflowRuns.value = realRuns
+                            syncedSources.add("workflow runs (${realRuns.size})")
+                        } else {
+                            syncedSources.add("workflow runs (0)")
                         }
+                    } else {
+                        syncedSources.add("workflow runs (0)")
                     }
+                } else {
+                    failedSources.add("workflow runs: HTTP ${runsResp.code}")
                 }
-            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
+            } catch (e: Exception) {
+                failedSources.add("workflow runs: ${e.message}")
+                android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}")
+            }
 
             // 2. Sync Pull Requests
             try {
@@ -1632,10 +1654,20 @@ environments:
                         }
                         if (realPrs.isNotEmpty()) {
                             _pullRequests.value = realPrs
+                            syncedSources.add("pull requests (${realPrs.size})")
+                        } else {
+                            syncedSources.add("pull requests (0)")
                         }
+                    } else {
+                        syncedSources.add("pull requests (0)")
                     }
+                } else {
+                    failedSources.add("pull requests: HTTP ${prsResp.code}")
                 }
-            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
+            } catch (e: Exception) {
+                failedSources.add("pull requests: ${e.message}")
+                android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}")
+            }
 
             // 3. Sync Issues
             try {
@@ -1685,10 +1717,20 @@ environments:
                         }
                         if (realIssues.isNotEmpty()) {
                             _issues.value = realIssues
+                            syncedSources.add("issues (${realIssues.size})")
+                        } else {
+                            syncedSources.add("issues (0)")
                         }
+                    } else {
+                        syncedSources.add("issues (0)")
                     }
+                } else {
+                    failedSources.add("issues: HTTP ${issuesResp.code}")
                 }
-            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
+            } catch (e: Exception) {
+                failedSources.add("issues: ${e.message}")
+                android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}")
+            }
 
             // 4. Sync Commits
             try {
@@ -1725,14 +1767,30 @@ environments:
                     }
                     if (realCommits.isNotEmpty()) {
                         _commits.value = realCommits
+                        syncedSources.add("commits (${realCommits.size})")
+                    } else {
+                        syncedSources.add("commits (0)")
                     }
+                } else {
+                    failedSources.add("commits: HTTP ${commitsResp.code}")
                 }
-            } catch (e: Exception) { android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}") }
+            } catch (e: Exception) {
+                failedSources.add("commits: ${e.message}")
+                android.util.Log.w("SdlcManager", "GitHub operation failed: ${e.message}")
+            }
 
             val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
             _lastSyncTimestamp.value = now
 
-            Result.success("Live GitHub sync completed at $now.")
+            if (syncedSources.isEmpty()) {
+                return@withContext Result.failure(
+                    IllegalStateException(
+                        "Live GitHub sync failed for every source — ${failedSources.joinToString("; ").ifBlank { "no response from GitHub" }}"
+                    )
+                )
+            }
+            val partialNote = if (failedSources.isNotEmpty()) " (failed: ${failedSources.joinToString("; ")})" else ""
+            Result.success("Synced ${syncedSources.joinToString(", ")} at $now$partialNote")
         } catch (e: Exception) {
             Result.failure(e)
         } finally {

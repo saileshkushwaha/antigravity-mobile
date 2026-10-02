@@ -247,7 +247,7 @@ java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Stri
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
-                                        Text("AI Suggested Fix Diff:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                                        Text("Heuristic Fix Suggestion (pattern-based, not AI):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             crashReport!!.suggestedFix,

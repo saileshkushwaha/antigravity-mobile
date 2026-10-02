@@ -126,9 +126,12 @@ object CrashTraceMapper {
     private fun generateFixSuggestion(exceptionType: String, lineContent: String, lineNo: Int, fileName: String): String {
         return when {
             exceptionType.contains("NullPointer") -> {
-                "// Fix for NullPointerException at line $lineNo:\n" +
+                val guarded = lineContent.trim().replace("!!", "?: return")
+                "// Heuristic fix for NullPointerException at line $lineNo:\n" +
                 "- ${lineContent.trim()}\n" +
-                "+ ${lineContent.trim().replace("!!", "?: return").replace(".", "?.")}"
+                "+ $guarded\n" +
+                "// Review manually: locate the actual null source and use ?.let { }, ?: return,\n" +
+                "// or requireNotNull() there. This pattern match is not a verified patch."
             }
             exceptionType.contains("IndexOutOfBounds") -> {
                 "// Fix for IndexOutOfBoundsException at line $lineNo:\n" +

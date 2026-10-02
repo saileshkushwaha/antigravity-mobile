@@ -471,12 +471,19 @@ fun SdlcHubContent(
                         statusMessage = "Configuration updated."
                     },
                     onExportWorkspace = {
-                        val path = context.filesDir.absolutePath
-                        val res = SdlcManager.saveYamlToWorkspace(path)
+                        // Export into the active workspace when we have one; only fall back to
+                        // app-private storage (and say so) when no workspace is configured.
+                        val activeWsPath = appRepository?.activeWorkspace?.value?.path
+                            ?.takeIf { it.isNotBlank() && java.io.File(it).isDirectory }
+                        val exportPath = activeWsPath ?: context.filesDir.absolutePath
+                        val res = SdlcManager.saveYamlToWorkspace(exportPath)
                         val version = SdlcManager.deployments.value.firstOrNull()?.versionTag ?: "unreleased"
-                        SdlcManager.saveChangelogToWorkspace(path, version)
+                        SdlcManager.saveChangelogToWorkspace(exportPath, version)
                         statusMessage = res.fold(
-                            onSuccess = { "Saved .antigravity.yaml and CHANGELOG.md ($version)!" },
+                            onSuccess = {
+                                if (activeWsPath != null) ".antigravity.yaml and CHANGELOG.md written to the active workspace ($version)"
+                                else "No workspace found — saved to app-private storage at $exportPath ($version)"
+                            },
                             onFailure = { "Export failed: ${it.localizedMessage}" }
                         )
                     }
@@ -499,8 +506,8 @@ fun SdlcHubContent(
                     statusMessage = "Connecting to $owner/$repo ($branch)..."
                     val res = SdlcManager.switchRepository(owner, repo, branch, token)
                     statusMessage = res.fold(
-                        onSuccess = { "Connected to $owner/$repo ($branch) and synced live artifacts!" },
-                        onFailure = { "Connected: ${it.localizedMessage}" }
+                        onSuccess = { "Connected to $owner/$repo ($branch). $it" },
+                        onFailure = { "Repository linked, but the live sync failed: ${it.localizedMessage}" }
                     )
                 }
                 showGithubAuthDialog = false
@@ -557,7 +564,7 @@ fun SdlcHubContent(
                     statusMessage = "Dispatching workflow $workflow on $ref..."
                     val res = SdlcManager.dispatchWorkflowReal(workflow, ref)
                     statusMessage = res.fold(
-                        onSuccess = { "Dispatched workflow run on GitHub Actions!" },
+                        onSuccess = { "Dispatched: $it" },
                         onFailure = { "Workflow notice: ${it.localizedMessage}" }
                     )
                 }
@@ -1530,7 +1537,9 @@ fun EnvironmentCard(
                         }
                     ) {
                         Text(
-                            text = activeRecord?.healthStatus?.name ?: "HEALTHY",
+                            text = activeRecord?.let { rec ->
+                                if (rec.liveUrl.isBlank()) "DRY RUN" else rec.healthStatus.name
+                            } ?: "NOT DEPLOYED",
                             color = when (activeRecord?.healthStatus) {
                                 HealthStatus.HEALTHY -> AntigravityColors.DiffGreen
                                 HealthStatus.DEGRADED -> AntigravityColors.AmberWarning
@@ -1565,9 +1574,9 @@ fun EnvironmentCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Active Release", color = AntigravityColors.TextMuted, fontSize = 10.sp)
+                    Text(text = if (activeRecord == null) "Release" else "Latest Pipeline Record", color = AntigravityColors.TextMuted, fontSize = 10.sp)
                     Text(
-                        text = activeRecord?.versionTag ?: "v2.4.0",
+                        text = activeRecord?.versionTag ?: "none yet",
                         color = AntigravityColors.CyanElectric,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
@@ -1576,9 +1585,9 @@ fun EnvironmentCard(
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(text = "Deployed", color = AntigravityColors.TextMuted, fontSize = 10.sp)
+                    Text(text = if (activeRecord == null) "Deployed" else "Recorded", color = AntigravityColors.TextMuted, fontSize = 10.sp)
                     Text(
-                        text = "${activeRecord?.timestamp ?: "Just now"} by ${activeRecord?.deployedBy ?: "system"}",
+                        text = activeRecord?.let { "${it.timestamp} by ${it.deployedBy}" } ?: "nothing deployed yet",
                         color = AntigravityColors.TextSecondary,
                         fontSize = 11.sp
                     )
@@ -1968,7 +1977,7 @@ fun ProjectConfigTab(
                 item {
                     ConfigToggleRow(
                         title = "Enforce Unit Tests suite",
-                        subtitle = "Ensures all 24 unit test suites pass before promotion",
+                        subtitle = "Blocks promotion until the workspace's unit tests pass",
                         checked = config.preFlightPolicy.enforceUnitTests,
                         onCheckedChange = { checked ->
                             onUpdateConfig { it.copy(preFlightPolicy = it.preFlightPolicy.copy(enforceUnitTests = checked)) }
@@ -2984,8 +2993,8 @@ fun AddIntegrationDialog(
                             description = "Custom endpoint integrated with Antigravity Mobile SDLC Center",
                             webhookUrl = webhookUrl,
                             apiToken = apiToken,
-                            state = ConnectionState.CONNECTED,
-                            lastPingStatus = "200 OK - Active"
+                            state = ConnectionState.DISCONNECTED,
+                            lastPingStatus = "Configured — not yet verified (use Ping to test)"
                         )
                         onAdd(tool)
                     }

@@ -42,6 +42,7 @@ fun CodeStudioScreen(
     onAddWorkspace: (name: String, path: String, branch: String, githubUrl: String) -> Unit = { _, _, _, _ -> },
     onOpenDrawer: () -> Unit = {},
     onExecuteCommand: (String) -> Unit = {},
+    onCopilotPrompt: (String) -> Unit = {},
     terminalLogs: List<String> = emptyList()
 ) {
     val workspaceDir = remember(activeWorkspace.path) {
@@ -341,9 +342,21 @@ fun CodeStudioScreen(
         // Main Studio Body: File Tree (Collapsible Overlay Drawer) + Code Editor / Test Runner
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (activeStudioView == 1) {
+                var isTestRunInFlight by remember { mutableStateOf(false) }
+                LaunchedEffect(terminalLogs) {
+                    // The runner streams output to the terminal; drop the "running" state
+                    // once fresh output stops arriving.
+                    if (isTestRunInFlight) {
+                        kotlinx.coroutines.delay(1500)
+                        isTestRunInFlight = false
+                    }
+                }
                 VisualTestRunnerView(
-                    onRunTests = { onExecuteCommand(it) },
-                    isRunning = false,
+                    onRunTests = {
+                        isTestRunInFlight = true
+                        onExecuteCommand(it)
+                    },
+                    isRunning = isTestRunInFlight,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -594,8 +607,15 @@ fun CodeStudioScreen(
                                 )
                             )
                             
-                            // ✨ Cursor-style Inline AI Copilot Actions
+                            // ✨ Cursor-style Inline AI Copilot Actions (sent to the agent, not the shell)
                             if (selectedFile != null) {
+                                fun copilotPrompt(instruction: String) {
+                                    val name = selectedFile?.name ?: "the current file"
+                                    val snippet = fileContent.take(4000)
+                                    onCopilotPrompt(
+                                        "$instruction\n\nFile: $name\n\n```\n$snippet\n```"
+                                    )
+                                }
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
@@ -613,21 +633,18 @@ fun CodeStudioScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         IconButton(onClick = {
-                                            val target = selectedFile?.name ?: "the current file"
-                                            onExecuteCommand("Explain the code in $target")
+                                            copilotPrompt("Explain what this code does, step by step.")
                                         }, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "Explain Code", tint = AntigravityColors.TextSecondary, modifier = Modifier.size(16.dp))
                                         }
                                         IconButton(onClick = {
-                                            val target = selectedFile?.name ?: "the current file"
-                                            onExecuteCommand("Optimize the code in $target for performance and readability")
+                                            copilotPrompt("Optimize this code for performance and readability and show the improved version.")
                                         }, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.Default.Bolt, contentDescription = "Optimize", tint = AntigravityColors.ElectricCyan, modifier = Modifier.size(16.dp))
                                         }
                                         Button(
                                             onClick = {
-                                                val target = selectedFile?.name ?: "the current file"
-                                                onExecuteCommand("Refactor $target: improve structure, remove duplication, and apply best practices")
+                                                copilotPrompt("Refactor this code: improve structure, remove duplication, and apply best practices. Show the refactored version.")
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = AntigravityColors.NeonViolet),
                                             shape = RoundedCornerShape(16.dp),

@@ -346,7 +346,9 @@ class ResearchService {
         sqlEngine: com.example.antigravity.studio.analytics.AnalyticsSqlEngine
     ): Result<com.example.antigravity.studio.analytics.ResearchDocRecord> = withContext(Dispatchers.IO) {
         val extractRes = extractPdfFullText(paper)
-        val fullText = extractRes.getOrDefault(paper.abstractText)
+        // Never store the abstract in the full-text column: a failed parse must stay empty
+        // so the reader can say the full text was not extracted.
+        val fullText = extractRes.getOrDefault("")
         val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())
         val doc = com.example.antigravity.studio.analytics.ResearchDocRecord(
             id = paper.id,

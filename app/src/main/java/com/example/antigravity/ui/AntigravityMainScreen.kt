@@ -515,6 +515,10 @@ fun AntigravityMainScreen(
                                         },
                                         onOpenDrawer = handleOpenDrawer,
                                         onExecuteCommand = { repository.executeTerminalCommand(it) },
+                                        onCopilotPrompt = { prompt ->
+                                            agentEngine.sendPrompt(prompt)
+                                            currentScreen = AntigravityAppScreen.CHAT
+                                        },
                                         terminalLogs = terminalLogs,
                                         modifier = Modifier.fillMaxSize()
                                     )

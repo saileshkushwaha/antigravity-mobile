@@ -227,6 +227,18 @@ fun WebSandboxView(
                             settings.domStorageEnabled = true
                             settings.loadWithOverviewMode = true
                             settings.useWideViewPort = true
+                            // Sandboxed preview: the HTML is untrusted generated/mirrored
+                            // content, so block all filesystem/content-provider access and
+                            // keep navigation inside this WebView.
+                            settings.allowFileAccess = false
+                            settings.allowContentAccess = false
+                            settings.allowFileAccessFromFileURLs = false
+                            settings.allowUniversalAccessFromFileURLs = false
+                            settings.javaScriptCanOpenWindowsAutomatically = false
+                            settings.setGeolocationEnabled(false)
+                            settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+                            settings.mediaPlaybackRequiresUserGesture = true
+                            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
                             webViewClient = WebViewClient()
                             webChromeClient = object : WebChromeClient() {
                                 override fun onConsoleMessage(cm: ConsoleMessage?): Boolean {
