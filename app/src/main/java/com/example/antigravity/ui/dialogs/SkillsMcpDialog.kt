@@ -604,13 +604,14 @@ fun SkillsMcpContent(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
+                                        val mcpOk = mcp.status == "Connected" || mcp.status == "Built-in"
                                         Surface(
                                             shape = RoundedCornerShape(4.dp),
-                                            color = if (mcp.status == "Connected") AntigravityColors.StatusSuccess.copy(alpha = 0.15f)
+                                            color = if (mcpOk) AntigravityColors.StatusSuccess.copy(alpha = 0.15f)
                                             else Color(0xFFFF5252).copy(alpha = 0.15f),
                                             border = androidx.compose.foundation.BorderStroke(
                                                 1.dp,
-                                                if (mcp.status == "Connected") AntigravityColors.StatusSuccess.copy(alpha = 0.4f)
+                                                if (mcpOk) AntigravityColors.StatusSuccess.copy(alpha = 0.4f)
                                                 else Color(0xFFFF5252).copy(alpha = 0.4f)
                                             )
                                         ) {
@@ -618,7 +619,7 @@ fun SkillsMcpContent(
                                                 text = "● ${mcp.status}",
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (mcp.status == "Connected") AntigravityColors.StatusSuccess else Color(0xFFFF5252),
+                                                color = if (mcpOk) AntigravityColors.StatusSuccess else Color(0xFFFF5252),
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }

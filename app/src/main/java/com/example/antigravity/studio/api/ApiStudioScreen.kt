@@ -469,7 +469,7 @@ fun ApiStudioScreen(
 
                 if (responseResult == null) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Hit 'Send' to dispatch request or simulate response", fontSize = 11.sp, color = AntigravityColors.TextMuted)
+                        Text("Hit 'Send' to dispatch the request and view the live response", fontSize = 11.sp, color = AntigravityColors.TextMuted)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {

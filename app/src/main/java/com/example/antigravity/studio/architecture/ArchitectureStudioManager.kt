@@ -113,11 +113,12 @@ object ArchitectureStudioManager {
             diagrams.add(MermaidDiagram("diag-class", "System Class Architecture", "Class Diagram", sb.toString().trim()))
         }
 
-        // Sequence diagram for the agent pipeline (placeholder until engine files exist)
+        // Sequence diagram: canonical agent flow reference (not an extracted call graph)
         if (sourceFiles.any { it.name.contains("Engine") || it.name.contains("Manager") }) {
             val sb = StringBuilder()
             sb.appendLine("sequenceDiagram")
             sb.appendLine("    autonumber")
+            sb.appendLine("    %% Reference flow for the agent pipeline; not reverse-engineered from calls")
             sb.appendLine("    actor User")
             sb.appendLine("    participant UI as ChatStudio")
             sb.appendLine("    participant Engine as AgentEngine")
@@ -142,17 +143,15 @@ object ArchitectureStudioManager {
             diagrams.add(MermaidDiagram("diag-flow", "Agent Flow", "Sequence Diagram", sb.toString().trim()))
         }
 
-        // ER diagram from actual data classes (placeholder schema when none discovered)
+        // ER diagram from actual data classes (fields are indexed per entity; none are invented)
         val dataClasses = classNames.filter { it.endsWith("Item") || it.endsWith("Model") || it.endsWith("Record") || it.endsWith("Config") }
         if (dataClasses.isNotEmpty()) {
             val sb = StringBuilder()
             sb.appendLine("erDiagram")
             dataClasses.take(10).forEach { cls ->
-                sb.appendLine("    $cls {")
-                sb.appendLine("        string id PK")
-                sb.appendLine("        string name")
-                sb.appendLine("        long timestamp")
-                sb.appendLine("    }")
+                // Only the discovered entity is emitted; columns are not inferred because
+                // the field types are not parsed here. Fabricating columns would be wrong.
+                sb.appendLine("    $cls")
             }
             diagrams.add(MermaidDiagram("diag-er", "Data Model", "ER Diagram", sb.toString().trim()))
         } else {

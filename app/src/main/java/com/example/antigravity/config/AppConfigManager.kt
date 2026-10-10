@@ -89,13 +89,13 @@ object AppConfigManager {
         memoryOverrides[key]?.let { if (it.isNotBlank()) return it }
 
         // Tier 2: SQLite database
-        sqlEngine?.getConfiguration(key)?.let { if (it.isNotBlank()) return it }
-        sqlEngine?.getConfiguration(key.uppercase())?.let { if (it.isNotBlank()) return it }
-        sqlEngine?.getConfiguration(key.lowercase())?.let { if (it.isNotBlank()) return it }
+        sqlEngine?.getConfiguration(key)?.let { if (it.isNotBlank()) return SecureValueStore.decryptOrSelf(it) }
+        sqlEngine?.getConfiguration(key.uppercase())?.let { if (it.isNotBlank()) return SecureValueStore.decryptOrSelf(it) }
+        sqlEngine?.getConfiguration(key.lowercase())?.let { if (it.isNotBlank()) return SecureValueStore.decryptOrSelf(it) }
 
         // Tier 3: SharedPreferences
-        sharedPrefs?.getString(key, null)?.let { if (it.isNotBlank()) return it }
-        sharedPrefs?.getString(key.lowercase(), null)?.let { if (it.isNotBlank()) return it }
+        sharedPrefs?.getString(key, null)?.let { if (it.isNotBlank()) return SecureValueStore.decryptOrSelf(it) }
+        sharedPrefs?.getString(key.lowercase(), null)?.let { if (it.isNotBlank()) return SecureValueStore.decryptOrSelf(it) }
 
         // Tier 4: Workspace config files (.env, local.properties)
         fileConfigs[key]?.let { if (it.isNotBlank()) return it }
@@ -129,8 +129,11 @@ object AppConfigManager {
      */
     fun saveConfig(key: String, value: String, category: String = "SETTINGS") {
         memoryOverrides[key] = value
-        sharedPrefs?.edit { putString(key, value) }
-        sqlEngine?.saveConfiguration(key, value, category)
+        // Secrets are encrypted at rest (Android Keystore AES/GCM); everything else
+        // is stored as-is. Keystore-unavailable environments fall back to plaintext.
+        val storedValue = if (SecureValueStore.isSecretKey(key)) SecureValueStore.encrypt(value) else value
+        sharedPrefs?.edit { putString(key, storedValue) }
+        sqlEngine?.saveConfiguration(key, storedValue, category)
     }
 
     /**

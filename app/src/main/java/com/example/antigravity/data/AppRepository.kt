@@ -228,6 +228,11 @@ class AppRepository {
     companion object {
         const val MAX_DEFAULT_WORKSPACES = 6
 
+        /** Local tool-handler groups; enabled without an MCP protocol handshake. */
+        private val BUILTIN_MCP_SERVERS = setOf(
+            "gemini-api-docs", "terminal-controller", "workspace-filesystem", "git-inspector"
+        )
+
         @Volatile
         private var companionSqlEngine: com.example.antigravity.studio.analytics.AnalyticsSqlEngine? = null
 
@@ -2194,15 +2199,18 @@ class AppRepository {
     fun toggleMcpServer(serverName: String) {
         _mcpServers.update { list ->
             list.map {
-                if (it.name.equals(serverName, ignoreCase = true)) {
-                    if (it.status == "Connected") {
-                        it.copy(status = "Disconnected", isEnabled = false)
-                    } else {
-                        // Attempt real connection validation
-                        val isConnected = testMcpConnection(it)
-                        it.copy(status = if (isConnected) "Connected" else "Error", isEnabled = isConnected)
-                    }
-                } else it
+                if (!it.name.equals(serverName, ignoreCase = true)) {
+                    it
+                } else if (it.isEnabled) {
+                    it.copy(status = "Disconnected", isEnabled = false)
+                } else if (it.name in BUILTIN_MCP_SERVERS) {
+                    // Built-in servers are local tool-handler groups, not remote MCP
+                    // sessions, so they are enabled without claiming a live connection.
+                    it.copy(status = "Built-in", isEnabled = true)
+                } else {
+                    val isConnected = testMcpConnection(it)
+                    it.copy(status = if (isConnected) "Connected" else "Error", isEnabled = isConnected)
+                }
             }
         }
         persistListFile("mcp_servers.json", _mcpServers.value)
@@ -2210,27 +2218,19 @@ class AppRepository {
 
     private fun testMcpConnection(server: McpServerItem): Boolean {
         return try {
-            // Built-in MCP servers are simulated locally - they map to internal tool handlers
-            val builtinServers = setOf("gemini-api-docs", "terminal-controller", "workspace-filesystem", "git-inspector")
-            if (server.name in builtinServers) {
-                // Verify the internal tool handlers exist by checking tool names are non-empty
-                server.tools.isNotEmpty()
+            val endpoint = server.urlOrCommand
+            if (endpoint.isNullOrBlank()) return false
+            if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
+                val conn = java.net.URL(endpoint).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                conn.requestMethod = "GET"
+                val code = conn.responseCode
+                conn.disconnect()
+                code in 200..499 // Any HTTP response means server is reachable
             } else {
-                // For custom servers, the urlOrCommand field would contain an endpoint
-                val endpoint = server.urlOrCommand
-                if (endpoint.isNullOrBlank()) return false
-                if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
-                    val conn = java.net.URL(endpoint).openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 3000
-                    conn.readTimeout = 3000
-                    conn.requestMethod = "GET"
-                    val code = conn.responseCode
-                    conn.disconnect()
-                    code in 200..499 // Any HTTP response means server is reachable
-                } else {
-                    // Command-based MCP server - verify executable exists
-                    java.io.File(endpoint).exists() || endpoint.isNotBlank()
-                }
+                // Command-based MCP server - verify executable exists
+                java.io.File(endpoint).exists()
             }
         } catch (_: Exception) {
             false

@@ -83,12 +83,11 @@ object CloudSandboxService {
         }
 
         if (config.runnerType == SandboxRunnerType.LOCAL_FALLBACK || config.endpointUrl.isBlank()) {
-            // Local fallback execution / terminal simulation
+            // No remote runner configured: execute the command on this device instead.
             return@withContext try {
                 val lines = mutableListOf<String>()
                 onOutputLine?.invoke("[Local Runner] $ $command")
 
-                // Execute local process if feasible, or simulate controlled output
                 val process = ProcessBuilder()
                     .directory(workDir)
                     .command(if (System.getProperty("os.name")?.contains("Windows", ignoreCase = true) == true) {
@@ -199,9 +198,12 @@ object CloudSandboxService {
             if (resp.isSuccessful) {
                 val respBody = resp.body?.string() ?: "{}"
                 val json = JSONObject(respBody)
-                val exitCode = json.optInt("exitCode", 0)
-                val stdout = json.optString("stdout", "Remote command succeeded")
-                val stderr = json.optString("stderr", "")
+                val exitCode = json.optInt("exitCode", -1)
+                val stdout = json.optString("stdout", "")
+                val stderrRaw = json.optString("stderr", "")
+                val stderr = if (exitCode == -1) {
+                    (stderrRaw + "\nRemote runner returned HTTP 200 but did not report an exit code.").trim()
+                } else stderrRaw
 
                 stdout.lines().forEach { onOutputLine?.invoke(it) }
 
